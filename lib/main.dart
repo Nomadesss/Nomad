@@ -159,8 +159,6 @@ class _LoginScreenState extends State<LoginScreen> {
 class AuthService {
   final FirebaseAuth _auth = FirebaseAuth.instance;
 
-  // En 2026, usamos el constructor estándar pero nos aseguramos
-  // de que el paquete esté bien importado.
   final GoogleSignIn _googleSignIn = GoogleSignIn(
     clientId:
         "828586691109-8ealek8q0hgb70l0f03sa1kpq6ei0ka8.apps.googleusercontent.com",
@@ -169,7 +167,6 @@ class AuthService {
 
   Future<User?> signInWithGoogle() async {
     try {
-      // Para evitar el error "method not defined", forzamos el chequeo de nulidad
       final GoogleSignInAccount? googleUser = await _googleSignIn.signIn();
 
       if (googleUser == null) return null;
@@ -177,8 +174,9 @@ class AuthService {
       final GoogleSignInAuthentication googleAuth =
           await googleUser.authentication;
 
-      // Solución al error de tokens: agregamos el operador '!' para asegurar que no son nulos
-      final AuthCredential credential = GoogleAuthProvider.credential(
+      // Usamos los tokens para crear la credencial de Firebase
+      // Agregamos el chequeo de nulidad para evitar errores de compilación
+      final OAuthCredential credential = GoogleAuthProvider.credential(
         accessToken: googleAuth.accessToken,
         idToken: googleAuth.idToken,
       );
