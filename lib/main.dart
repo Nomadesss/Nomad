@@ -5,7 +5,8 @@ import 'package:google_sign_in/google_sign_in.dart';
 
 // Importa tus otros archivos (asegúrate de que los nombres coincidan)
 import 'registro_email.dart';
-import 'pantalla_banderas.dart';
+import 'perfil.dart';
+import 'pantalladebienvenida.dart';
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
@@ -37,7 +38,8 @@ class CercaDeCasaApp extends StatelessWidget {
       routes: {
         '/': (context) => const LoginScreen(),
         '/registro': (context) => const RegistroEmailScreen(),
-        '/banderas': (context) => const PantallaBanderas(),
+        '/bienvenida': (context) => const PantallaBienvenida(),
+        '/perfil': (context) => const PantallaPerfil(),
       },
     );
   }
@@ -99,7 +101,7 @@ class _LoginScreenState extends State<LoginScreen> {
                   setState(() => _isLoading = false);
 
                   if (usuario != null) {
-                    if (mounted) Navigator.pushNamed(context, '/banderas');
+                    if (mounted) Navigator.pushNamed(context, '/bienvenida');
                   } else {
                     if (mounted) {
                       ScaffoldMessenger.of(context).showSnackBar(
