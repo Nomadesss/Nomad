@@ -8,11 +8,16 @@ class PantallaPerfil extends StatelessWidget {
   Widget build(BuildContext context) {
     final user = FirebaseAuth.instance.currentUser;
 
+    /// nombre fallback
+    final String nombreUsuario =
+        user?.displayName ??
+        (user?.email != null ? user!.email!.split('@')[0] : "Usuario");
+
     return Scaffold(
       backgroundColor: const Color(0xFFF5F5F7),
       body: Stack(
         children: [
-          // Imagen de fondo (puedes usar una por defecto o la del usuario)
+          /// HEADER IMAGE
           Container(
             height: MediaQuery.of(context).size.height * 0.40,
             decoration: const BoxDecoration(
@@ -28,17 +33,22 @@ class PantallaPerfil extends StatelessWidget {
                 gradient: LinearGradient(
                   begin: Alignment.bottomCenter,
                   end: Alignment.topCenter,
-                  colors: [Colors.black.withOpacity(0.8), Colors.transparent],
+                  colors: [
+                    Colors.black.withOpacity(0.85),
+                    Colors.transparent,
+                  ],
                 ),
               ),
             ),
           ),
 
+          /// CONTENT
           SingleChildScrollView(
             child: Column(
               children: [
                 const SizedBox(height: 60),
-                // Iconos superiores
+
+                /// TOP ICONS
                 Padding(
                   padding: const EdgeInsets.symmetric(horizontal: 20),
                   child: Row(
@@ -57,35 +67,59 @@ class PantallaPerfil extends StatelessWidget {
                   ),
                 ),
 
-                // Foto de Perfil
-                CircleAvatar(
-                  radius: 55,
-                  backgroundColor: Colors.white,
+                /// PROFILE PHOTO (HERO)
+                Hero(
+                  tag: "profile-photo",
                   child: CircleAvatar(
-                    radius: 52,
-                    backgroundImage: NetworkImage(
-                      user?.photoURL ?? 'https://via.placeholder.com/150',
+                    radius: 55,
+                    backgroundColor: Colors.white,
+                    child: CircleAvatar(
+                      radius: 52,
+                      backgroundImage: user?.photoURL != null
+                          ? NetworkImage(user!.photoURL!)
+                          : null,
+                      child: user?.photoURL == null
+                          ? Text(
+                              nombreUsuario.substring(0, 1).toUpperCase(),
+                              style: const TextStyle(
+                                fontSize: 30,
+                                fontWeight: FontWeight.bold,
+                              ),
+                            )
+                          : null,
                     ),
                   ),
                 ),
 
                 const SizedBox(height: 10),
-                Text(
-                  user?.displayName ?? "Usuario Nuevo",
-                  style: const TextStyle(
-                    color: Colors.white,
-                    fontSize: 28,
-                    fontWeight: FontWeight.bold,
+
+                /// USER NAME (HERO)
+                Hero(
+                  tag: "profile-name",
+                  child: Material(
+                    color: Colors.transparent,
+                    child: Text(
+                      nombreUsuario,
+                      style: const TextStyle(
+                        color: Colors.white,
+                        fontSize: 28,
+                        fontWeight: FontWeight.bold,
+                      ),
+                    ),
                   ),
                 ),
+
                 Text(
                   user?.email ?? "",
-                  style: const TextStyle(color: Colors.white70, fontSize: 14),
+                  style: const TextStyle(
+                    color: Colors.white70,
+                    fontSize: 14,
+                  ),
                 ),
 
                 const SizedBox(height: 30),
 
-                // Tarjetas de Opciones (Estilo de la imagen)
+                /// OPTION GROUP 1
                 _buildOptionGroup([
                   _buildOptionItem(Icons.location_on_outlined, "Mi Dirección"),
                   _buildOptionItem(Icons.person_outline, "Cuenta"),
@@ -93,6 +127,7 @@ class PantallaPerfil extends StatelessWidget {
 
                 const SizedBox(height: 20),
 
+                /// OPTION GROUP 2
                 _buildOptionGroup([
                   _buildOptionItem(Icons.notifications_none, "Notificaciones"),
                   _buildOptionItem(Icons.devices_outlined, "Dispositivos"),
@@ -106,10 +141,12 @@ class PantallaPerfil extends StatelessWidget {
           ),
         ],
       ),
+
+      /// BOTTOM NAV
       bottomNavigationBar: BottomNavigationBar(
         selectedItemColor: Colors.black,
         unselectedItemColor: Colors.grey,
-        currentIndex: 3, // Perfil seleccionado
+        currentIndex: 3,
         items: const [
           BottomNavigationBarItem(icon: Icon(Icons.flash_on), label: 'Shop'),
           BottomNavigationBarItem(
@@ -126,6 +163,7 @@ class PantallaPerfil extends StatelessWidget {
     );
   }
 
+  /// OPTION GROUP
   Widget _buildOptionGroup(List<Widget> items) {
     return Container(
       margin: const EdgeInsets.symmetric(horizontal: 20),
@@ -144,12 +182,16 @@ class PantallaPerfil extends StatelessWidget {
     );
   }
 
+  /// OPTION ITEM
   Widget _buildOptionItem(IconData icon, String title) {
     return ListTile(
       leading: Icon(icon, color: Colors.black87),
       title: Text(
         title,
-        style: const TextStyle(fontSize: 16, fontWeight: FontWeight.w500),
+        style: const TextStyle(
+          fontSize: 16,
+          fontWeight: FontWeight.w500,
+        ),
       ),
       trailing: const Icon(
         Icons.arrow_forward_ios,

@@ -1,0 +1,54 @@
+{
+  "project_info": {
+    "project_number": "647251551994",
+    "project_id": "nomad-3daff",
+    "storage_bucket": "nomad-3daff.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:647251551994:android:efd69425a682412386cb43",
+        "android_client_info": {
+          "package_name": "com.example.cerca_de_casa"
+        }
+      },
+      "oauth_client": [
+        {
+          "client_id": "647251551994-07c6eibqv2avfmm8ib8q37d05ii72ck1.apps.googleusercontent.com",
+          "client_type": 1,
+          "android_info": {
+            "package_name": "com.example.cerca_de_casa",
+            "certificate_hash": "12215259f8363397d12306e3cc278e69a3d3ac33"
+          }
+        },
+        {
+          "client_id": "647251551994-h4obeqh8dmuna7qgpho70bah5r8e8ro4.apps.googleusercontent.com",
+          "client_type": 3
+        }
+      ],
+      "api_key": [
+        {
+          "current_key": "AIzaSyB7rulRH7LrrdCIHusXfTEddsbFFMUg7pg"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": [
+            {
+              "client_id": "647251551994-h4obeqh8dmuna7qgpho70bah5r8e8ro4.apps.googleusercontent.com",
+              "client_type": 3
+            },
+            {
+              "client_id": "647251551994-prn78fgpdihju3oq69k6umtevpvckrb7.apps.googleusercontent.com",
+              "client_type": 2,
+              "ios_info": {
+                "bundle_id": "com.example.cercaDeCasa"
+              }
+            }
+          ]
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}
