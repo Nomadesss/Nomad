@@ -22,6 +22,14 @@
           }
         },
         {
+          "client_id": "647251551994-r3fe9mrni1ai6ucshhom7tg2dbk05o8g.apps.googleusercontent.com",
+          "client_type": 1,
+          "android_info": {
+            "package_name": "com.example.cerca_de_casa",
+            "certificate_hash": "fe6d0f6d18f9a5035f7088da137a2a3e6bfe7485"
+          }
+        },
+        {
           "client_id": "647251551994-h4obeqh8dmuna7qgpho70bah5r8e8ro4.apps.googleusercontent.com",
           "client_type": 3
         }
