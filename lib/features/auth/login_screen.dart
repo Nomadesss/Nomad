@@ -16,7 +16,6 @@ class LoginScreen extends StatefulWidget {
 
 class _LoginScreenState extends State<LoginScreen>
     with SingleTickerProviderStateMixin {
-
   late AnimationController _controller;
 
   late Animation<double> _backgroundZoom;
@@ -40,27 +39,16 @@ class _LoginScreenState extends State<LoginScreen>
     _backgroundZoom = Tween<double>(
       begin: 1.1,
       end: 1,
-    ).animate(
-      CurvedAnimation(
-        parent: _controller,
-        curve: Curves.easeOut,
-      ),
-    );
+    ).animate(CurvedAnimation(parent: _controller, curve: Curves.easeOut));
 
-    _logoFade = Tween<double>(
-      begin: 0,
-      end: 1,
-    ).animate(
+    _logoFade = Tween<double>(begin: 0, end: 1).animate(
       CurvedAnimation(
         parent: _controller,
         curve: const Interval(0.2, 0.6, curve: Curves.easeIn),
       ),
     );
 
-    _buttonsFade = Tween<double>(
-      begin: 0,
-      end: 1,
-    ).animate(
+    _buttonsFade = Tween<double>(begin: 0, end: 1).animate(
       CurvedAnimation(
         parent: _controller,
         curve: const Interval(0.5, 1, curve: Curves.easeIn),
@@ -70,12 +58,7 @@ class _LoginScreenState extends State<LoginScreen>
     _buttonsSlide = Tween<Offset>(
       begin: const Offset(0, 0.25),
       end: Offset.zero,
-    ).animate(
-      CurvedAnimation(
-        parent: _controller,
-        curve: Curves.easeOutCubic,
-      ),
-    );
+    ).animate(CurvedAnimation(parent: _controller, curve: Curves.easeOutCubic));
 
     _controller.forward();
   }
@@ -88,13 +71,11 @@ class _LoginScreenState extends State<LoginScreen>
 
   /// LOGIN CON GOOGLE
   Future<void> _loginGoogle() async {
-
     setState(() {
       _isLoading = true;
     });
 
     try {
-
       /// fuerza selector de cuenta
       await _googleSignIn.signOut();
       await FirebaseAuth.instance.signOut();
@@ -111,28 +92,29 @@ class _LoginScreenState extends State<LoginScreen>
 
       Navigator.pushReplacement(
         context,
-        MaterialPageRoute(
-          builder: (_) => const TermsAcceptanceScreen(),
-        ),
+        MaterialPageRoute(builder: (_) => const TermsAcceptanceScreen()),
       );
-
     } catch (e) {
-
       if (!mounted) return;
 
       setState(() {
         _isLoading = false;
       });
+
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('No se pudo iniciar sesión. Intentá de nuevo.'),
+          backgroundColor: Colors.redAccent,
+        ),
+      );
     }
   }
 
   @override
   Widget build(BuildContext context) {
-
     return Scaffold(
       body: Stack(
         children: [
-
           /// BACKGROUND
           AnimatedBuilder(
             animation: _backgroundZoom,
@@ -141,7 +123,6 @@ class _LoginScreenState extends State<LoginScreen>
                 scale: _backgroundZoom.value,
                 child: Stack(
                   children: [
-
                     Positioned.fill(
                       child: Image.asset(
                         "assets/images/login_background.jpg",
@@ -150,12 +131,9 @@ class _LoginScreenState extends State<LoginScreen>
                     ),
 
                     BackdropFilter(
-                      filter: ImageFilter.blur(
-                        sigmaX: 4,
-                        sigmaY: 4,
-                      ),
+                      filter: ImageFilter.blur(sigmaX: 4, sigmaY: 4),
                       child: Container(
-                        color: Colors.black.withOpacity(0.15),
+                        color: Colors.black.withValues(alpha: 0.15),
                       ),
                     ),
                   ],
@@ -171,7 +149,7 @@ class _LoginScreenState extends State<LoginScreen>
                 begin: Alignment.bottomCenter,
                 end: Alignment.center,
                 colors: [
-                  Colors.black.withOpacity(0.7),
+                  Colors.black.withValues(alpha: 0.7),
                   Colors.transparent,
                 ],
               ),
@@ -184,7 +162,6 @@ class _LoginScreenState extends State<LoginScreen>
               child: Column(
                 mainAxisAlignment: MainAxisAlignment.spaceBetween,
                 children: [
-
                   const SizedBox(),
 
                   /// LOGO
@@ -192,7 +169,6 @@ class _LoginScreenState extends State<LoginScreen>
                     opacity: _logoFade,
                     child: const Column(
                       children: [
-
                         Hero(
                           tag: "logo",
                           child: Text(
@@ -210,11 +186,8 @@ class _LoginScreenState extends State<LoginScreen>
                         Text(
                           "Siéntete más cerca de tu casa",
                           textAlign: TextAlign.center,
-                          style: TextStyle(
-                            fontSize: 18,
-                            color: Colors.white70,
-                          ),
-                        )
+                          style: TextStyle(fontSize: 18, color: Colors.white70),
+                        ),
                       ],
                     ),
                   ),
@@ -226,15 +199,11 @@ class _LoginScreenState extends State<LoginScreen>
                       position: _buttonsSlide,
                       child: Column(
                         children: [
-
                           if (_isLoading)
-                            const CircularProgressIndicator(
-                              color: Colors.white,
-                            )
+                            const CircularProgressIndicator(color: Colors.white)
                           else
                             Column(
                               children: [
-
                                 _socialButton(
                                   "assets/icons/google.png",
                                   "Continuar con Google",
@@ -256,35 +225,39 @@ class _LoginScreenState extends State<LoginScreen>
                                   "Iniciar sesión con número de celular",
                                   () {},
                                 ),
+
+                                const SizedBox(height: 12),
+
+                                /// LINK DE REGISTRO
+                                GestureDetector(
+                                  onTap: () =>
+                                      Navigator.pushNamed(context, '/registro'),
+                                  child: RichText(
+                                    text: const TextSpan(
+                                      style: TextStyle(fontSize: 14),
+                                      children: [
+                                        TextSpan(
+                                          text: '¿No tenés cuenta? ',
+                                          style: TextStyle(
+                                            color: Colors.white54,
+                                          ),
+                                        ),
+                                        TextSpan(
+                                          text: 'Registrate aquí',
+                                          style: TextStyle(
+                                            color: Colors.white,
+                                            fontWeight: FontWeight.w600,
+                                            decoration:
+                                                TextDecoration.underline,
+                                            decorationColor: Colors.white,
+                                          ),
+                                        ),
+                                      ],
+                                    ),
+                                  ),
+                                ),
                               ],
                             ),
-
-                          const SizedBox(height: 20),
-
-                          SizedBox(
-                            width: double.infinity,
-                            height: 55,
-                            child: ElevatedButton(
-                              style: ElevatedButton.styleFrom(
-                                backgroundColor: const Color(0xFF3F6293),
-                                shape: RoundedRectangleBorder(
-                                  borderRadius:
-                                      BorderRadius.circular(30),
-                                ),
-                              ),
-                              onPressed: () {
-                                Navigator.pushNamed(
-                                    context, '/registro');
-                              },
-                              child: const Text(
-                                "Entrar en tu cuenta",
-                                style: TextStyle(
-                                  fontSize: 16,
-                                  color: Colors.white,
-                                ),
-                              ),
-                            ),
-                          ),
 
                           const SizedBox(height: 20),
                         ],
@@ -300,24 +273,17 @@ class _LoginScreenState extends State<LoginScreen>
     );
   }
 
-  Widget _socialButton(
-      String iconPath, String text, VoidCallback onTap) {
-
+  Widget _socialButton(String iconPath, String text, VoidCallback onTap) {
     return ClipRRect(
       borderRadius: BorderRadius.circular(30),
       child: BackdropFilter(
-        filter: ImageFilter.blur(
-          sigmaX: 15,
-          sigmaY: 15,
-        ),
+        filter: ImageFilter.blur(sigmaX: 15, sigmaY: 15),
         child: Container(
           height: 55,
           decoration: BoxDecoration(
-            color: Colors.white.withOpacity(0.25),
+            color: Colors.white.withValues(alpha: 0.25),
             borderRadius: BorderRadius.circular(30),
-            border: Border.all(
-              color: Colors.white.withOpacity(0.4),
-            ),
+            border: Border.all(color: Colors.white.withValues(alpha: 0.4)),
           ),
           child: InkWell(
             borderRadius: BorderRadius.circular(30),
