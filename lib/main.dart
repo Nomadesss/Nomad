@@ -10,6 +10,7 @@ import 'features/auth/login_screen.dart';
 import 'features/auth/terms_acceptance_screen.dart';
 import 'features/feed/feed_screen.dart';
 import 'features/profile/perfil_screen.dart';
+import 'features/profile/profile_setup_screen.dart';
 
 void main() async {
 
@@ -57,15 +58,28 @@ class AuthGate extends StatelessWidget {
         .doc(user.uid)
         .get();
 
-    /// Si el usuario existe en Firestore
-    if (doc.exists) {
-
-      return const FeedScreen();
-
+    /// Usuario nuevo
+    if (!doc.exists) {
+      return const TermsAcceptanceScreen();
     }
 
-    /// Usuario nuevo → aceptar términos
-    return const TermsAcceptanceScreen();
+    final data = doc.data();
+
+    /// No aceptó términos
+    if (data?["acceptedTerms"] != true) {
+      return const TermsAcceptanceScreen();
+    }
+
+    /// Onboarding incompleto
+    if (data?["username"] == null ||
+        data?["country"] == null ||
+        data?["photo"] == null) {
+
+      return const ProfileSetupScreen();
+    }
+
+    /// Usuario completo
+    return const FeedScreen();
   }
 
   @override

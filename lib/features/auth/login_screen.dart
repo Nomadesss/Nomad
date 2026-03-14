@@ -1,8 +1,11 @@
 import 'dart:ui';
 import 'package:flutter/material.dart';
+import 'package:firebase_auth/firebase_auth.dart';
+import 'package:google_sign_in/google_sign_in.dart';
+
 import '../feed/feed_screen.dart';
 import '../../services/auth_service.dart';
-import 'package:firebase_auth/firebase_auth.dart';
+import '../auth/terms_acceptance_screen.dart';
 
 class LoginScreen extends StatefulWidget {
   const LoginScreen({super.key});
@@ -23,6 +26,8 @@ class _LoginScreenState extends State<LoginScreen>
 
   bool _isLoading = false;
 
+  final GoogleSignIn _googleSignIn = GoogleSignIn();
+
   @override
   void initState() {
     super.initState();
@@ -32,7 +37,6 @@ class _LoginScreenState extends State<LoginScreen>
       duration: const Duration(milliseconds: 1200),
     );
 
-    /// ZOOM DEL FONDO
     _backgroundZoom = Tween<double>(
       begin: 1.1,
       end: 1,
@@ -43,7 +47,6 @@ class _LoginScreenState extends State<LoginScreen>
       ),
     );
 
-    /// FADE LOGO
     _logoFade = Tween<double>(
       begin: 0,
       end: 1,
@@ -54,7 +57,6 @@ class _LoginScreenState extends State<LoginScreen>
       ),
     );
 
-    /// FADE BOTONES
     _buttonsFade = Tween<double>(
       begin: 0,
       end: 1,
@@ -65,7 +67,6 @@ class _LoginScreenState extends State<LoginScreen>
       ),
     );
 
-    /// SLIDE BOTONES
     _buttonsSlide = Tween<Offset>(
       begin: const Offset(0, 0.25),
       end: Offset.zero,
@@ -85,24 +86,44 @@ class _LoginScreenState extends State<LoginScreen>
     super.dispose();
   }
 
-  /// LOGIN GOOGLE SIMULADO
+  /// LOGIN CON GOOGLE
   Future<void> _loginGoogle() async {
 
     setState(() {
       _isLoading = true;
     });
 
-    User? user = await AuthService().signInWithGoogle();
+    try {
 
-    setState(() {
-      _isLoading = false;
-    });
+      /// fuerza selector de cuenta
+      await _googleSignIn.signOut();
+      await FirebaseAuth.instance.signOut();
 
-    if (user == null || !mounted) return;
+      final user = await AuthService().signInWithGoogle();
 
-    /// No navegamos manualmente
-    /// AuthGate decidirá a dónde ir
+      if (!mounted) return;
 
+      setState(() {
+        _isLoading = false;
+      });
+
+      if (user == null) return;
+
+      Navigator.pushReplacement(
+        context,
+        MaterialPageRoute(
+          builder: (_) => const TermsAcceptanceScreen(),
+        ),
+      );
+
+    } catch (e) {
+
+      if (!mounted) return;
+
+      setState(() {
+        _isLoading = false;
+      });
+    }
   }
 
   @override
@@ -112,7 +133,7 @@ class _LoginScreenState extends State<LoginScreen>
       body: Stack(
         children: [
 
-          /// BACKGROUND CON ZOOM
+          /// BACKGROUND
           AnimatedBuilder(
             animation: _backgroundZoom,
             builder: (context, child) {
@@ -143,7 +164,7 @@ class _LoginScreenState extends State<LoginScreen>
             },
           ),
 
-          /// GRADIENT INFERIOR
+          /// GRADIENT
           Container(
             decoration: BoxDecoration(
               gradient: LinearGradient(
@@ -240,7 +261,6 @@ class _LoginScreenState extends State<LoginScreen>
 
                           const SizedBox(height: 20),
 
-                          /// BOTON PRINCIPAL
                           SizedBox(
                             width: double.infinity,
                             height: 55,
@@ -266,42 +286,6 @@ class _LoginScreenState extends State<LoginScreen>
                             ),
                           ),
 
-                          const SizedBox(height: 15),
-
-                          Row(
-                            mainAxisAlignment: MainAxisAlignment.center,
-                            children: [
-
-                              const Text(
-                                "¿No tienes cuenta?",
-                                style:
-                                    TextStyle(color: Colors.white70),
-                              ),
-
-                              TextButton(
-                                onPressed: () {
-                                  Navigator.pushNamed(
-                                      context, '/registro');
-                                },
-                                child: const Text(
-                                  "Regístrate",
-                                  style: TextStyle(
-                                      color: Colors.white),
-                                ),
-                              ),
-                            ],
-                          ),
-
-                          const SizedBox(height: 20),
-
-                          const Text(
-                            "English (US) · Español · Français",
-                            style: TextStyle(
-                              color: Colors.white60,
-                              fontSize: 13,
-                            ),
-                          ),
-
                           const SizedBox(height: 20),
                         ],
                       ),
@@ -316,7 +300,6 @@ class _LoginScreenState extends State<LoginScreen>
     );
   }
 
-  /// BOTONES SOCIALES GLASSMORPHISM
   Widget _socialButton(
       String iconPath, String text, VoidCallback onTap) {
 

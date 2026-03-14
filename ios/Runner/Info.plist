@@ -45,5 +45,17 @@
 	<true/>
 	<key>UIApplicationSupportsIndirectInputEvents</key>
 	<true/>
+	<key>NSCameraUsageDescription</key>
+	<string>Necesitamos acceso a la cámara para tu foto de perfil</string>
+	<key>NSPhotoLibraryUsageDescription</key>
+	<string>Necesitamos acceso a la galería para tu foto de perfil</string>
+	<key>NSPhotoLibraryAddUsageDescription</key>
+	<string>Permite guardar fotos dentro de tu galería</string>
+	<key>NSLocationWhenInUseUsageDescription</key>
+	<string>Necesitamos tu ubicación para mostrarte personas cercanas de tu país.</string>
+	<key>NSLocationAlwaysAndWhenInUseUsageDescription</key>
+	<string>Usamos tu ubicación para verificar tu presencia en el país y mejorar la seguridad de la comunidad.</string>
+	<key>NSLocationAlwaysUsageDescription</key>
+	<string>Usamos tu ubicación para verificar tu presencia en el país y mejorar la seguridad.</string>
 </dict>
 </plist>
