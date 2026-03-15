@@ -57,5 +57,7 @@
 	<string>Usamos tu ubicación para verificar tu presencia en el país y mejorar la seguridad de la comunidad.</string>
 	<key>NSLocationAlwaysUsageDescription</key>
 	<string>Usamos tu ubicación para verificar tu presencia en el país y mejorar la seguridad.</string>
+	<key>NSFaceIDUsageDescription</key>
+	<string>Usamos Face ID para verificar tu identidad al ingresar a Nomad</string>
 </dict>
 </plist>

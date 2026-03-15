@@ -3,9 +3,9 @@ import 'package:flutter/material.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:google_sign_in/google_sign_in.dart';
 
-import '../feed/feed_screen.dart';
 import '../../services/auth_service.dart';
 import '../auth/terms_acceptance_screen.dart';
+import '../auth/phone_login_screen.dart';
 
 class LoginScreen extends StatefulWidget {
   const LoginScreen({super.key});
@@ -17,7 +17,6 @@ class LoginScreen extends StatefulWidget {
 class _LoginScreenState extends State<LoginScreen>
     with SingleTickerProviderStateMixin {
   late AnimationController _controller;
-
   late Animation<double> _backgroundZoom;
   late Animation<double> _logoFade;
   late Animation<double> _buttonsFade;
@@ -69,25 +68,19 @@ class _LoginScreenState extends State<LoginScreen>
     super.dispose();
   }
 
-  /// LOGIN CON GOOGLE
+  // ── Login con Google ──────────────────────────────────────────
+
   Future<void> _loginGoogle() async {
-    setState(() {
-      _isLoading = true;
-    });
+    setState(() => _isLoading = true);
 
     try {
-      /// fuerza selector de cuenta
       await _googleSignIn.signOut();
       await FirebaseAuth.instance.signOut();
 
       final user = await AuthService().signInWithGoogle();
 
       if (!mounted) return;
-
-      setState(() {
-        _isLoading = false;
-      });
-
+      setState(() => _isLoading = false);
       if (user == null) return;
 
       Navigator.pushReplacement(
@@ -96,19 +89,27 @@ class _LoginScreenState extends State<LoginScreen>
       );
     } catch (e) {
       if (!mounted) return;
-
-      setState(() {
-        _isLoading = false;
-      });
-
+      setState(() => _isLoading = false);
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(
           content: Text('No se pudo iniciar sesión. Intentá de nuevo.'),
           backgroundColor: Colors.redAccent,
+          behavior: SnackBarBehavior.floating,
         ),
       );
     }
   }
+
+  // ── Login con teléfono ────────────────────────────────────────
+
+  void _loginTelefono() {
+    Navigator.push(
+      context,
+      MaterialPageRoute(builder: (_) => const PhoneLoginScreen()),
+    );
+  }
+
+  // ── Build ─────────────────────────────────────────────────────
 
   @override
   Widget build(BuildContext context) {
@@ -129,7 +130,6 @@ class _LoginScreenState extends State<LoginScreen>
                         fit: BoxFit.cover,
                       ),
                     ),
-
                     BackdropFilter(
                       filter: ImageFilter.blur(sigmaX: 4, sigmaY: 4),
                       child: Container(
@@ -180,9 +180,7 @@ class _LoginScreenState extends State<LoginScreen>
                             ),
                           ),
                         ),
-
                         SizedBox(height: 10),
-
                         Text(
                           "Siéntete más cerca de tu casa",
                           textAlign: TextAlign.center,
@@ -220,10 +218,11 @@ class _LoginScreenState extends State<LoginScreen>
 
                                 const SizedBox(height: 12),
 
+                                // ── Teléfono (ahora conectado) ──
                                 _socialButton(
                                   "assets/icons/phone.png",
                                   "Iniciar sesión con número de celular",
-                                  () {},
+                                  _loginTelefono,
                                 ),
 
                                 const SizedBox(height: 12),

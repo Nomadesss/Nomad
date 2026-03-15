@@ -33,10 +33,7 @@ class PantallaPerfil extends StatelessWidget {
                 gradient: LinearGradient(
                   begin: Alignment.bottomCenter,
                   end: Alignment.topCenter,
-                  colors: [
-                    Colors.black.withOpacity(0.85),
-                    Colors.transparent,
-                  ],
+                  colors: [Colors.black.withOpacity(0.85), Colors.transparent],
                 ),
               ),
             ),
@@ -80,7 +77,9 @@ class PantallaPerfil extends StatelessWidget {
                           : null,
                       child: user?.photoURL == null
                           ? Text(
-                              nombreUsuario.substring(0, 1).toUpperCase(),
+                              nombreUsuario.isNotEmpty
+                                  ? nombreUsuario.substring(0, 1).toUpperCase()
+                                  : '?',
                               style: const TextStyle(
                                 fontSize: 30,
                                 fontWeight: FontWeight.bold,
@@ -111,10 +110,7 @@ class PantallaPerfil extends StatelessWidget {
 
                 Text(
                   user?.email ?? "",
-                  style: const TextStyle(
-                    color: Colors.white70,
-                    fontSize: 14,
-                  ),
+                  style: const TextStyle(color: Colors.white70, fontSize: 14),
                 ),
 
                 const SizedBox(height: 30),
@@ -188,10 +184,7 @@ class PantallaPerfil extends StatelessWidget {
       leading: Icon(icon, color: Colors.black87),
       title: Text(
         title,
-        style: const TextStyle(
-          fontSize: 16,
-          fontWeight: FontWeight.w500,
-        ),
+        style: const TextStyle(fontSize: 16, fontWeight: FontWeight.w500),
       ),
       trailing: const Icon(
         Icons.arrow_forward_ios,
