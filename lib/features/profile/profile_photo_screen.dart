@@ -191,36 +191,26 @@ class _ProfilePhotoScreenState extends State<ProfilePhotoScreen> {
                     ),
                   ),
 
-                  const SizedBox(height: 8),
-
-                  Text(
-                    "Paso final",
-                    style: TextStyle(
-                      color: Colors.white.withValues(alpha: 0.45),
-                      fontSize: 13,
-                    ),
-                  ),
-
                   const SizedBox(height: 48),
 
                   // Título
                   const Text(
-                    "Agregá tu foto de perfil",
+                    "Agrega tu foto de perfil",
                     textAlign: TextAlign.center,
                     style: TextStyle(
-                      fontSize: 26,
+                      fontSize: 34,
                       fontWeight: FontWeight.bold,
                       color: Colors.white,
-                      letterSpacing: -0.3,
+                      letterSpacing: -0.5,
                     ),
                   ),
 
-                  const SizedBox(height: 8),
+                  const SizedBox(height: 10),
 
                   Text(
                     "Podés cambiarla luego en tu perfil",
                     style: TextStyle(
-                      fontSize: 14,
+                      fontSize: 18,
                       color: Colors.white.withValues(alpha: 0.45),
                     ),
                   ),

@@ -30,9 +30,12 @@ class _ProfileSetupScreenState extends State<ProfileSetupScreen>
 
   String? selectedCountry;
   String? countryCode;
+  bool _showCountryList = false;
+  String _countrySearch = '';
 
   LocationData? _locationData;
   bool _loadingLocation = false;
+  String? _locationPermission; // 'always' | 'inUse' | 'denied' | null
 
   bool amistad = false;
   bool citas = false;
@@ -180,7 +183,7 @@ class _ProfileSetupScreenState extends State<ProfileSetupScreen>
   }
 
   void nextStep() {
-    if (step == 0 && !usernameAvailable) return;
+    if (!_canContinue()) return;
     if (step < 3) {
       setState(() => step++);
     } else {
@@ -189,6 +192,171 @@ class _ProfileSetupScreenState extends State<ProfileSetupScreen>
         MaterialPageRoute(builder: (_) => const ProfilePhotoScreen()),
       );
     }
+  }
+
+  bool _canContinue() {
+    switch (step) {
+      case 0:
+        return usernameAvailable && usernameError.isEmpty;
+      case 1:
+        return countryCode != null;
+      case 2:
+        return _locationPermission != null && _locationPermission != 'denied';
+      case 3:
+        return amistad || citas || servicios || foros;
+      default:
+        return false;
+    }
+  }
+
+  void _showLocationPermissionDialog() {
+    showModalBottomSheet(
+      context: context,
+      backgroundColor: Colors.transparent,
+      isScrollControlled: true,
+      useSafeArea: true,
+      builder: (_) => Container(
+        height: MediaQuery.of(context).size.height,
+        decoration: const BoxDecoration(color: Color(0xFF0F0F14)),
+        padding: const EdgeInsets.fromLTRB(24, 48, 24, 40),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            const SizedBox(height: 16),
+
+            const Text(
+              "Nomad quiere acceder a tu ubicación",
+              style: TextStyle(
+                fontSize: 36,
+                fontWeight: FontWeight.w800,
+                color: Colors.white,
+                letterSpacing: -0.8,
+                height: 1.15,
+              ),
+            ),
+
+            const SizedBox(height: 16),
+
+            Text(
+              "Tu ubicación nos ayuda a conectarte con compatriotas cercanos. No compartimos tu posición exacta.",
+              style: TextStyle(
+                fontSize: 18,
+                color: Colors.white.withValues(alpha: 0.45),
+                height: 1.5,
+              ),
+            ),
+
+            const Spacer(),
+
+            _permissionOption(
+              icon: Icons.check_circle_rounded,
+              iconColor: const Color(0xFF38BDF8),
+              iconBg: const Color(0xFF38BDF8).withValues(alpha: 0.15),
+              title: "Permitir mi ubicación",
+              subtitle: "Acceso completo mientras usás la app",
+              onTap: () {
+                Navigator.pop(context);
+                setState(() => _locationPermission = 'always');
+                getLocation();
+              },
+            ),
+
+            const SizedBox(height: 12),
+
+            _permissionOption(
+              icon: Icons.refresh_rounded,
+              iconColor: const Color(0xFF5C6EF5),
+              iconBg: const Color(0xFF5C6EF5).withValues(alpha: 0.15),
+              title: "Permitir solo al usar",
+              subtitle: "Solo cuando Nomad esté abierta",
+              onTap: () {
+                Navigator.pop(context);
+                setState(() => _locationPermission = 'inUse');
+                getLocation();
+              },
+            ),
+
+            const SizedBox(height: 12),
+
+            _permissionOption(
+              icon: Icons.block_rounded,
+              iconColor: const Color(0xFFEF4444),
+              iconBg: const Color(0xFFEF4444).withValues(alpha: 0.1),
+              title: "No permitir",
+              subtitle: "No podrás avanzar al siguiente paso",
+              titleColor: const Color(0xFFEF4444),
+              onTap: () {
+                Navigator.pop(context);
+                setState(() => _locationPermission = 'denied');
+              },
+            ),
+
+            const SizedBox(height: 24),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _permissionOption({
+    required IconData icon,
+    required Color iconColor,
+    required Color iconBg,
+    required String title,
+    required String subtitle,
+    Color? titleColor,
+    required VoidCallback onTap,
+  }) {
+    return GestureDetector(
+      onTap: onTap,
+      child: Container(
+        padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+        decoration: BoxDecoration(
+          color: Colors.white.withValues(alpha: 0.06),
+          borderRadius: BorderRadius.circular(14),
+          border: Border.all(color: Colors.white.withValues(alpha: 0.1)),
+        ),
+        child: Row(
+          children: [
+            Container(
+              width: 44,
+              height: 44,
+              decoration: BoxDecoration(shape: BoxShape.circle, color: iconBg),
+              child: Icon(icon, color: iconColor, size: 22),
+            ),
+            const SizedBox(width: 14),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    title,
+                    style: TextStyle(
+                      fontSize: 16,
+                      fontWeight: FontWeight.w700,
+                      color: titleColor ?? Colors.white,
+                    ),
+                  ),
+                  const SizedBox(height: 3),
+                  Text(
+                    subtitle,
+                    style: TextStyle(
+                      fontSize: 13,
+                      color: Colors.white.withValues(alpha: 0.4),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+            Icon(
+              Icons.chevron_right_rounded,
+              color: Colors.white.withValues(alpha: 0.25),
+              size: 20,
+            ),
+          ],
+        ),
+      ),
+    );
   }
 
   // ── Build ─────────────────────────────────────────────────────
@@ -316,17 +484,23 @@ class _ProfileSetupScreenState extends State<ProfileSetupScreen>
                       width: double.infinity,
                       height: 54,
                       child: ElevatedButton(
-                        onPressed: nextStep,
+                        onPressed: _canContinue() ? nextStep : null,
                         style: ElevatedButton.styleFrom(
                           backgroundColor: const Color(0xFF5C6EF5),
                           foregroundColor: Colors.white,
+                          disabledBackgroundColor: Colors.white.withValues(
+                            alpha: 0.15,
+                          ),
+                          disabledForegroundColor: Colors.white.withValues(
+                            alpha: 0.35,
+                          ),
                           shape: RoundedRectangleBorder(
                             borderRadius: BorderRadius.circular(16),
                           ),
                           elevation: 0,
                         ),
                         child: Text(
-                          step == 3 ? "Finalizar" : "Continuar",
+                          step == 3 ? "Continuar" : "Continuar",
                           style: const TextStyle(
                             fontSize: 16,
                             fontWeight: FontWeight.w600,
@@ -393,21 +567,21 @@ class _ProfileSetupScreenState extends State<ProfileSetupScreen>
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         const Text(
-          "Elegí tu username",
+          "Elige tu nombre de usuario",
           style: TextStyle(
-            fontSize: 24,
+            fontSize: 34,
             fontWeight: FontWeight.bold,
             color: Colors.white,
-            letterSpacing: -0.3,
+            letterSpacing: -0.5,
           ),
         ),
 
-        const SizedBox(height: 8),
+        const SizedBox(height: 10),
 
         Text(
           "Este será tu nombre único en Nomad",
           style: TextStyle(
-            fontSize: 14,
+            fontSize: 18,
             color: Colors.white.withValues(alpha: 0.45),
           ),
         ),
@@ -556,61 +730,15 @@ class _ProfileSetupScreenState extends State<ProfileSetupScreen>
   // ── Step 1: País ──────────────────────────────────────────────
 
   Widget countryStep() {
-    void openCountrySelector() {
-      showCountryPicker(
-        context: context,
-        showPhoneCode: false,
-        countryListTheme: CountryListThemeData(
-          backgroundColor: const Color(0xFF1A1A2E),
-          borderRadius: const BorderRadius.vertical(top: Radius.circular(20)),
-          inputDecoration: InputDecoration(
-            hintText: 'Buscar país...',
-            hintStyle: TextStyle(
-              color: Colors.white.withValues(alpha: 0.35),
-              fontSize: 14,
-            ),
-            prefixIcon: Icon(
-              Icons.search_rounded,
-              color: Colors.white.withValues(alpha: 0.4),
-              size: 20,
-            ),
-            filled: true,
-            fillColor: Colors.white.withValues(alpha: 0.07),
-            contentPadding: const EdgeInsets.symmetric(
-              horizontal: 16,
-              vertical: 12,
-            ),
-            border: OutlineInputBorder(
-              borderRadius: BorderRadius.circular(12),
-              borderSide: BorderSide(
-                color: Colors.white.withValues(alpha: 0.12),
-              ),
-            ),
-            enabledBorder: OutlineInputBorder(
-              borderRadius: BorderRadius.circular(12),
-              borderSide: BorderSide(
-                color: Colors.white.withValues(alpha: 0.12),
-              ),
-            ),
-            focusedBorder: OutlineInputBorder(
-              borderRadius: BorderRadius.circular(12),
-              borderSide: const BorderSide(
-                color: Color(0xFF5C6EF5),
-                width: 1.5,
-              ),
-            ),
-          ),
-          textStyle: const TextStyle(color: Colors.white, fontSize: 14),
-          searchTextStyle: const TextStyle(color: Colors.white, fontSize: 14),
-        ),
-        onSelect: (Country c) {
-          setState(() {
-            selectedCountry = c.name;
-            countryCode = c.countryCode;
-          });
-        },
-      );
-    }
+    final allCountries = CountryService().getAll();
+    final filtered = _countrySearch.isEmpty
+        ? allCountries
+        : allCountries
+              .where(
+                (c) =>
+                    c.name.toLowerCase().contains(_countrySearch.toLowerCase()),
+              )
+              .toList();
 
     return Column(
       key: const ValueKey(1),
@@ -618,29 +746,33 @@ class _ProfileSetupScreenState extends State<ProfileSetupScreen>
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         const Text(
-          "¿De qué país sos?",
+          "¿Cuál es tu nacionalidad?",
           style: TextStyle(
-            fontSize: 24,
+            fontSize: 34,
             fontWeight: FontWeight.bold,
             color: Colors.white,
-            letterSpacing: -0.3,
+            letterSpacing: -0.5,
           ),
         ),
 
-        const SizedBox(height: 8),
+        const SizedBox(height: 10),
 
         Text(
-          "Tu nacionalidad conecta con tu comunidad",
+          "Conectate con tu gente",
           style: TextStyle(
-            fontSize: 14,
+            fontSize: 18,
             color: Colors.white.withValues(alpha: 0.45),
           ),
         ),
 
         const SizedBox(height: 24),
 
+        // Campo selector
         GestureDetector(
-          onTap: openCountrySelector,
+          onTap: () => setState(() {
+            _showCountryList = !_showCountryList;
+            _countrySearch = '';
+          }),
           child: Container(
             height: 54,
             padding: const EdgeInsets.symmetric(horizontal: 16),
@@ -648,7 +780,9 @@ class _ProfileSetupScreenState extends State<ProfileSetupScreen>
               color: Colors.white.withValues(alpha: 0.07),
               borderRadius: BorderRadius.circular(14),
               border: Border.all(
-                color: countryCode != null
+                color: _showCountryList
+                    ? const Color(0xFF5C6EF5)
+                    : countryCode != null
                     ? const Color(0xFF5C6EF5).withValues(alpha: 0.6)
                     : Colors.white.withValues(alpha: 0.12),
               ),
@@ -678,15 +812,108 @@ class _ProfileSetupScreenState extends State<ProfileSetupScreen>
                   ),
                 ),
                 const Spacer(),
-                Icon(
-                  Icons.expand_more_rounded,
-                  color: Colors.white.withValues(alpha: 0.3),
-                  size: 20,
+                AnimatedRotation(
+                  turns: _showCountryList ? 0.5 : 0,
+                  duration: const Duration(milliseconds: 200),
+                  child: Icon(
+                    Icons.expand_more_rounded,
+                    color: Colors.white.withValues(alpha: 0.3),
+                    size: 20,
+                  ),
                 ),
               ],
             ),
           ),
         ),
+
+        // Lista inline — aparece directamente sin animación
+        if (_showCountryList) ...[
+          const SizedBox(height: 8),
+
+          // Buscador
+          TextField(
+            autofocus: true,
+            style: const TextStyle(color: Colors.white, fontSize: 14),
+            decoration: InputDecoration(
+              hintText: 'Buscar país...',
+              hintStyle: TextStyle(
+                color: Colors.white.withValues(alpha: 0.35),
+                fontSize: 14,
+              ),
+              prefixIcon: Icon(
+                Icons.search_rounded,
+                color: Colors.white.withValues(alpha: 0.4),
+                size: 20,
+              ),
+              filled: true,
+              fillColor: Colors.white.withValues(alpha: 0.07),
+              contentPadding: const EdgeInsets.symmetric(
+                horizontal: 16,
+                vertical: 12,
+              ),
+              border: OutlineInputBorder(
+                borderRadius: BorderRadius.circular(12),
+                borderSide: BorderSide(
+                  color: Colors.white.withValues(alpha: 0.12),
+                ),
+              ),
+              enabledBorder: OutlineInputBorder(
+                borderRadius: BorderRadius.circular(12),
+                borderSide: BorderSide(
+                  color: Colors.white.withValues(alpha: 0.12),
+                ),
+              ),
+              focusedBorder: OutlineInputBorder(
+                borderRadius: BorderRadius.circular(12),
+                borderSide: const BorderSide(
+                  color: Color(0xFF5C6EF5),
+                  width: 1.5,
+                ),
+              ),
+            ),
+            onChanged: (v) => setState(() => _countrySearch = v),
+          ),
+
+          const SizedBox(height: 6),
+
+          // Lista de países con altura fija
+          Container(
+            height: 220,
+            decoration: BoxDecoration(
+              color: Colors.white.withValues(alpha: 0.04),
+              borderRadius: BorderRadius.circular(12),
+              border: Border.all(color: Colors.white.withValues(alpha: 0.08)),
+            ),
+            child: ListView.builder(
+              padding: const EdgeInsets.symmetric(vertical: 4),
+              itemCount: filtered.length,
+              itemBuilder: (_, i) {
+                final c = filtered[i];
+                return ListTile(
+                  dense: true,
+                  leading: Text(
+                    c.flagEmoji,
+                    style: const TextStyle(fontSize: 22),
+                  ),
+                  title: Text(
+                    c.name,
+                    style: const TextStyle(
+                      color: Colors.white,
+                      fontSize: 14,
+                      fontWeight: FontWeight.w500,
+                    ),
+                  ),
+                  onTap: () => setState(() {
+                    selectedCountry = c.name;
+                    countryCode = c.countryCode;
+                    _showCountryList = false;
+                    _countrySearch = '';
+                  }),
+                );
+              },
+            ),
+          ),
+        ],
       ],
     );
   }
@@ -719,192 +946,173 @@ class _ProfileSetupScreenState extends State<ProfileSetupScreen>
   Widget locationStep() {
     final loc = _locationData;
     final hasGPS = loc != null && loc.gpsGranted && loc.lat != null;
-    final hasIP = loc != null && loc.ipResolved;
 
     return Column(
       key: const ValueKey(2),
-      mainAxisSize: MainAxisSize.min,
+      mainAxisSize: MainAxisSize.max,
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        Container(
-          width: 56,
-          height: 56,
-          decoration: BoxDecoration(
-            color: const Color(0xFF5C6EF5).withValues(alpha: 0.12),
-            borderRadius: BorderRadius.circular(16),
-            border: Border.all(
-              color: const Color(0xFF5C6EF5).withValues(alpha: 0.3),
-            ),
-          ),
-          child: const Icon(
-            Icons.location_on_rounded,
-            color: Color(0xFF5C6EF5),
-            size: 28,
-          ),
-        ),
-
-        const SizedBox(height: 20),
-
         const Text(
           "Tu ubicación actual",
           style: TextStyle(
-            fontSize: 24,
+            fontSize: 34,
             fontWeight: FontWeight.bold,
             color: Colors.white,
-            letterSpacing: -0.3,
+            letterSpacing: -0.5,
           ),
         ),
 
-        const SizedBox(height: 8),
+        const SizedBox(height: 10),
 
         Text(
-          "Conectate con compatriotas cerca y construí tu score de confianza.",
+          "Acercate a tus compatriotas",
           style: TextStyle(
-            fontSize: 14,
+            fontSize: 18,
             color: Colors.white.withValues(alpha: 0.45),
           ),
         ),
 
-        const SizedBox(height: 24),
+        const SizedBox(height: 60),
 
-        // Botón detectar
-        SizedBox(
-          width: double.infinity,
-          height: 48,
-          child: _loadingLocation
-              ? Container(
-                  decoration: BoxDecoration(
-                    border: Border.all(
-                      color: const Color(0xFF5C6EF5).withValues(alpha: 0.4),
-                    ),
-                    borderRadius: BorderRadius.circular(14),
-                  ),
-                  child: const Center(
-                    child: Row(
-                      mainAxisSize: MainAxisSize.min,
-                      children: [
-                        SizedBox(
-                          width: 16,
-                          height: 16,
-                          child: CircularProgressIndicator(
-                            strokeWidth: 2,
-                            color: Color(0xFF5C6EF5),
-                          ),
+        // Círculo de geolocalización centrado
+        Center(
+          child: Column(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              GestureDetector(
+                onTap: _loadingLocation
+                    ? null
+                    : () => _showLocationPermissionDialog(),
+                child: Stack(
+                  alignment: Alignment.center,
+                  children: [
+                    if (_loadingLocation)
+                      SizedBox(
+                        width: 224,
+                        height: 224,
+                        child: CircularProgressIndicator(
+                          strokeWidth: 2.5,
+                          color: const Color(0xFF38BDF8).withValues(alpha: 0.7),
                         ),
-                        SizedBox(width: 10),
-                        Text(
-                          "Detectando...",
-                          style: TextStyle(
-                            color: Color(0xFF5C6EF5),
-                            fontSize: 14,
-                            fontWeight: FontWeight.w500,
-                          ),
+                      ),
+                    AnimatedContainer(
+                      duration: const Duration(milliseconds: 200),
+                      width: 210,
+                      height: 210,
+                      decoration: BoxDecoration(
+                        shape: BoxShape.circle,
+                        color: _locationPermission == 'denied'
+                            ? const Color(0xFF3A1E1E)
+                            : loc != null
+                            ? const Color(0xFF1E3A8A)
+                            : const Color(0xFF1E3A5F),
+                        border: Border.all(
+                          color: _locationPermission == 'denied'
+                              ? const Color(0xFFEF4444).withValues(alpha: 0.7)
+                              : Colors.white.withValues(
+                                  alpha: loc != null ? 0.9 : 0.45,
+                                ),
+                          width: loc != null ? 2.5 : 2.0,
                         ),
-                      ],
-                    ),
-                  ),
-                )
-              : OutlinedButton.icon(
-                  onPressed: getLocation,
-                  icon: Icon(
-                    loc == null
-                        ? Icons.my_location_rounded
-                        : Icons.refresh_rounded,
-                    size: 18,
-                  ),
-                  label: Text(
-                    loc == null
-                        ? "Detectar mi ubicación"
-                        : "Actualizar ubicación",
-                  ),
-                  style: OutlinedButton.styleFrom(
-                    foregroundColor: const Color(0xFF5C6EF5),
-                    side: const BorderSide(color: Color(0xFF5C6EF5)),
-                    shape: RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(14),
-                    ),
-                  ),
-                ),
-        ),
-
-        if (loc != null) ...[
-          const SizedBox(height: 16),
-
-          // GPS
-          _locationSignalTile(
-            icon: Icons.gps_fixed_rounded,
-            title: hasGPS
-                ? '${loc.city ?? 'Ciudad desconocida'}, ${loc.country ?? ''}'
-                : 'GPS no disponible',
-            subtitle: hasGPS
-                ? 'Precisión: ${loc.accuracy?.toStringAsFixed(0) ?? '?'} m'
-                : 'Permiso denegado o servicio apagado',
-            ok: hasGPS,
-          ),
-
-          const SizedBox(height: 8),
-
-          // IP
-          _locationSignalTile(
-            icon: Icons.language_rounded,
-            title: hasIP
-                ? 'IP: ${loc.ipAddress ?? ''} · ${loc.ipCountry ?? ''}'
-                : 'IP no resuelta',
-            subtitle: hasIP
-                ? loc.ipOrg ?? 'Operadora desconocida'
-                : 'Sin conexión o timeout',
-            ok: hasIP,
-          ),
-
-          const SizedBox(height: 8),
-
-          // Timezone
-          _locationSignalTile(
-            icon: Icons.access_time_rounded,
-            title: 'Zona horaria: ${loc.timezone ?? 'Desconocida'}',
-            subtitle:
-                'UTC ${loc.timezoneOffsetMinutes >= 0 ? '+' : ''}'
-                '${(loc.timezoneOffsetMinutes / 60).toStringAsFixed(1)}h',
-            ok: loc.timezone != null,
-          ),
-
-          if (hasGPS &&
-              hasIP &&
-              loc.countryCode != null &&
-              loc.ipCountryCode != null &&
-              loc.countryCode!.toLowerCase() !=
-                  loc.ipCountryCode!.toLowerCase()) ...[
-            const SizedBox(height: 10),
-            Container(
-              padding: const EdgeInsets.all(12),
-              decoration: BoxDecoration(
-                color: Colors.orange.withValues(alpha: 0.1),
-                borderRadius: BorderRadius.circular(10),
-                border: Border.all(color: Colors.orange.withValues(alpha: 0.4)),
-              ),
-              child: Row(
-                children: [
-                  const Icon(
-                    Icons.warning_amber_rounded,
-                    color: Colors.orange,
-                    size: 16,
-                  ),
-                  const SizedBox(width: 8),
-                  Expanded(
-                    child: Text(
-                      'Tu IP indica ${loc.ipCountry} pero tu GPS indica ${loc.country}. '
-                      'Esto puede bajar tu score de confianza.',
-                      style: TextStyle(
-                        fontSize: 11.5,
-                        color: Colors.orange.withValues(alpha: 0.9),
+                      ),
+                      child: Center(
+                        child: _loadingLocation
+                            ? const SizedBox(
+                                width: 56,
+                                height: 56,
+                                child: CircularProgressIndicator(
+                                  strokeWidth: 2.5,
+                                  color: Color(0xFF38BDF8),
+                                ),
+                              )
+                            : GeoLocationIcon(active: loc != null),
                       ),
                     ),
-                  ),
-                ],
+                    if (loc != null)
+                      Positioned(
+                        top: 12,
+                        right: 12,
+                        child: AnimatedScale(
+                          scale: 1.0,
+                          duration: const Duration(milliseconds: 200),
+                          child: Container(
+                            width: 32,
+                            height: 32,
+                            decoration: const BoxDecoration(
+                              color: Color(0xFF0EA5E9),
+                              shape: BoxShape.circle,
+                            ),
+                            child: const Center(
+                              child: Icon(
+                                Icons.check_rounded,
+                                color: Colors.white,
+                                size: 18,
+                              ),
+                            ),
+                          ),
+                        ),
+                      ),
+                  ],
+                ),
               ),
-            ),
-          ],
-        ],
+
+              const SizedBox(height: 20),
+
+              Text(
+                _loadingLocation
+                    ? "Detectando..."
+                    : _locationPermission == 'denied'
+                    ? "Permiso denegado"
+                    : loc != null
+                    ? "Toca para actualizar"
+                    : "Geolocalizarme",
+                style: TextStyle(
+                  fontSize: 24,
+                  fontWeight: FontWeight.w700,
+                  color: _locationPermission == 'denied'
+                      ? const Color(0xFFEF4444)
+                      : Colors.white,
+                ),
+              ),
+
+              if (loc != null && hasGPS) ...[
+                const SizedBox(height: 16),
+                Container(
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 20,
+                    vertical: 12,
+                  ),
+                  decoration: BoxDecoration(
+                    color: const Color(0xFF27AE60).withValues(alpha: 0.12),
+                    borderRadius: BorderRadius.circular(14),
+                    border: Border.all(
+                      color: const Color(0xFF27AE60).withValues(alpha: 0.3),
+                    ),
+                  ),
+                  child: Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      const Icon(
+                        Icons.gps_fixed_rounded,
+                        color: Color(0xFF27AE60),
+                        size: 18,
+                      ),
+                      const SizedBox(width: 10),
+                      Text(
+                        '${loc.city ?? 'Ciudad desconocida'}, ${loc.country ?? ''}',
+                        style: const TextStyle(
+                          color: Color(0xFF27AE60),
+                          fontSize: 15,
+                          fontWeight: FontWeight.w600,
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              ],
+            ],
+          ),
+        ),
       ],
     );
   }
@@ -986,20 +1194,20 @@ class _ProfileSetupScreenState extends State<ProfileSetupScreen>
           "¿Qué buscás en Nomad?",
           textAlign: TextAlign.center,
           style: TextStyle(
-            fontSize: 26,
+            fontSize: 34,
             fontWeight: FontWeight.bold,
             color: Colors.white,
-            letterSpacing: -0.3,
+            letterSpacing: -0.5,
           ),
         ),
 
-        const SizedBox(height: 8),
+        const SizedBox(height: 10),
 
         Text(
           "Podés elegir más de una opción",
           textAlign: TextAlign.center,
           style: TextStyle(
-            fontSize: 15,
+            fontSize: 18,
             color: Colors.white.withValues(alpha: 0.45),
           ),
         ),
@@ -1545,17 +1753,38 @@ class _BriefcaseWidgetState extends State<BriefcaseWidget>
       duration: const Duration(milliseconds: 700),
     );
     _anim = CurvedAnimation(parent: _ctrl, curve: Curves.easeInOut);
-    if (widget.animating) _ctrl.forward();
+    if (widget.animating) _startLoop();
   }
 
   @override
   void didUpdateWidget(BriefcaseWidget old) {
     super.didUpdateWidget(old);
-    if (widget.animating && !old.animating) {
-      _ctrl.forward(from: 0);
-    } else if (!widget.animating && old.animating) {
-      _ctrl.reverse();
-    }
+    if (widget.animating && !old.animating) _startLoop();
+    if (!widget.animating && old.animating) _stopLoop();
+  }
+
+  void _startLoop() {
+    _ctrl.forward(from: 0).then((_) {
+      if (!mounted || !widget.animating) return;
+      Future.delayed(const Duration(milliseconds: 500), () {
+        if (!mounted || !widget.animating) return;
+        _ctrl.reverse().then((_) {
+          if (!mounted || !widget.animating) return;
+          Future.delayed(const Duration(milliseconds: 400), () {
+            if (!mounted || !widget.animating) return;
+            _startLoop();
+          });
+        });
+      });
+    });
+  }
+
+  void _stopLoop() {
+    _ctrl.animateTo(
+      0,
+      duration: const Duration(milliseconds: 300),
+      curve: Curves.easeOut,
+    );
   }
 
   @override
@@ -1862,4 +2091,131 @@ class _MegaphonePainter extends CustomPainter {
   @override
   bool shouldRepaint(_MegaphonePainter old) =>
       old.waveT != waveT || old.shakeT != shakeT;
+}
+
+// ── Ícono de geolocalización con giro (CustomPainter) ─────────
+
+class GeoLocationIcon extends StatefulWidget {
+  final bool active;
+  const GeoLocationIcon({super.key, required this.active});
+
+  @override
+  State<GeoLocationIcon> createState() => _GeoLocationIconState();
+}
+
+class _GeoLocationIconState extends State<GeoLocationIcon>
+    with SingleTickerProviderStateMixin {
+  late AnimationController _ctrl;
+  double _angle = 0;
+
+  @override
+  void initState() {
+    super.initState();
+    _ctrl =
+        AnimationController(
+          vsync: this,
+          duration: const Duration(milliseconds: 1200),
+        )..addListener(() {
+          if (!mounted) return;
+          setState(() => _angle = _ctrl.value * 2 * pi);
+        });
+  }
+
+  @override
+  void didUpdateWidget(GeoLocationIcon old) {
+    super.didUpdateWidget(old);
+    if (widget.active && !old.active) {
+      // Giro rápido que desacelera
+      _ctrl.forward(from: 0).then((_) {
+        if (mounted) setState(() => _angle = 0);
+      });
+    }
+  }
+
+  @override
+  void dispose() {
+    _ctrl.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return CustomPaint(
+      size: const Size(110, 110),
+      painter: _GeoPinPainter(_angle, widget.active),
+    );
+  }
+}
+
+class _GeoPinPainter extends CustomPainter {
+  final double angle;
+  final bool active;
+  const _GeoPinPainter(this.angle, this.active);
+
+  @override
+  void paint(Canvas canvas, Size size) {
+    final cx = size.width / 2;
+    final cy = size.height / 2;
+
+    canvas.save();
+    canvas.translate(cx, cy);
+    canvas.rotate(angle);
+    canvas.translate(-cx, -cy);
+
+    const pinCol = Color(0xFF38BDF8);
+    final paint = Paint()
+      ..color = pinCol
+      ..strokeWidth = 4.0
+      ..style = PaintingStyle.stroke
+      ..strokeCap = StrokeCap.round;
+
+    final fillPaint = Paint()
+      ..color = pinCol.withValues(alpha: 0.18)
+      ..style = PaintingStyle.fill;
+
+    // Pin más grande — escala ~2.5x respecto al original
+    final path = Path()
+      ..moveTo(cx, cy - 34)
+      ..cubicTo(cx - 20, cy - 34, cx - 20, cy - 16, cx - 20, cy - 10)
+      ..cubicTo(cx - 20, cy + 5, cx, cy + 34, cx, cy + 34)
+      ..cubicTo(cx, cy + 34, cx + 20, cy + 5, cx + 20, cy - 10)
+      ..cubicTo(cx + 20, cy - 16, cx + 20, cy - 34, cx, cy - 34)
+      ..close();
+
+    canvas.drawPath(path, fillPaint);
+    canvas.drawPath(path, paint);
+
+    // Círculo interior
+    canvas.drawCircle(Offset(cx, cy - 12), 9, paint);
+
+    canvas.restore();
+
+    // Punto verde de señal (fijo)
+    canvas.drawCircle(
+      Offset(cx + 28, cy - 28),
+      8,
+      Paint()
+        ..color = const Color(0xFF34D399)
+        ..style = PaintingStyle.fill,
+    );
+    final checkPaint = Paint()
+      ..color = Colors.white
+      ..strokeWidth = 2.0
+      ..strokeCap = StrokeCap.round
+      ..style = PaintingStyle.stroke;
+    canvas.drawLine(
+      Offset(cx + 24, cy - 28),
+      Offset(cx + 27, cy - 25),
+      checkPaint,
+    );
+    canvas.drawLine(
+      Offset(cx + 27, cy - 25),
+      Offset(cx + 33, cy - 31),
+      checkPaint,
+    );
+  }
+
+  @override
+  bool shouldRepaint(_GeoPinPainter old) =>
+      old.angle != angle || old.active != active;
 }
