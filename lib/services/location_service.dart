@@ -4,26 +4,19 @@ import 'package:geocoding/geocoding.dart';
 import 'package:http/http.dart' as http;
 
 class LocationData {
-  // GPS
   final double? lat;
   final double? lng;
   final double? accuracy;
   final String? city;
   final String? country;
   final String? countryCode;
-
-  // IP
   final String? ipAddress;
   final String? ipCountry;
   final String? ipCountryCode;
   final String? ipCity;
   final String? ipOrg;
-
-  // Timezone
   final String? timezone;
   final int timezoneOffsetMinutes;
-
-  // Estado
   final bool gpsGranted;
   final bool ipResolved;
 
@@ -99,7 +92,6 @@ class LocationService {
         );
       }
 
-      // Verificar que el servicio esté habilitado
       final serviceEnabled = await Geolocator.isLocationServiceEnabled();
       if (!serviceEnabled) {
         return (
@@ -111,12 +103,10 @@ class LocationService {
         );
       }
 
+      // ── FIX: usar desiredAccuracy en lugar de locationSettings ──
       final pos = await Geolocator.getCurrentPosition(
-        locationSettings: const LocationSettings(
-          accuracy: LocationAccuracy.high,
-          timeLimit: Duration(seconds: 15),
-        ),
-      );
+        desiredAccuracy: LocationAccuracy.high,
+      ).timeout(const Duration(seconds: 15));
 
       String? city, country, countryCode;
       try {
@@ -164,12 +154,10 @@ class LocationService {
   >
   getIPInfo() async {
     try {
-      // Usamos ip-api.com — free tier, no requiere API key
       final response = await http
           .get(
             Uri.parse(
-              'http://ip-api.com/json/?fields=status,country,'
-              'countryCode,city,org,query',
+              'http://ip-api.com/json/?fields=status,country,countryCode,city,org,query',
             ),
           )
           .timeout(const Duration(seconds: 8));
@@ -210,7 +198,6 @@ class LocationService {
   // ── Recolectar todo ───────────────────────────────────────────
 
   static Future<LocationData> collect() async {
-    // Ejecutar GPS e IP en paralelo
     final results = await Future.wait([getGPS(), getIPInfo()]);
 
     final gps =

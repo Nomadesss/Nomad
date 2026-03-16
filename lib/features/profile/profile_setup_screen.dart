@@ -1,5 +1,6 @@
 import 'dart:async';
-import 'dart:ui';
+import 'dart:math' show cos, sin, pi;
+import 'dart:ui' show lerpDouble, ImageFilter;
 import 'package:flutter/material.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
@@ -8,7 +9,6 @@ import 'package:country_picker/country_picker.dart';
 
 import '../../services/location_service.dart';
 import '../../services/trust_score_service.dart';
-import '../feed/feed_screen.dart';
 import '../profile/profile_photo_screen.dart';
 
 class ProfileSetupScreen extends StatefulWidget {
@@ -304,7 +304,10 @@ class _ProfileSetupScreenState extends State<ProfileSetupScreen>
                             child: child,
                           ),
                         ),
-                        child: Center(child: buildStep()),
+                        child: Align(
+                          alignment: Alignment.topCenter,
+                          child: buildStep(),
+                        ),
                       ),
                     ),
 
@@ -554,175 +557,57 @@ class _ProfileSetupScreenState extends State<ProfileSetupScreen>
 
   Widget countryStep() {
     void openCountrySelector() {
-      final searchController = TextEditingController();
-      List<Country> allCountries = CountryService().getAll();
-      List<Country> filtered = List.from(allCountries);
-      const suggested = ['AR', 'UY', 'MX', 'CO', 'CL', 'ES', 'US'];
-
-      showModalBottomSheet(
+      showCountryPicker(
         context: context,
-        isScrollControlled: true,
-        backgroundColor: const Color(0xFF1A1A2E),
-        shape: const RoundedRectangleBorder(
-          borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
+        showPhoneCode: false,
+        countryListTheme: CountryListThemeData(
+          backgroundColor: const Color(0xFF1A1A2E),
+          borderRadius: const BorderRadius.vertical(top: Radius.circular(20)),
+          inputDecoration: InputDecoration(
+            hintText: 'Buscar país...',
+            hintStyle: TextStyle(
+              color: Colors.white.withValues(alpha: 0.35),
+              fontSize: 14,
+            ),
+            prefixIcon: Icon(
+              Icons.search_rounded,
+              color: Colors.white.withValues(alpha: 0.4),
+              size: 20,
+            ),
+            filled: true,
+            fillColor: Colors.white.withValues(alpha: 0.07),
+            contentPadding: const EdgeInsets.symmetric(
+              horizontal: 16,
+              vertical: 12,
+            ),
+            border: OutlineInputBorder(
+              borderRadius: BorderRadius.circular(12),
+              borderSide: BorderSide(
+                color: Colors.white.withValues(alpha: 0.12),
+              ),
+            ),
+            enabledBorder: OutlineInputBorder(
+              borderRadius: BorderRadius.circular(12),
+              borderSide: BorderSide(
+                color: Colors.white.withValues(alpha: 0.12),
+              ),
+            ),
+            focusedBorder: OutlineInputBorder(
+              borderRadius: BorderRadius.circular(12),
+              borderSide: const BorderSide(
+                color: Color(0xFF5C6EF5),
+                width: 1.5,
+              ),
+            ),
+          ),
+          textStyle: const TextStyle(color: Colors.white, fontSize: 14),
+          searchTextStyle: const TextStyle(color: Colors.white, fontSize: 14),
         ),
-        builder: (context) {
-          return StatefulBuilder(
-            builder: (context, setModalState) {
-              return DraggableScrollableSheet(
-                expand: false,
-                initialChildSize: 0.8,
-                maxChildSize: 0.95,
-                minChildSize: 0.5,
-                builder: (_, scrollController) {
-                  return Column(
-                    children: [
-                      Container(
-                        margin: const EdgeInsets.only(top: 10, bottom: 8),
-                        width: 36,
-                        height: 4,
-                        decoration: BoxDecoration(
-                          color: Colors.white.withValues(alpha: 0.25),
-                          borderRadius: BorderRadius.circular(2),
-                        ),
-                      ),
-                      Padding(
-                        padding: const EdgeInsets.symmetric(
-                          horizontal: 20,
-                          vertical: 8,
-                        ),
-                        child: Text(
-                          '¿De qué país sos?',
-                          style: const TextStyle(
-                            fontSize: 16,
-                            fontWeight: FontWeight.w600,
-                            color: Colors.white,
-                          ),
-                        ),
-                      ),
-                      Padding(
-                        padding: const EdgeInsets.symmetric(
-                          horizontal: 16,
-                          vertical: 8,
-                        ),
-                        child: TextField(
-                          controller: searchController,
-                          style: const TextStyle(
-                            color: Colors.white,
-                            fontSize: 14,
-                          ),
-                          decoration: InputDecoration(
-                            hintText: 'Buscar país...',
-                            hintStyle: TextStyle(
-                              color: Colors.white.withValues(alpha: 0.35),
-                              fontSize: 14,
-                            ),
-                            prefixIcon: Icon(
-                              Icons.search_rounded,
-                              color: Colors.white.withValues(alpha: 0.4),
-                              size: 20,
-                            ),
-                            filled: true,
-                            fillColor: Colors.white.withValues(alpha: 0.07),
-                            contentPadding: const EdgeInsets.symmetric(
-                              horizontal: 16,
-                              vertical: 12,
-                            ),
-                            border: OutlineInputBorder(
-                              borderRadius: BorderRadius.circular(12),
-                              borderSide: BorderSide(
-                                color: Colors.white.withValues(alpha: 0.12),
-                              ),
-                            ),
-                            enabledBorder: OutlineInputBorder(
-                              borderRadius: BorderRadius.circular(12),
-                              borderSide: BorderSide(
-                                color: Colors.white.withValues(alpha: 0.12),
-                              ),
-                            ),
-                            focusedBorder: OutlineInputBorder(
-                              borderRadius: BorderRadius.circular(12),
-                              borderSide: const BorderSide(
-                                color: Color(0xFF5C6EF5),
-                                width: 1.5,
-                              ),
-                            ),
-                          ),
-                          onChanged: (v) {
-                            setModalState(() {
-                              filtered = allCountries
-                                  .where(
-                                    (c) => c.name.toLowerCase().contains(
-                                      v.toLowerCase(),
-                                    ),
-                                  )
-                                  .toList();
-                            });
-                          },
-                        ),
-                      ),
-                      Expanded(
-                        child: ListView(
-                          controller: scrollController,
-                          padding: const EdgeInsets.symmetric(horizontal: 16),
-                          children: [
-                            if (searchController.text.isEmpty) ...[
-                              Padding(
-                                padding: const EdgeInsets.symmetric(
-                                  vertical: 8,
-                                ),
-                                child: Text(
-                                  'Sugeridos',
-                                  style: TextStyle(
-                                    fontSize: 11,
-                                    fontWeight: FontWeight.w600,
-                                    color: Colors.white.withValues(alpha: 0.4),
-                                    letterSpacing: 0.08,
-                                  ),
-                                ),
-                              ),
-                              ...allCountries
-                                  .where(
-                                    (c) => suggested.contains(c.countryCode),
-                                  )
-                                  .map(
-                                    (c) => _countryTile(c, () {
-                                      Navigator.pop(context);
-                                      setState(() {
-                                        selectedCountry = c.name;
-                                        countryCode = c.countryCode;
-                                      });
-                                    }),
-                                  ),
-                              Divider(
-                                color: Colors.white.withValues(alpha: 0.1),
-                                height: 24,
-                              ),
-                            ],
-                            ...filtered
-                                .where(
-                                  (c) =>
-                                      searchController.text.isNotEmpty ||
-                                      !suggested.contains(c.countryCode),
-                                )
-                                .map(
-                                  (c) => _countryTile(c, () {
-                                    Navigator.pop(context);
-                                    setState(() {
-                                      selectedCountry = c.name;
-                                      countryCode = c.countryCode;
-                                    });
-                                  }),
-                                ),
-                          ],
-                        ),
-                      ),
-                    ],
-                  );
-                },
-              );
-            },
-          );
+        onSelect: (Country c) {
+          setState(() {
+            selectedCountry = c.name;
+            countryCode = c.countryCode;
+          });
         },
       );
     }
@@ -1095,12 +980,13 @@ class _ProfileSetupScreenState extends State<ProfileSetupScreen>
     return Column(
       key: const ValueKey(3),
       mainAxisSize: MainAxisSize.min,
-      crossAxisAlignment: CrossAxisAlignment.start,
+      crossAxisAlignment: CrossAxisAlignment.center,
       children: [
         const Text(
           "¿Qué buscás en Nomad?",
+          textAlign: TextAlign.center,
           style: TextStyle(
-            fontSize: 24,
+            fontSize: 26,
             fontWeight: FontWeight.bold,
             color: Colors.white,
             letterSpacing: -0.3,
@@ -1111,37 +997,63 @@ class _ProfileSetupScreenState extends State<ProfileSetupScreen>
 
         Text(
           "Podés elegir más de una opción",
+          textAlign: TextAlign.center,
           style: TextStyle(
-            fontSize: 14,
+            fontSize: 15,
             color: Colors.white.withValues(alpha: 0.45),
           ),
         ),
 
-        const SizedBox(height: 24),
+        const SizedBox(height: 40),
 
-        Wrap(
-          spacing: 10,
-          runSpacing: 10,
+        Row(
+          mainAxisAlignment: MainAxisAlignment.spaceEvenly,
           children: [
-            _interestChip(
-              "🤝 Amistad",
-              amistad,
-              () => setState(() => amistad = !amistad),
+            Expanded(
+              child: _interestCard(
+                icon: HugAnimationWidget(hugging: amistad),
+                label: 'Amistad',
+                desc: 'Conoce compatriotas',
+                selected: amistad,
+                onTap: () => setState(() => amistad = !amistad),
+              ),
             ),
-            _interestChip(
-              "💘 Citas",
-              citas,
-              () => setState(() => citas = !citas),
+            const SizedBox(width: 16),
+            Expanded(
+              child: _interestCard(
+                icon: HeartbeatWidget(beating: citas),
+                label: 'Citas',
+                desc: 'Conecta romanticamante',
+                selected: citas,
+                onTap: () => setState(() => citas = !citas),
+              ),
             ),
-            _interestChip(
-              "🛠 Servicios",
-              servicios,
-              () => setState(() => servicios = !servicios),
+          ],
+        ),
+
+        const SizedBox(height: 20),
+
+        Row(
+          mainAxisAlignment: MainAxisAlignment.spaceEvenly,
+          children: [
+            Expanded(
+              child: _interestCard(
+                icon: BriefcaseWidget(animating: servicios),
+                label: 'Servicios',
+                desc: 'Empleo y trámites',
+                selected: servicios,
+                onTap: () => setState(() => servicios = !servicios),
+              ),
             ),
-            _interestChip(
-              "💬 Foros",
-              foros,
-              () => setState(() => foros = !foros),
+            const SizedBox(width: 16),
+            Expanded(
+              child: _interestCard(
+                icon: MegaphoneWidget(animating: foros),
+                label: 'Foros',
+                desc: 'Únete a la charla',
+                selected: foros,
+                onTap: () => setState(() => foros = !foros),
+              ),
             ),
           ],
         ),
@@ -1149,34 +1061,805 @@ class _ProfileSetupScreenState extends State<ProfileSetupScreen>
     );
   }
 
-  Widget _interestChip(String label, bool selected, VoidCallback onTap) {
+  Widget _interestCard({
+    required Widget icon,
+    required String label,
+    required String desc,
+    required bool selected,
+    required VoidCallback onTap,
+  }) {
+    const circleBg = Color(0xFF1E3A5F);
+    const circleBgSelected = Color(0xFF1E3A8A);
+
     return GestureDetector(
       onTap: onTap,
-      child: AnimatedContainer(
-        duration: const Duration(milliseconds: 200),
-        padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 12),
-        decoration: BoxDecoration(
-          borderRadius: BorderRadius.circular(22),
-          color: selected
-              ? const Color(0xFF5C6EF5)
-              : Colors.white.withValues(alpha: 0.07),
-          border: Border.all(
-            color: selected
-                ? const Color(0xFF5C6EF5)
-                : Colors.white.withValues(alpha: 0.15),
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Stack(
+            clipBehavior: Clip.none,
+            alignment: Alignment.center,
+            children: [
+              AnimatedContainer(
+                duration: const Duration(milliseconds: 200),
+                width: 120,
+                height: 120,
+                decoration: BoxDecoration(
+                  shape: BoxShape.circle,
+                  color: selected ? circleBgSelected : circleBg,
+                  border: Border.all(
+                    color: Colors.white.withValues(
+                      alpha: selected ? 0.9 : 0.45,
+                    ),
+                    width: selected ? 2.5 : 2.0,
+                  ),
+                ),
+                child: Center(child: icon),
+              ),
+              Positioned(
+                top: 4,
+                right: 4,
+                child: AnimatedScale(
+                  scale: selected ? 1.0 : 0.0,
+                  duration: const Duration(milliseconds: 200),
+                  alignment: Alignment.topRight,
+                  child: Container(
+                    width: 28,
+                    height: 28,
+                    decoration: const BoxDecoration(
+                      color: Color(0xFF0EA5E9),
+                      shape: BoxShape.circle,
+                    ),
+                    child: const Center(
+                      child: Icon(
+                        Icons.check_rounded,
+                        color: Colors.white,
+                        size: 16,
+                      ),
+                    ),
+                  ),
+                ),
+              ),
+            ],
           ),
-        ),
-        child: Text(
-          label,
-          style: TextStyle(
-            fontSize: 14,
-            fontWeight: FontWeight.w500,
-            color: selected
-                ? Colors.white
-                : Colors.white.withValues(alpha: 0.7),
+          const SizedBox(height: 12),
+          Text(
+            label,
+            style: const TextStyle(
+              fontSize: 18,
+              fontWeight: FontWeight.w700,
+              color: Colors.white,
+            ),
           ),
-        ),
+          const SizedBox(height: 5),
+          Text(
+            desc,
+            textAlign: TextAlign.center,
+            style: TextStyle(
+              fontSize: 14,
+              color: Colors.white.withValues(alpha: 0.45),
+              height: 1.4,
+            ),
+          ),
+        ],
       ),
     );
   }
+}
+
+// ── Animación del abrazo (CustomPainter) ──────────────────────
+
+class HugAnimationWidget extends StatefulWidget {
+  final bool hugging;
+  const HugAnimationWidget({super.key, required this.hugging});
+
+  @override
+  State<HugAnimationWidget> createState() => _HugAnimationWidgetState();
+}
+
+class _HugAnimationWidgetState extends State<HugAnimationWidget>
+    with SingleTickerProviderStateMixin {
+  late AnimationController _ctrl;
+  late Animation<double> _anim;
+
+  @override
+  void initState() {
+    super.initState();
+    _ctrl = AnimationController(
+      vsync: this,
+      duration: const Duration(milliseconds: 1000),
+    );
+    _anim = CurvedAnimation(parent: _ctrl, curve: Curves.easeInOut);
+
+    if (widget.hugging) _startLoop();
+  }
+
+  @override
+  void didUpdateWidget(HugAnimationWidget old) {
+    super.didUpdateWidget(old);
+    if (widget.hugging && !old.hugging) _startLoop();
+    if (!widget.hugging && old.hugging) _stopLoop();
+  }
+
+  void _startLoop() {
+    _ctrl.forward(from: 0).then((_) {
+      if (!mounted || !widget.hugging) return;
+      // pausa 600ms en el abrazo luego vuelve a separarse
+      Future.delayed(const Duration(milliseconds: 600), () {
+        if (!mounted || !widget.hugging) return;
+        _ctrl.reverse().then((_) {
+          if (!mounted || !widget.hugging) return;
+          Future.delayed(const Duration(milliseconds: 400), () {
+            if (!mounted || !widget.hugging) return;
+            _startLoop();
+          });
+        });
+      });
+    });
+  }
+
+  void _stopLoop() {
+    _ctrl.animateTo(
+      0,
+      duration: const Duration(milliseconds: 400),
+      curve: Curves.easeOut,
+    );
+  }
+
+  @override
+  void dispose() {
+    _ctrl.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return AnimatedBuilder(
+      animation: _anim,
+      builder: (_, __) => CustomPaint(
+        size: const Size(84, 84),
+        painter: _HugPainter(_anim.value),
+      ),
+    );
+  }
+}
+
+class _HugPainter extends CustomPainter {
+  final double p;
+  const _HugPainter(this.p);
+
+  double _ease(double t) => t < 0.5 ? 2 * t * t : -1 + (4 - 2 * t) * t;
+
+  double _lerp(double a, double b, double t) => a + (b - a) * t;
+
+  @override
+  void paint(Canvas canvas, Size size) {
+    final e = _ease(p.clamp(0.0, 1.0));
+    final w = size.width;
+    final h = size.height;
+    final cxc = w / 2;
+    final groundY = h - 2;
+    final lx = _lerp(cxc - 14, cxc, e);
+    final rx = _lerp(cxc + 14, cxc, e);
+    final headY = groundY - 26;
+    const headR = 7.0;
+
+    const colL = Color(0xFF38BDF8);
+    const colR = Color(0xFF0284C7);
+
+    final paintL = Paint()
+      ..color = colL
+      ..strokeWidth = 3.0
+      ..strokeCap = StrokeCap.round
+      ..strokeJoin = StrokeJoin.round
+      ..style = PaintingStyle.stroke;
+
+    final paintR = Paint()
+      ..color = colR
+      ..strokeWidth = 3.0
+      ..strokeCap = StrokeCap.round
+      ..strokeJoin = StrokeJoin.round
+      ..style = PaintingStyle.stroke;
+
+    final fillL = Paint()
+      ..color = colL
+      ..style = PaintingStyle.fill;
+    final fillR = Paint()
+      ..color = colR
+      ..style = PaintingStyle.fill;
+
+    final armLen = _lerp(10.0, 14.0, e);
+    final lAngle = _lerp(-0.5, 0.9, e);
+    final rAngle = _lerp(3.14 + 0.5, 3.14 - 0.9, e);
+    final headOffX = _lerp(0, 6.0, e);
+
+    // Figura izquierda
+    canvas.drawLine(
+      Offset(lx, headY + headR * 2 + 1),
+      Offset(
+        lx + cos(lAngle) * armLen,
+        headY + headR * 2 + 1 + sin(lAngle) * armLen,
+      ),
+      paintL,
+    );
+    canvas.drawLine(
+      Offset(lx, groundY - 10),
+      Offset(lx - 4.0, groundY),
+      paintL,
+    );
+    canvas.drawLine(
+      Offset(lx, groundY - 10),
+      Offset(lx + 2.5, groundY),
+      paintL,
+    );
+    canvas.drawLine(
+      Offset(lx, headY + headR * 2),
+      Offset(lx, groundY - 10),
+      paintL,
+    );
+    canvas.drawCircle(Offset(lx, headY), headR, fillL);
+
+    // Figura derecha
+    canvas.drawLine(
+      Offset(rx, headY + headR * 2 + 1),
+      Offset(
+        rx + cos(rAngle) * armLen,
+        headY + headR * 2 + 1 + sin(rAngle) * armLen,
+      ),
+      paintR,
+    );
+    canvas.drawLine(
+      Offset(rx, groundY - 10),
+      Offset(rx + 4.0, groundY),
+      paintR,
+    );
+    canvas.drawLine(
+      Offset(rx, groundY - 10),
+      Offset(rx - 2.5, groundY),
+      paintR,
+    );
+    canvas.drawLine(
+      Offset(rx, headY + headR * 2),
+      Offset(rx, groundY - 10),
+      paintR,
+    );
+    canvas.drawCircle(Offset(rx + headOffX, headY), headR, fillR);
+
+    // Brazos cruzados
+    if (e > 0.5) {
+      final a2 = _ease((e - 0.5) / 0.5);
+
+      final paintLArm = Paint()
+        ..color = colL.withValues(alpha: a2 * 0.9)
+        ..strokeWidth = 3.0
+        ..strokeCap = StrokeCap.round
+        ..style = PaintingStyle.stroke;
+
+      final paintRArm = Paint()
+        ..color = colR.withValues(alpha: a2)
+        ..strokeWidth = 3.2
+        ..strokeCap = StrokeCap.round
+        ..style = PaintingStyle.stroke;
+
+      final path1 = Path()
+        ..moveTo(cxc - 2.5, headY + headR * 2 + 1)
+        ..cubicTo(
+          cxc + 5,
+          headY + headR * 2 + 5,
+          cxc + 12,
+          headY + headR * 2 + 8,
+          cxc + 9,
+          headY + headR * 2 + 14,
+        );
+      canvas.drawPath(path1, paintLArm);
+
+      final path2 = Path()
+        ..moveTo(cxc + 2.5, headY + headR * 2 + 1)
+        ..cubicTo(
+          cxc - 5,
+          headY + headR * 2 + 5,
+          cxc - 12,
+          headY + headR * 2 + 8,
+          cxc - 9,
+          headY + headR * 2 + 14,
+        );
+      canvas.drawPath(path2, paintRArm);
+    }
+  }
+
+  @override
+  bool shouldRepaint(_HugPainter old) => old.p != p;
+}
+
+// ── Corazón con latido (CustomPainter) ───────────────────────
+
+class HeartbeatWidget extends StatefulWidget {
+  final bool beating;
+  const HeartbeatWidget({super.key, required this.beating});
+
+  @override
+  State<HeartbeatWidget> createState() => _HeartbeatWidgetState();
+}
+
+class _HeartbeatWidgetState extends State<HeartbeatWidget>
+    with SingleTickerProviderStateMixin {
+  late AnimationController _ctrl;
+  double _beatScale = 1.0;
+  bool _running = false;
+
+  @override
+  void initState() {
+    super.initState();
+    _ctrl = AnimationController(
+      vsync: this,
+      duration: const Duration(milliseconds: 900),
+    );
+    _ctrl.addListener(_onTick);
+    if (widget.beating) _startBeating();
+  }
+
+  @override
+  void didUpdateWidget(HeartbeatWidget old) {
+    super.didUpdateWidget(old);
+    if (widget.beating && !old.beating) _startBeating();
+    if (!widget.beating && old.beating) _stopBeating();
+  }
+
+  void _startBeating() {
+    _running = true;
+    _ctrl.repeat();
+  }
+
+  void _stopBeating() {
+    _running = false;
+    _ctrl.stop();
+    if (mounted) setState(() => _beatScale = 1.0);
+  }
+
+  void _onTick() {
+    if (!_running || !mounted) return;
+    final tc = _ctrl.value;
+    double s;
+    if (tc < 0.12)
+      s = 1.0 + sin(tc / 0.12 * pi) * 0.32;
+    else if (tc < 0.22)
+      s = lerpDouble(1.0, 0.88, (tc - 0.12) / 0.10)!;
+    else if (tc < 0.34)
+      s = 0.88 + sin((tc - 0.22) / 0.12 * pi) * 0.20;
+    else
+      s = lerpDouble(1.02, 1.0, (tc - 0.34) / 0.66)!;
+    setState(() => _beatScale = s);
+  }
+
+  @override
+  void dispose() {
+    _ctrl.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return CustomPaint(
+      size: const Size(84, 84),
+      painter: _HeartPainter(_beatScale),
+    );
+  }
+}
+
+class _HeartPainter extends CustomPainter {
+  final double scale;
+  const _HeartPainter(this.scale);
+
+  @override
+  void paint(Canvas canvas, Size size) {
+    final cx = size.width / 2;
+    final cy = size.height / 2 + 2;
+    const s = 18.0;
+
+    canvas.save();
+    canvas.translate(cx, cy);
+    canvas.scale(scale, scale);
+    canvas.translate(-cx, -cy);
+
+    final ox = cx - s * 0.9;
+    final oy = cy - s * 0.72;
+
+    final path = Path()
+      ..moveTo(ox + s * 0.9, oy + s * 0.35)
+      ..cubicTo(
+        ox + s * 0.85,
+        oy - s * 0.05,
+        ox,
+        oy - s * 0.05,
+        ox,
+        oy + s * 0.45,
+      )
+      ..cubicTo(
+        ox,
+        oy + s * 1.1,
+        ox + s * 0.9,
+        oy + s * 1.45,
+        ox + s * 0.9,
+        oy + s * 1.45,
+      )
+      ..cubicTo(
+        ox + s * 0.9,
+        oy + s * 1.45,
+        ox + s * 1.8,
+        oy + s * 1.1,
+        ox + s * 1.8,
+        oy + s * 0.45,
+      )
+      ..cubicTo(
+        ox + s * 1.8,
+        oy - s * 0.05,
+        ox + s * 0.95,
+        oy - s * 0.05,
+        ox + s * 0.9,
+        oy + s * 0.35,
+      )
+      ..close();
+
+    canvas.drawPath(
+      path,
+      Paint()
+        ..color = const Color(0xFF6366F1)
+        ..style = PaintingStyle.fill,
+    );
+
+    // brillo interno
+    canvas.drawOval(
+      Rect.fromCenter(center: Offset(cx - 5, cy - 7), width: 11, height: 6),
+      Paint()
+        ..color = const Color(0xFFA5B4FC).withValues(alpha: 0.38)
+        ..style = PaintingStyle.fill,
+    );
+
+    canvas.restore();
+  }
+
+  @override
+  bool shouldRepaint(_HeartPainter old) => old.scale != scale;
+}
+
+// ── Maletín con documento saliendo (CustomPainter) ────────────
+
+class BriefcaseWidget extends StatefulWidget {
+  final bool animating;
+  const BriefcaseWidget({super.key, required this.animating});
+
+  @override
+  State<BriefcaseWidget> createState() => _BriefcaseWidgetState();
+}
+
+class _BriefcaseWidgetState extends State<BriefcaseWidget>
+    with SingleTickerProviderStateMixin {
+  late AnimationController _ctrl;
+  late Animation<double> _anim;
+
+  @override
+  void initState() {
+    super.initState();
+    _ctrl = AnimationController(
+      vsync: this,
+      duration: const Duration(milliseconds: 700),
+    );
+    _anim = CurvedAnimation(parent: _ctrl, curve: Curves.easeInOut);
+    if (widget.animating) _ctrl.forward();
+  }
+
+  @override
+  void didUpdateWidget(BriefcaseWidget old) {
+    super.didUpdateWidget(old);
+    if (widget.animating && !old.animating) {
+      _ctrl.forward(from: 0);
+    } else if (!widget.animating && old.animating) {
+      _ctrl.reverse();
+    }
+  }
+
+  @override
+  void dispose() {
+    _ctrl.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return AnimatedBuilder(
+      animation: _anim,
+      builder: (_, __) => CustomPaint(
+        size: const Size(84, 84),
+        painter: _BriefcasePainter(_anim.value),
+      ),
+    );
+  }
+}
+
+class _BriefcasePainter extends CustomPainter {
+  final double p;
+  const _BriefcasePainter(this.p);
+
+  @override
+  void paint(Canvas canvas, Size size) {
+    final w = size.width, h = size.height;
+    const col = Color(0xFF818CF8);
+
+    final bx = w * 0.12, by = h * 0.42;
+    final bw = w * 0.76, bh = h * 0.44;
+    const br = 3.0;
+
+    // Documento saliendo (detrás del maletín)
+    if (p > 0) {
+      final docW = bw * 0.6;
+      final docH = h * 0.32;
+      final dx = bx + (bw - docW) / 2;
+      final docStartY = by + 4;
+      final docEndY = by - docH + 6;
+      final dy = docStartY + (docEndY - docStartY) * p;
+
+      canvas.save();
+      canvas.clipRect(Rect.fromLTWH(dx - 2, 0, docW + 4, by + bh));
+
+      final docPaint = Paint()
+        ..color = const Color(0xFFE0E7FF)
+        ..style = PaintingStyle.fill;
+      canvas.drawRRect(
+        RRect.fromRectAndRadius(
+          Rect.fromLTWH(dx, dy, docW, docH),
+          const Radius.circular(3),
+        ),
+        docPaint,
+      );
+
+      final linePaint = Paint()
+        ..color = col
+        ..strokeWidth = 1.2
+        ..strokeCap = StrokeCap.round
+        ..style = PaintingStyle.stroke;
+      for (int i = 0; i < 3; i++) {
+        final ly = dy + 5 + i * 4.0;
+        canvas.drawLine(
+          Offset(dx + 4, ly),
+          Offset(dx + docW - 4, ly),
+          linePaint,
+        );
+      }
+      canvas.restore();
+    }
+
+    // Asa
+    final handleW = bw * 0.36;
+    final hx = bx + (bw - handleW) / 2;
+    canvas.drawRRect(
+      RRect.fromRectAndRadius(
+        Rect.fromLTWH(hx, by - 7, handleW, 7),
+        const Radius.circular(3),
+      ),
+      Paint()
+        ..color = col
+        ..style = PaintingStyle.stroke
+        ..strokeWidth = 2.5
+        ..strokeCap = StrokeCap.round,
+    );
+
+    // Cuerpo
+    canvas.drawRRect(
+      RRect.fromRectAndRadius(
+        Rect.fromLTWH(bx, by, bw, bh),
+        const Radius.circular(br),
+      ),
+      Paint()
+        ..color = col
+        ..style = PaintingStyle.fill,
+    );
+
+    // Línea central
+    canvas.drawLine(
+      Offset(bx, by + bh / 2),
+      Offset(bx + bw, by + bh / 2),
+      Paint()
+        ..color = const Color(0xFF4F46E5)
+        ..strokeWidth = 1.5,
+    );
+
+    // Cierre
+    canvas.drawRRect(
+      RRect.fromRectAndRadius(
+        Rect.fromLTWH(bx + bw / 2 - 5, by + bh / 2 - 4, 10, 8),
+        const Radius.circular(2),
+      ),
+      Paint()
+        ..color = const Color(0xFF4F46E5)
+        ..style = PaintingStyle.fill,
+    );
+
+    // Brillo
+    canvas.drawRRect(
+      RRect.fromRectAndRadius(
+        Rect.fromLTWH(bx + 4, by + 4, bw - 8, 5),
+        const Radius.circular(2),
+      ),
+      Paint()
+        ..color = Colors.white.withValues(alpha: 0.18)
+        ..style = PaintingStyle.fill,
+    );
+  }
+
+  @override
+  bool shouldRepaint(_BriefcasePainter old) => old.p != p;
+}
+
+// ── Megáfono con ondas (CustomPainter) ───────────────────────
+
+class MegaphoneWidget extends StatefulWidget {
+  final bool animating;
+  const MegaphoneWidget({super.key, required this.animating});
+
+  @override
+  State<MegaphoneWidget> createState() => _MegaphoneWidgetState();
+}
+
+class _MegaphoneWidgetState extends State<MegaphoneWidget>
+    with SingleTickerProviderStateMixin {
+  late AnimationController _ctrl;
+  double _waveT = 0.0;
+  double _shakeT = 0.0;
+
+  @override
+  void initState() {
+    super.initState();
+    _ctrl = AnimationController(
+      vsync: this,
+      duration: const Duration(seconds: 1),
+    )..addListener(_onTick);
+    if (widget.animating) _startWave();
+  }
+
+  @override
+  void didUpdateWidget(MegaphoneWidget old) {
+    super.didUpdateWidget(old);
+    if (widget.animating && !old.animating) _startWave();
+    if (!widget.animating && old.animating) _stopWave();
+  }
+
+  void _startWave() {
+    _shakeT = 1.0;
+    _ctrl.repeat();
+  }
+
+  void _stopWave() {
+    _ctrl.stop();
+    if (mounted)
+      setState(() {
+        _waveT = 0;
+        _shakeT = 0;
+      });
+  }
+
+  void _onTick() {
+    if (!mounted) return;
+    setState(() {
+      _waveT += 0.018;
+      _shakeT = (_shakeT - 0.02).clamp(0.0, 1.0);
+    });
+  }
+
+  @override
+  void dispose() {
+    _ctrl.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return CustomPaint(
+      size: const Size(84, 84),
+      painter: _MegaphonePainter(_waveT, _shakeT),
+    );
+  }
+}
+
+class _MegaphonePainter extends CustomPainter {
+  final double waveT;
+  final double shakeT;
+  const _MegaphonePainter(this.waveT, this.shakeT);
+
+  @override
+  void paint(Canvas canvas, Size size) {
+    final w = size.width, h = size.height;
+    const col = Color(0xFF38BDF8);
+
+    final ox = w / 2 - 3 + sin(shakeT * pi * 6) * shakeT * 5;
+    final oy = h / 2 + 3;
+
+    canvas.save();
+    canvas.translate(ox, oy);
+    canvas.rotate(-0.3);
+
+    // Bocina
+    final hornPath = Path()
+      ..moveTo(3, -10)
+      ..lineTo(26, -20)
+      ..lineTo(26, 20)
+      ..lineTo(3, 10)
+      ..close();
+    canvas.drawPath(
+      hornPath,
+      Paint()
+        ..color = col
+        ..style = PaintingStyle.fill,
+    );
+
+    // Cuerpo
+    canvas.drawRRect(
+      RRect.fromRectAndRadius(
+        const Rect.fromLTWH(-15, -10, 20, 20),
+        const Radius.circular(5),
+      ),
+      Paint()
+        ..color = col
+        ..style = PaintingStyle.fill,
+    );
+
+    // Mango
+    canvas.drawLine(
+      const Offset(-8, 10),
+      const Offset(-8, 23),
+      Paint()
+        ..color = col
+        ..strokeWidth = 5
+        ..strokeCap = StrokeCap.round,
+    );
+
+    // Brillo
+    final brightPath = Path()
+      ..moveTo(5, -8)
+      ..lineTo(23, -17)
+      ..lineTo(23, -7)
+      ..lineTo(5, -2)
+      ..close();
+    canvas.drawPath(
+      brightPath,
+      Paint()
+        ..color = Colors.white.withValues(alpha: 0.22)
+        ..style = PaintingStyle.fill,
+    );
+
+    canvas.restore();
+
+    // Ondas sonoras
+    if (waveT > 0) {
+      final waveData = [
+        (r: 22.0, delay: 0.0),
+        (r: 32.0, delay: 0.25),
+        (r: 42.0, delay: 0.5),
+      ];
+
+      for (final wd in waveData) {
+        final phase = ((waveT - wd.delay) % 1.0 + 1.0) % 1.0;
+        final alpha = sin(phase * pi) * 0.75;
+        if (alpha <= 0.02) continue;
+
+        canvas.drawArc(
+          Rect.fromCircle(
+            center: Offset(ox + cos(-0.3) * 12, oy + sin(-0.3) * 12),
+            radius: wd.r,
+          ),
+          -0.3 - 0.55,
+          1.1,
+          false,
+          Paint()
+            ..color = col.withValues(alpha: alpha)
+            ..strokeWidth = 2.5
+            ..style = PaintingStyle.stroke
+            ..strokeCap = StrokeCap.round,
+        );
+      }
+    }
+  }
+
+  @override
+  bool shouldRepaint(_MegaphonePainter old) =>
+      old.waveT != waveT || old.shakeT != shakeT;
 }
