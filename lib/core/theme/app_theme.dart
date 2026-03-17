@@ -3,7 +3,7 @@ import 'package:flutter/material.dart';
 class AppTheme {
 
   static ThemeData lightTheme = ThemeData(
-    fontFamily: 'Montserrat',
+    fontFamily: 'Inter',
     scaffoldBackgroundColor: Colors.white,
 
     colorScheme: const ColorScheme.light(

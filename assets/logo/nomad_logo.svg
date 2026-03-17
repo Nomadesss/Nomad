@@ -1,0 +1,30 @@
+<svg width="220" height="70" viewBox="0 0 220 70" xmlns="http://www.w3.org/2000/svg">
+
+  <defs>
+    <linearGradient id="nomadGradient" x1="0%" y1="0%" x2="100%" y2="0%">
+      <stop offset="0%" stop-color="#3B6BFF"/>
+      <stop offset="100%" stop-color="#5F8CFF"/>
+    </linearGradient>
+  </defs>
+
+  <!-- Texto centrado -->
+  <text
+    x="110"
+    y="42"
+    text-anchor="middle"
+    font-family="Arial, Helvetica, sans-serif"
+    font-size="44"
+    font-weight="700"
+    fill="url(#nomadGradient)">
+    Nomad
+  </text>
+
+  <!-- Underline centrado -->
+  <path
+    d="M40 55 Q110 68 180 55"
+    stroke="url(#nomadGradient)"
+    stroke-width="4"
+    fill="none"
+    stroke-linecap="round"/>
+    
+</svg>
