@@ -1,4 +1,6 @@
 import 'package:flutter/material.dart';
+import 'package:firebase_auth/firebase_auth.dart';
+import 'package:flutter/rendering.dart';
 
 import 'widgets/feed_header.dart';
 import 'widgets/stories_bar.dart';
@@ -21,35 +23,78 @@ class _FeedScreenState extends State<FeedScreen> {
   List<Map<String, dynamic>> feed = [];
   bool isLoading = true;
 
+  final ScrollController _scrollController = ScrollController();
+
+  bool _showBottomBar = true;
+  bool _showHeader = true;
+
   @override
   void initState() {
     super.initState();
-    _loadFeed(); /// ACÁ se ejecuta todo
+
+    _loadFeed();
+
+    _scrollController.addListener(() {
+      final direction = _scrollController.position.userScrollDirection;
+
+      /// SCROLL HACIA ABAJO
+      if (direction == ScrollDirection.reverse) {
+
+        if (_showBottomBar || _showHeader) {
+          setState(() {
+            _showBottomBar = false;
+            _showHeader = false;
+          });
+        }
+
+      }
+
+      /// SCROLL HACIA ARRIBA
+      else if (direction == ScrollDirection.forward) {
+
+        if (!_showBottomBar || !_showHeader) {
+          setState(() {
+            _showBottomBar = true;
+            _showHeader = true;
+          });
+        }
+      }
+    });
+  }
+
+  /// 🔥 EVITA MEMORY LEAK (IMPORTANTE)
+  @override
+  void dispose() {
+    _scrollController.dispose();
+    super.dispose();
   }
 
   Future<void> _loadFeed() async {
 
     try {
-      /// 1. Obtener ubicación (tu servicio completo)
+
       final locationData = await LocationService.collect();
 
-      /// 2. Obtener ciudad (GPS > IP)
       final city = (locationData.city ?? locationData.ipCity ?? "unknown")
           .trim()
           .toLowerCase();
 
       print("Ciudad detectada: $city");
 
-      /// 3. Traer feed desde Firebase
-      final data = await FeedService.getFeedByCity(city);
+      final userId = FirebaseAuth.instance.currentUser!.uid;
 
-      /// 4. Guardar en estado
+      final data = await FeedService.getFeed(
+        city,
+        userId,
+      );
+
       setState(() {
         feed = data;
         isLoading = false;
       });
 
     } catch (e) {
+
       print("Error cargando feed: $e");
 
       setState(() {
@@ -65,16 +110,21 @@ class _FeedScreenState extends State<FeedScreen> {
       backgroundColor: const Color(0xFFF5F6FA),
 
       body: CustomScrollView(
+        controller: _scrollController,
         slivers: [
 
-          /// HEADER
-          const SliverAppBar(
+          /// 🔥 HEADER ANIMADO (TIPO INSTAGRAM)
+          SliverAppBar(
             floating: true,
             snap: true,
             elevation: 0,
             backgroundColor: Colors.white,
-            toolbarHeight: 64,
-            title: FeedHeader(),
+            toolbarHeight: _showHeader ? 64 : 0,
+            title: AnimatedOpacity(
+              duration: const Duration(milliseconds: 200),
+              opacity: _showHeader ? 1 : 0,
+              child: const FeedHeader(),
+            ),
           ),
 
           /// STORIES
@@ -91,7 +141,7 @@ class _FeedScreenState extends State<FeedScreen> {
               ),
             ),
 
-          /// FEED REAL
+          /// FEED
           if (!isLoading)
             SliverList(
               delegate: SliverChildBuilderDelegate(
@@ -128,7 +178,13 @@ class _FeedScreenState extends State<FeedScreen> {
         ],
       ),
 
-      bottomNavigationBar: const BottomNav(),
+      /// BOTTOM BAR ANIMADO
+      bottomNavigationBar: AnimatedSlide(
+        duration: const Duration(milliseconds: 300),
+        curve: Curves.easeInOut,
+        offset: _showBottomBar ? Offset.zero : const Offset(0, 1),
+        child: const BottomNav(),
+      ),
     );
   }
 }
