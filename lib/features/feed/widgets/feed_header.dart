@@ -134,7 +134,7 @@ class _HeaderIcon extends StatelessWidget {
         child: Icon(
           icon,
           size: 22,
-          color: const Color(0xFF1F1F1F),
+          color: const Color(0xFF134E4A),
         ),
       ),
     );

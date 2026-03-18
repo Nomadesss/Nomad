@@ -150,19 +150,26 @@ class _FeedScreenState extends State<FeedScreen> {
                   final item = feed[index];
 
                   if (item["type"] == "post") {
+                    final docId    = item["docId"]    as String? ?? "";
+                    final authorId = item["authorId"] as String? ?? "";
+                    if (docId.isEmpty) return const SizedBox.shrink();
                     return PostCard(
-                      username: item["username"],
-                      images: List<String>.from(item["images"]),
-                      caption: item["caption"],
-                      likes: item["likes"],
+                      postId:          docId,
+                      postAuthorId:    authorId,
+                      username:        item["username"]    as String? ?? "usuario",
+                      images:          List<String>.from(item["images"] ?? []),
+                      caption:         item["caption"]     as String? ?? "",
+                      userCountryFlag: item["countryFlag"] as String?,
+                      userCity:        item["city"]        as String?,
+                      userBio:         item["bio"]         as String?,
                     );
                   }
 
                   if (item["type"] == "event") {
                     return EventCard(
-                      title: item["title"],
-                      location: item["location"],
-                      date: item["date"],
+                      title:    item["title"]    as String? ?? "",
+                      location: item["location"] as String? ?? "",
+                      date:     item["date"]     as String? ?? "",
                     );
                   }
 

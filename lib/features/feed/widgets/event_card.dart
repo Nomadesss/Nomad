@@ -21,7 +21,7 @@ class EventCard extends StatelessWidget {
       padding: const EdgeInsets.all(16),
 
       decoration: BoxDecoration(
-        color: const Color(0xFFF0F4FF),
+        color: const Color(0xFFE6FAF8),
         borderRadius: BorderRadius.circular(14),
       ),
 
@@ -33,7 +33,7 @@ class EventCard extends StatelessWidget {
             "Evento cercano",
             style: TextStyle(
               fontSize: 12,
-              color: Colors.blueGrey,
+              color: const Color(0xFF0F766E),
             ),
           ),
 
@@ -52,7 +52,7 @@ class EventCard extends StatelessWidget {
           Text(
             location,
             style: const TextStyle(
-              color: Colors.black54,
+              color: const Color(0xFF0D9488),
             ),
           ),
 
@@ -61,7 +61,7 @@ class EventCard extends StatelessWidget {
           Text(
             date,
             style: const TextStyle(
-              color: Colors.black54,
+              color: const Color(0xFF0D9488),
             ),
           ),
 

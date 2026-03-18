@@ -25,7 +25,7 @@ class PostSkeleton extends StatelessWidget {
                   child: SizedBox(
                     height: 12,
                     child: DecoratedBox(
-                      decoration: BoxDecoration(color: Colors.black12),
+                      decoration: BoxDecoration(color: const Color(0xFFCCFBF1)),
                     ),
                   ),
                 )
@@ -35,7 +35,7 @@ class PostSkeleton extends StatelessWidget {
 
           Container(
             height: 260,
-            color: Colors.black12,
+            color: const Color(0xFFCCFBF1),
           ),
 
           const SizedBox(height: 10),
@@ -45,7 +45,7 @@ class PostSkeleton extends StatelessWidget {
             child: SizedBox(
               height: 12,
               child: DecoratedBox(
-                decoration: BoxDecoration(color: Colors.black12),
+                decoration: BoxDecoration(color: const Color(0xFFCCFBF1)),
               ),
             ),
           ),

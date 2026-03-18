@@ -8,8 +8,8 @@ class BottomNav extends StatelessWidget {
 
     return BottomNavigationBar(
       type: BottomNavigationBarType.fixed,
-      selectedItemColor: Colors.black,
-      unselectedItemColor: Colors.black54,
+      selectedItemColor: const Color(0xFF0D9488),
+      unselectedItemColor: const Color(0xFF5EEAD4),
       showSelectedLabels: false,
       showUnselectedLabels: false,
 

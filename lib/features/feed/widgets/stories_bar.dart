@@ -80,9 +80,9 @@ class _StoryBubbleState extends State<_StoryBubble> {
 
     const gradient = LinearGradient(
       colors: [
-        Color(0xFFFFC371),
-        Color(0xFFFF5F6D),
-        Color(0xFF845EC2),
+        const Color(0xFF2DD4BF),
+        const Color(0xFF0D9488),
+        const Color(0xFF0F766E),
       ],
     );
 
@@ -123,7 +123,7 @@ class _StoryBubbleState extends State<_StoryBubble> {
                           : gradient,
 
                   color: widget.viewed
-                      ? Colors.grey[300]
+                      ? const Color(0xFFCCFBF1)
                       : null,
                 ),
 
@@ -141,13 +141,13 @@ class _StoryBubbleState extends State<_StoryBubble> {
 
                   child: CircleAvatar(
                     radius: 30,
-                    backgroundColor: Colors.grey[200],
+                    backgroundColor: const Color(0xFFE6FAF8),
 
                     child: widget.isCreate
                         ? const Icon(
                             Icons.add,
                             size: 28,
-                            color: Color(0xFF3B6BFF),
+                            color: const Color(0xFF0D9488),
                           )
                         : const Icon(
                             Icons.person,

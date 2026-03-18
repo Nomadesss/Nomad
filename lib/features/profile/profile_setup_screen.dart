@@ -1424,9 +1424,12 @@ class _HugAnimationWidgetState extends State<HugAnimationWidget>
   Widget build(BuildContext context) {
     return AnimatedBuilder(
       animation: _anim,
-      builder: (_, __) => CustomPaint(
-        size: const Size(84, 84),
-        painter: _HugPainter(_anim.value),
+      builder: (_, __) => Transform.scale(
+        scale: 1.28,
+        child: CustomPaint(
+          size: const Size(84, 84),
+          painter: _HugPainter(_anim.value),
+        ),
       ),
     );
   }
@@ -1447,10 +1450,17 @@ class _HugPainter extends CustomPainter {
     final h = size.height;
     final cxc = w / 2;
     final groundY = h - 2;
+    const headR = 7.0;
+    // Centro visual del dibujo: punto medio entre tope de cabeza y pies
+    // headY = groundY - 26, tope = headY - headR, base = groundY
+    // midY = (tope + base) / 2 = groundY - 26 - headR + (26 + headR) / 2
+    final figureMidY = groundY - (26.0 + headR) / 2;
+    final verticalOffset = h / 2 - figureMidY;
+    canvas.save();
+    canvas.translate(0, verticalOffset);
+    final headY = groundY - 26;
     final lx = _lerp(cxc - 14, cxc, e);
     final rx = _lerp(cxc + 14, cxc, e);
-    final headY = groundY - 26;
-    const headR = 7.0;
 
     const colL = Color(0xFF38BDF8);
     const colR = Color(0xFF0284C7);
@@ -1573,6 +1583,8 @@ class _HugPainter extends CustomPainter {
         );
       canvas.drawPath(path2, paintRArm);
     }
+
+    canvas.restore();
   }
 
   @override
@@ -1662,7 +1674,7 @@ class _HeartPainter extends CustomPainter {
   void paint(Canvas canvas, Size size) {
     final cx = size.width / 2;
     final cy = size.height / 2 + 2;
-    const s = 18.0;
+    const s = 22.0;
 
     canvas.save();
     canvas.translate(cx, cy);
