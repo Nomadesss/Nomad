@@ -87,7 +87,7 @@ class _ProfilePhotoScreenState extends State<ProfilePhotoScreen> {
             ListTile(
               leading: const Icon(
                 Icons.camera_alt_rounded,
-                color: Color(0xFF5C6EF5),
+                color: Color(0xFF0D9488),
               ),
               title: const Text(
                 "Tomar foto",
@@ -101,7 +101,7 @@ class _ProfilePhotoScreenState extends State<ProfilePhotoScreen> {
             ListTile(
               leading: const Icon(
                 Icons.photo_library_rounded,
-                color: Color(0xFF5C6EF5),
+                color: Color(0xFF0D9488),
               ),
               title: const Text(
                 "Elegir de galería",
@@ -231,7 +231,7 @@ class _ProfilePhotoScreenState extends State<ProfilePhotoScreen> {
                             shape: BoxShape.circle,
                             border: Border.all(
                               color: const Color(
-                                0xFF5C6EF5,
+                                0xFF0D9488,
                               ).withValues(alpha: 0.4),
                               width: 2,
                             ),
@@ -278,7 +278,7 @@ class _ProfilePhotoScreenState extends State<ProfilePhotoScreen> {
                               width: 32,
                               height: 32,
                               decoration: const BoxDecoration(
-                                color: Color(0xFF5C6EF5),
+                                color: Color(0xFF0D9488),
                                 shape: BoxShape.circle,
                               ),
                               child: const Icon(
@@ -301,10 +301,10 @@ class _ProfilePhotoScreenState extends State<ProfilePhotoScreen> {
                     child: ElevatedButton(
                       onPressed: uploading ? null : continueWithoutPhoto,
                       style: ElevatedButton.styleFrom(
-                        backgroundColor: const Color(0xFF5C6EF5),
+                        backgroundColor: const Color(0xFF0D9488),
                         foregroundColor: Colors.white,
                         disabledBackgroundColor: const Color(
-                          0xFF5C6EF5,
+                          0xFF0D9488,
                         ).withValues(alpha: 0.5),
                         shape: RoundedRectangleBorder(
                           borderRadius: BorderRadius.circular(16),

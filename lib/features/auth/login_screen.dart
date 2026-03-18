@@ -2,6 +2,7 @@ import 'dart:ui';
 import 'package:flutter/material.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:google_sign_in/google_sign_in.dart';
+import 'package:google_fonts/google_fonts.dart';
 
 import '../../services/auth_service.dart';
 import '../auth/terms_acceptance_screen.dart';
@@ -160,23 +161,22 @@ class _LoginScreenState extends State<LoginScreen>
             child: Padding(
               padding: const EdgeInsets.symmetric(horizontal: 30),
               child: Column(
-                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                mainAxisAlignment: MainAxisAlignment.start,
                 children: [
-                  const SizedBox(),
+                  const SizedBox(height: 60),
 
                   /// LOGO
                   FadeTransition(
                     opacity: _logoFade,
-                    child: const Column(
+                    child: Column(
                       children: [
                         Hero(
                           tag: "logo",
                           child: Text(
                             "Nomad",
-                            style: TextStyle(
-                              fontSize: 48,
-                              fontWeight: FontWeight.bold,
-                              color: Colors.white,
+                            style: GoogleFonts.pacifico(
+                              fontSize: 64,
+                              color: Color(0xFF0D9488),
                             ),
                           ),
                         ),
@@ -184,13 +184,17 @@ class _LoginScreenState extends State<LoginScreen>
                         Text(
                           "Siéntete más cerca de tu casa",
                           textAlign: TextAlign.center,
-                          style: TextStyle(fontSize: 18, color: Colors.white70),
+                          style: GoogleFonts.pacifico(
+                            fontSize: 20,
+                            color: Color(0xFF0D9488),
+                          ),
                         ),
                       ],
                     ),
                   ),
 
                   /// BOTONES
+                  const Spacer(),
                   FadeTransition(
                     opacity: _buttonsFade,
                     child: SlideTransition(
@@ -280,9 +284,11 @@ class _LoginScreenState extends State<LoginScreen>
         child: Container(
           height: 55,
           decoration: BoxDecoration(
-            color: Colors.white.withValues(alpha: 0.25),
+            color: const Color(0xFF0D9488).withValues(alpha: 0.30),
             borderRadius: BorderRadius.circular(30),
-            border: Border.all(color: Colors.white.withValues(alpha: 0.4)),
+            border: Border.all(
+              color: const Color(0xFF34D399).withValues(alpha: 0.5),
+            ),
           ),
           child: InkWell(
             borderRadius: BorderRadius.circular(30),

@@ -265,8 +265,8 @@ class _ProfileSetupScreenState extends State<ProfileSetupScreen>
 
             _permissionOption(
               icon: Icons.refresh_rounded,
-              iconColor: const Color(0xFF5C6EF5),
-              iconBg: const Color(0xFF5C6EF5).withValues(alpha: 0.15),
+              iconColor: const Color(0xFF0D9488),
+              iconBg: const Color(0xFF0D9488).withValues(alpha: 0.15),
               title: "Permitir solo al usar",
               subtitle: "Solo cuando Nomad esté abierta",
               onTap: () {
@@ -379,7 +379,7 @@ class _ProfileSetupScreenState extends State<ProfileSetupScreen>
                     end: Alignment.bottomRight,
                     colors: [
                       Color(0xFF0F0F1A),
-                      Color(0xFF1A1A2E),
+                      Color(0xFF0D2B28),
                       Color(0xFF0F1A14),
                     ],
                   ),
@@ -486,7 +486,7 @@ class _ProfileSetupScreenState extends State<ProfileSetupScreen>
                       child: ElevatedButton(
                         onPressed: _canContinue() ? nextStep : null,
                         style: ElevatedButton.styleFrom(
-                          backgroundColor: const Color(0xFF5C6EF5),
+                          backgroundColor: const Color(0xFF0D9488),
                           foregroundColor: Colors.white,
                           disabledBackgroundColor: Colors.white.withValues(
                             alpha: 0.15,
@@ -534,7 +534,7 @@ class _ProfileSetupScreenState extends State<ProfileSetupScreen>
           height: 6,
           decoration: BoxDecoration(
             color: active
-                ? const Color(0xFF5C6EF5)
+                ? const Color(0xFF0D9488)
                 : Colors.white.withValues(alpha: 0.2),
             borderRadius: BorderRadius.circular(20),
           ),
@@ -611,7 +611,7 @@ class _ProfileSetupScreenState extends State<ProfileSetupScreen>
                       height: 16,
                       child: CircularProgressIndicator(
                         strokeWidth: 2,
-                        color: Color(0xFF5C6EF5),
+                        color: Color(0xFF0D9488),
                       ),
                     ),
                   )
@@ -657,7 +657,7 @@ class _ProfileSetupScreenState extends State<ProfileSetupScreen>
                     ? Colors.redAccent
                     : usernameAvailable
                     ? const Color(0xFF27AE60)
-                    : const Color(0xFF5C6EF5),
+                    : const Color(0xFF0D9488),
                 width: 1.5,
               ),
             ),
@@ -781,9 +781,9 @@ class _ProfileSetupScreenState extends State<ProfileSetupScreen>
               borderRadius: BorderRadius.circular(14),
               border: Border.all(
                 color: _showCountryList
-                    ? const Color(0xFF5C6EF5)
+                    ? const Color(0xFF0D9488)
                     : countryCode != null
-                    ? const Color(0xFF5C6EF5).withValues(alpha: 0.6)
+                    ? const Color(0xFF0D9488).withValues(alpha: 0.6)
                     : Colors.white.withValues(alpha: 0.12),
               ),
             ),
@@ -866,7 +866,7 @@ class _ProfileSetupScreenState extends State<ProfileSetupScreen>
               focusedBorder: OutlineInputBorder(
                 borderRadius: BorderRadius.circular(12),
                 borderSide: const BorderSide(
-                  color: Color(0xFF5C6EF5),
+                  color: Color(0xFF0D9488),
                   width: 1.5,
                 ),
               ),
@@ -1424,12 +1424,9 @@ class _HugAnimationWidgetState extends State<HugAnimationWidget>
   Widget build(BuildContext context) {
     return AnimatedBuilder(
       animation: _anim,
-      builder: (_, __) => Transform.scale(
-        scale: 1.28,
-        child: CustomPaint(
-          size: const Size(84, 84),
-          painter: _HugPainter(_anim.value),
-        ),
+      builder: (_, __) => CustomPaint(
+        size: const Size(84, 84),
+        painter: _HugPainter(_anim.value),
       ),
     );
   }
@@ -1450,17 +1447,10 @@ class _HugPainter extends CustomPainter {
     final h = size.height;
     final cxc = w / 2;
     final groundY = h - 2;
-    const headR = 7.0;
-    // Centro visual del dibujo: punto medio entre tope de cabeza y pies
-    // headY = groundY - 26, tope = headY - headR, base = groundY
-    // midY = (tope + base) / 2 = groundY - 26 - headR + (26 + headR) / 2
-    final figureMidY = groundY - (26.0 + headR) / 2;
-    final verticalOffset = h / 2 - figureMidY;
-    canvas.save();
-    canvas.translate(0, verticalOffset);
-    final headY = groundY - 26;
     final lx = _lerp(cxc - 14, cxc, e);
     final rx = _lerp(cxc + 14, cxc, e);
+    final headY = groundY - 26;
+    const headR = 7.0;
 
     const colL = Color(0xFF38BDF8);
     const colR = Color(0xFF0284C7);
@@ -1583,8 +1573,6 @@ class _HugPainter extends CustomPainter {
         );
       canvas.drawPath(path2, paintRArm);
     }
-
-    canvas.restore();
   }
 
   @override
@@ -1674,7 +1662,7 @@ class _HeartPainter extends CustomPainter {
   void paint(Canvas canvas, Size size) {
     final cx = size.width / 2;
     final cy = size.height / 2 + 2;
-    const s = 22.0;
+    const s = 18.0;
 
     canvas.save();
     canvas.translate(cx, cy);

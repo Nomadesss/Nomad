@@ -171,15 +171,15 @@ class _RegistrationScreenState extends State<RegistrationScreen>
       builder: (context, child) => Theme(
         data: Theme.of(context).copyWith(
           colorScheme: const ColorScheme.dark(
-            primary: Color(0xFF5C6EF5),
+            primary: Color(0xFF0D9488),
             onPrimary: Colors.white,
-            surface: Color(0xFF1A1A2E),
+            surface: Color(0xFF0D2B28),
             onSurface: Colors.white,
           ),
           dialogBackgroundColor: const Color(0xFF0F0F1A),
           textButtonTheme: TextButtonThemeData(
             style: TextButton.styleFrom(
-              foregroundColor: const Color(0xFF5C6EF5),
+              foregroundColor: const Color(0xFF0D9488),
             ),
           ),
         ),
@@ -533,13 +533,13 @@ class _RegistrationScreenState extends State<RegistrationScreen>
                         child: _isLoading
                             ? const Center(
                                 child: CircularProgressIndicator(
-                                  color: Color(0xFF5C6EF5),
+                                  color: Color(0xFF0D9488),
                                   strokeWidth: 2.5,
                                 ),
                               )
                             : ElevatedButton(
                                 style: ElevatedButton.styleFrom(
-                                  backgroundColor: const Color(0xFF5C6EF5),
+                                  backgroundColor: const Color(0xFF0D9488),
                                   foregroundColor: Colors.white,
                                   shape: RoundedRectangleBorder(
                                     borderRadius: BorderRadius.circular(16),
@@ -750,7 +750,7 @@ class _RegistrationScreenState extends State<RegistrationScreen>
               ? Colors.redAccent
               : isValid
               ? const Color(0xFF27AE60)
-              : const Color(0xFF5C6EF5),
+              : const Color(0xFF0D9488),
           width: 1.5,
         ),
       ),

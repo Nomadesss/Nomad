@@ -378,7 +378,7 @@ class _PhoneVerificationScreenState extends State<PhoneVerificationScreen>
                                   borderSide: BorderSide(
                                     color: _error != null
                                         ? Colors.redAccent
-                                        : const Color(0xFF5C6EF5),
+                                        : const Color(0xFF0D9488),
                                     width: 1.8,
                                   ),
                                 ),
@@ -423,7 +423,7 @@ class _PhoneVerificationScreenState extends State<PhoneVerificationScreen>
                               height: 18,
                               child: CircularProgressIndicator(
                                 strokeWidth: 2,
-                                color: Color(0xFF5C6EF5),
+                                color: Color(0xFF0D9488),
                               ),
                             )
                           : GestureDetector(
@@ -477,13 +477,13 @@ class _PhoneVerificationScreenState extends State<PhoneVerificationScreen>
                       child: _isLoading
                           ? const Center(
                               child: CircularProgressIndicator(
-                                color: Color(0xFF5C6EF5),
+                                color: Color(0xFF0D9488),
                                 strokeWidth: 2.5,
                               ),
                             )
                           : ElevatedButton(
                               style: ElevatedButton.styleFrom(
-                                backgroundColor: const Color(0xFF5C6EF5),
+                                backgroundColor: const Color(0xFF0D9488),
                                 foregroundColor: Colors.white,
                                 shape: RoundedRectangleBorder(
                                   borderRadius: BorderRadius.circular(16),

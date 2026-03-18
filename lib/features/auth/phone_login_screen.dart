@@ -111,7 +111,7 @@ class _PhoneLoginScreenState extends State<PhoneLoginScreen>
 
     showModalBottomSheet(
       context: context,
-      backgroundColor: const Color(0xFF1A1A2E),
+      backgroundColor: const Color(0xFF0D2B28),
       shape: const RoundedRectangleBorder(
         borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
       ),
@@ -196,7 +196,7 @@ class _PhoneLoginScreenState extends State<PhoneLoginScreen>
                           focusedBorder: OutlineInputBorder(
                             borderRadius: BorderRadius.circular(12),
                             borderSide: const BorderSide(
-                              color: Color(0xFF5C6EF5),
+                              color: Color(0xFF0D9488),
                               width: 1.5,
                             ),
                           ),
@@ -235,7 +235,7 @@ class _PhoneLoginScreenState extends State<PhoneLoginScreen>
                               pais.nombre,
                               style: TextStyle(
                                 color: seleccionado
-                                    ? const Color(0xFF5C6EF5)
+                                    ? const Color(0xFF0D9488)
                                     : Colors.white,
                                 fontSize: 14,
                                 fontWeight: seleccionado
@@ -556,7 +556,7 @@ class _PhoneLoginScreenState extends State<PhoneLoginScreen>
                                   borderSide: BorderSide(
                                     color: _errorTelefono != null
                                         ? Colors.redAccent
-                                        : const Color(0xFF5C6EF5),
+                                        : const Color(0xFF0D9488),
                                     width: 1.5,
                                   ),
                                 ),
@@ -607,13 +607,13 @@ class _PhoneLoginScreenState extends State<PhoneLoginScreen>
                         child: _isLoading
                             ? const Center(
                                 child: CircularProgressIndicator(
-                                  color: Color(0xFF5C6EF5),
+                                  color: Color(0xFF0D9488),
                                   strokeWidth: 2.5,
                                 ),
                               )
                             : ElevatedButton(
                                 style: ElevatedButton.styleFrom(
-                                  backgroundColor: const Color(0xFF5C6EF5),
+                                  backgroundColor: const Color(0xFF0D9488),
                                   foregroundColor: Colors.white,
                                   shape: RoundedRectangleBorder(
                                     borderRadius: BorderRadius.circular(16),

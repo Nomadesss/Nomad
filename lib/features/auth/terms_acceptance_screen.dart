@@ -12,13 +12,11 @@ class TermsAcceptanceScreen extends StatefulWidget {
   const TermsAcceptanceScreen({super.key});
 
   @override
-  State<TermsAcceptanceScreen> createState() =>
-      _TermsAcceptanceScreenState();
+  State<TermsAcceptanceScreen> createState() => _TermsAcceptanceScreenState();
 }
 
 class _TermsAcceptanceScreenState extends State<TermsAcceptanceScreen>
     with SingleTickerProviderStateMixin {
-
   bool accepted = false;
 
   late AnimationController _controller;
@@ -34,16 +32,15 @@ class _TermsAcceptanceScreenState extends State<TermsAcceptanceScreen>
       duration: const Duration(milliseconds: 900),
     );
 
-    _fade = Tween<double>(begin: 0, end: 1).animate(
-      CurvedAnimation(parent: _controller, curve: Curves.easeIn),
-    );
+    _fade = Tween<double>(
+      begin: 0,
+      end: 1,
+    ).animate(CurvedAnimation(parent: _controller, curve: Curves.easeIn));
 
     _slide = Tween<Offset>(
       begin: const Offset(0, 0.25),
       end: Offset.zero,
-    ).animate(
-      CurvedAnimation(parent: _controller, curve: Curves.easeOut),
-    );
+    ).animate(CurvedAnimation(parent: _controller, curve: Curves.easeOut));
 
     _controller.forward();
   }
@@ -55,15 +52,10 @@ class _TermsAcceptanceScreenState extends State<TermsAcceptanceScreen>
   }
 
   Future<void> _acceptTerms() async {
-
     final user = FirebaseAuth.instance.currentUser;
     if (user == null) return;
 
-    await FirebaseFirestore.instance
-        .collection("users")
-        .doc(user.uid)
-        .set({
-
+    await FirebaseFirestore.instance.collection("users").doc(user.uid).set({
       "email": user.email,
       "name": user.displayName,
       "photo": user.photoURL,
@@ -72,16 +64,13 @@ class _TermsAcceptanceScreenState extends State<TermsAcceptanceScreen>
       "acceptedAt": Timestamp.now(),
 
       "createdAt": Timestamp.now(),
-
     }, SetOptions(merge: true));
 
     if (!mounted) return;
 
     Navigator.pushReplacement(
       context,
-      MaterialPageRoute(
-        builder: (_) => const ProfileSetupScreen(),
-      ),
+      MaterialPageRoute(builder: (_) => const ProfileSetupScreen()),
     );
   }
 
@@ -101,11 +90,9 @@ class _TermsAcceptanceScreenState extends State<TermsAcceptanceScreen>
 
   @override
   Widget build(BuildContext context) {
-
     return Scaffold(
       body: Stack(
         children: [
-
           /// BACKGROUND (igual al login)
           Positioned.fill(
             child: Image.asset(
@@ -116,9 +103,7 @@ class _TermsAcceptanceScreenState extends State<TermsAcceptanceScreen>
 
           BackdropFilter(
             filter: ImageFilter.blur(sigmaX: 6, sigmaY: 6),
-            child: Container(
-              color: Colors.black.withOpacity(0.35),
-            ),
+            child: Container(color: Colors.black.withOpacity(0.35)),
           ),
 
           SafeArea(
@@ -127,13 +112,11 @@ class _TermsAcceptanceScreenState extends State<TermsAcceptanceScreen>
               child: Column(
                 mainAxisAlignment: MainAxisAlignment.spaceBetween,
                 children: [
-
                   const SizedBox(),
 
                   /// LOGO
                   const Column(
                     children: [
-
                       Hero(
                         tag: "logo",
                         child: Text(
@@ -150,11 +133,8 @@ class _TermsAcceptanceScreenState extends State<TermsAcceptanceScreen>
 
                       Text(
                         "Antes de comenzar",
-                        style: TextStyle(
-                          color: Colors.white70,
-                          fontSize: 16,
-                        ),
-                      )
+                        style: TextStyle(color: Colors.white70, fontSize: 16),
+                      ),
                     ],
                   ),
 
@@ -165,15 +145,11 @@ class _TermsAcceptanceScreenState extends State<TermsAcceptanceScreen>
                       position: _slide,
                       child: Column(
                         children: [
-
                           /// CARD
                           ClipRRect(
                             borderRadius: BorderRadius.circular(26),
                             child: BackdropFilter(
-                              filter: ImageFilter.blur(
-                                sigmaX: 20,
-                                sigmaY: 20,
-                              ),
+                              filter: ImageFilter.blur(sigmaX: 20, sigmaY: 20),
                               child: Container(
                                 padding: const EdgeInsets.all(24),
                                 decoration: BoxDecoration(
@@ -185,7 +161,6 @@ class _TermsAcceptanceScreenState extends State<TermsAcceptanceScreen>
                                 ),
                                 child: Column(
                                   children: [
-
                                     const Icon(
                                       Icons.verified_user_outlined,
                                       color: Colors.white,
@@ -221,7 +196,6 @@ class _TermsAcceptanceScreenState extends State<TermsAcceptanceScreen>
                                       crossAxisAlignment:
                                           CrossAxisAlignment.start,
                                       children: [
-
                                         Checkbox(
                                           value: accepted,
                                           activeColor: Colors.white,
@@ -241,7 +215,6 @@ class _TermsAcceptanceScreenState extends State<TermsAcceptanceScreen>
                                                 fontSize: 14,
                                               ),
                                               children: [
-
                                                 const TextSpan(
                                                   text: "Acepto los ",
                                                 ),
@@ -249,35 +222,28 @@ class _TermsAcceptanceScreenState extends State<TermsAcceptanceScreen>
                                                 TextSpan(
                                                   text: "Términos de uso",
                                                   style: const TextStyle(
-                                                    fontWeight:
-                                                        FontWeight.bold,
-                                                    decoration:
-                                                        TextDecoration
-                                                            .underline,
+                                                    fontWeight: FontWeight.bold,
+                                                    decoration: TextDecoration
+                                                        .underline,
                                                   ),
                                                   recognizer:
                                                       TapGestureRecognizer()
                                                         ..onTap = _openTerms,
                                                 ),
 
-                                                const TextSpan(
-                                                  text: " y la ",
-                                                ),
+                                                const TextSpan(text: " y la "),
 
                                                 TextSpan(
                                                   text:
                                                       "Política de privacidad",
                                                   style: const TextStyle(
-                                                    fontWeight:
-                                                        FontWeight.bold,
-                                                    decoration:
-                                                        TextDecoration
-                                                            .underline,
+                                                    fontWeight: FontWeight.bold,
+                                                    decoration: TextDecoration
+                                                        .underline,
                                                   ),
                                                   recognizer:
                                                       TapGestureRecognizer()
-                                                        ..onTap =
-                                                            _openPrivacy,
+                                                        ..onTap = _openPrivacy,
                                                 ),
                                               ],
                                             ),
@@ -296,22 +262,18 @@ class _TermsAcceptanceScreenState extends State<TermsAcceptanceScreen>
                           /// BOTON
                           AnimatedOpacity(
                             opacity: accepted ? 1 : 0.5,
-                            duration:
-                                const Duration(milliseconds: 250),
+                            duration: const Duration(milliseconds: 250),
                             child: SizedBox(
                               width: double.infinity,
                               height: 55,
                               child: ElevatedButton(
                                 style: ElevatedButton.styleFrom(
-                                  backgroundColor:
-                                      const Color(0xFF3F6293),
+                                  backgroundColor: const Color(0xFF0D9488),
                                   shape: RoundedRectangleBorder(
-                                    borderRadius:
-                                        BorderRadius.circular(30),
+                                    borderRadius: BorderRadius.circular(30),
                                   ),
                                 ),
-                                onPressed:
-                                    accepted ? _acceptTerms : null,
+                                onPressed: accepted ? _acceptTerms : null,
                                 child: const Text(
                                   "Aceptar y continuar",
                                   style: TextStyle(
@@ -332,7 +294,7 @@ class _TermsAcceptanceScreenState extends State<TermsAcceptanceScreen>
                               color: Colors.white60,
                               fontSize: 12,
                             ),
-                          )
+                          ),
                         ],
                       ),
                     ),

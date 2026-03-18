@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/rendering.dart';
+import '../../services/seed_posts.dart';
 
 import 'widgets/feed_header.dart';
 import 'widgets/stories_bar.dart';
@@ -19,7 +20,6 @@ class FeedScreen extends StatefulWidget {
 }
 
 class _FeedScreenState extends State<FeedScreen> {
-
   List<Map<String, dynamic>> feed = [];
   bool isLoading = true;
 
@@ -31,7 +31,7 @@ class _FeedScreenState extends State<FeedScreen> {
   @override
   void initState() {
     super.initState();
-
+    SeedPosts.run();
     _loadFeed();
 
     _scrollController.addListener(() {
@@ -39,19 +39,15 @@ class _FeedScreenState extends State<FeedScreen> {
 
       /// SCROLL HACIA ABAJO
       if (direction == ScrollDirection.reverse) {
-
         if (_showBottomBar || _showHeader) {
           setState(() {
             _showBottomBar = false;
             _showHeader = false;
           });
         }
-
       }
-
       /// SCROLL HACIA ARRIBA
       else if (direction == ScrollDirection.forward) {
-
         if (!_showBottomBar || !_showHeader) {
           setState(() {
             _showBottomBar = true;
@@ -70,9 +66,7 @@ class _FeedScreenState extends State<FeedScreen> {
   }
 
   Future<void> _loadFeed() async {
-
     try {
-
       final locationData = await LocationService.collect();
 
       final city = (locationData.city ?? locationData.ipCity ?? "unknown")
@@ -83,18 +77,13 @@ class _FeedScreenState extends State<FeedScreen> {
 
       final userId = FirebaseAuth.instance.currentUser!.uid;
 
-      final data = await FeedService.getFeed(
-        city,
-        userId,
-      );
+      final data = await FeedService.getFeed(city, userId);
 
       setState(() {
         feed = data;
         isLoading = false;
       });
-
     } catch (e) {
-
       print("Error cargando feed: $e");
 
       setState(() {
@@ -105,14 +94,12 @@ class _FeedScreenState extends State<FeedScreen> {
 
   @override
   Widget build(BuildContext context) {
-
     return Scaffold(
       backgroundColor: const Color(0xFFF5F6FA),
 
       body: CustomScrollView(
         controller: _scrollController,
         slivers: [
-
           /// 🔥 HEADER ANIMADO (TIPO INSTAGRAM)
           SliverAppBar(
             floating: true,
@@ -128,9 +115,7 @@ class _FeedScreenState extends State<FeedScreen> {
           ),
 
           /// STORIES
-          const SliverToBoxAdapter(
-            child: StoriesBar(),
-          ),
+          const SliverToBoxAdapter(child: StoriesBar()),
 
           /// LOADING
           if (isLoading)
@@ -144,44 +129,38 @@ class _FeedScreenState extends State<FeedScreen> {
           /// FEED
           if (!isLoading)
             SliverList(
-              delegate: SliverChildBuilderDelegate(
-                (context, index) {
+              delegate: SliverChildBuilderDelegate((context, index) {
+                final item = feed[index];
 
-                  final item = feed[index];
+                if (item["type"] == "post") {
+                  final docId = item["docId"] as String? ?? "";
+                  final authorId = item["authorId"] as String? ?? "";
+                  if (docId.isEmpty) return const SizedBox.shrink();
+                  return PostCard(
+                    postId: docId,
+                    postAuthorId: authorId,
+                    username: item["username"] as String? ?? "usuario",
+                    images: List<String>.from(item["images"] ?? []),
+                    caption: item["caption"] as String? ?? "",
+                    userCountryFlag: item["countryFlag"] as String?,
+                    userCity: item["city"] as String?,
+                    userBio: item["bio"] as String?,
+                  );
+                }
 
-                  if (item["type"] == "post") {
-                    final docId    = item["docId"]    as String? ?? "";
-                    final authorId = item["authorId"] as String? ?? "";
-                    if (docId.isEmpty) return const SizedBox.shrink();
-                    return PostCard(
-                      postId:          docId,
-                      postAuthorId:    authorId,
-                      username:        item["username"]    as String? ?? "usuario",
-                      images:          List<String>.from(item["images"] ?? []),
-                      caption:         item["caption"]     as String? ?? "",
-                      userCountryFlag: item["countryFlag"] as String?,
-                      userCity:        item["city"]        as String?,
-                      userBio:         item["bio"]         as String?,
-                    );
-                  }
+                if (item["type"] == "event") {
+                  return EventCard(
+                    title: item["title"] as String? ?? "",
+                    location: item["location"] as String? ?? "",
+                    date: item["date"] as String? ?? "",
+                  );
+                }
 
-                  if (item["type"] == "event") {
-                    return EventCard(
-                      title:    item["title"]    as String? ?? "",
-                      location: item["location"] as String? ?? "",
-                      date:     item["date"]     as String? ?? "",
-                    );
-                  }
-
-                  return const SizedBox();
-                },
-                childCount: feed.length,
-              ),
+                return const SizedBox();
+              }, childCount: feed.length),
             ),
 
-          const SliverToBoxAdapter(
-            child: SizedBox(height: 20),
-          ),
+          const SliverToBoxAdapter(child: SizedBox(height: 20)),
         ],
       ),
 

@@ -4,8 +4,9 @@ import 'firebase_options.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:flutter_localizations/flutter_localizations.dart';
+import 'app_theme.dart';
 
-import 'core/theme/app_theme.dart';
+//import 'core/theme/app_theme.dart';
 import 'features/auth/login_screen.dart';
 import 'features/auth/registration_screen.dart';
 import 'features/auth/terms_acceptance_screen.dart';
@@ -30,7 +31,7 @@ class NomadApp extends StatelessWidget {
     return MaterialApp(
       title: 'Nomad',
       debugShowCheckedModeBanner: false,
-      theme: AppTheme.lightTheme,
+      theme: NomadTheme.light,
       localizationsDelegates: GlobalMaterialLocalizations.delegates,
       supportedLocales: const [Locale('es', 'AR')],
       home: const AuthGate(),
