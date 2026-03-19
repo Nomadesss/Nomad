@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:phosphor_flutter/phosphor_flutter.dart';
+import '../../community/community_hub_screen.dart';
 
 class FeedHeader extends StatelessWidget {
   const FeedHeader({super.key});
@@ -21,7 +22,10 @@ class FeedHeader extends StatelessWidget {
               children: [
                 _HeaderIcon(icon: PhosphorIcons.heart(), onTap: () {}),
                 const SizedBox(width: 6),
-                _HeaderIcon(icon: PhosphorIcons.handHeart(), onTap: () {}),
+                _HeaderIcon(icon: PhosphorIcons.handHeart(), onTap: () => Navigator.push(
+                  context,
+                  MaterialPageRoute(builder: (_) => const CommunityHubScreen()),
+                )),
               ],
             ),
           ),
