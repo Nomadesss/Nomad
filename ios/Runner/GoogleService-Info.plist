@@ -1,0 +1,36 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+	<key>CLIENT_ID</key>
+	<string>647251551994-prn78fgpdihju3oq69k6umtevpvckrb7.apps.googleusercontent.com</string>
+	<key>REVERSED_CLIENT_ID</key>
+	<string>com.googleusercontent.apps.647251551994-prn78fgpdihju3oq69k6umtevpvckrb7</string>
+	<key>ANDROID_CLIENT_ID</key>
+	<string>647251551994-07c6eibqv2avfmm8ib8q37d05ii72ck1.apps.googleusercontent.com</string>
+	<key>API_KEY</key>
+	<string>AIzaSyAtEMxCwt9tQQBAPAFtusRDbnczabBM-dw</string>
+	<key>GCM_SENDER_ID</key>
+	<string>647251551994</string>
+	<key>PLIST_VERSION</key>
+	<string>1</string>
+	<key>BUNDLE_ID</key>
+	<string>com.example.cercaDeCasa</string>
+	<key>PROJECT_ID</key>
+	<string>nomad-3daff</string>
+	<key>STORAGE_BUCKET</key>
+	<string>nomad-3daff.firebasestorage.app</string>
+	<key>IS_ADS_ENABLED</key>
+	<false></false>
+	<key>IS_ANALYTICS_ENABLED</key>
+	<false></false>
+	<key>IS_APPINVITE_ENABLED</key>
+	<true></true>
+	<key>IS_GCM_ENABLED</key>
+	<true></true>
+	<key>IS_SIGNIN_ENABLED</key>
+	<true></true>
+	<key>GOOGLE_APP_ID</key>
+	<string>1:647251551994:ios:dc1d461d4786743986cb43</string>
+</dict>
+</plist>
