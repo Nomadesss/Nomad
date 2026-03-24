@@ -45,6 +45,7 @@ class _ProfileSetupScreenState extends State<ProfileSetupScreen>
   late AnimationController _animController;
   late Animation<double> _fadeIn;
   Timer? _debounceTimer;
+  final ScrollController _scrollController = ScrollController();
 
   @override
   void initState() {
@@ -65,6 +66,9 @@ class _ProfileSetupScreenState extends State<ProfileSetupScreen>
     _animController.dispose();
     _debounceTimer?.cancel();
     usernameController.dispose();
+    _countrySearchController.dispose();
+    _countryFocusNode.dispose();
+    _scrollController.dispose();
     super.dispose();
   }
 
@@ -186,6 +190,16 @@ class _ProfileSetupScreenState extends State<ProfileSetupScreen>
     if (!_canContinue()) return;
     if (step < 3) {
       setState(() => step++);
+      // Volver al tope al cambiar de paso
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (_scrollController.hasClients) {
+          _scrollController.animateTo(
+            0,
+            duration: const Duration(milliseconds: 300),
+            curve: Curves.easeOut,
+          );
+        }
+      });
     } else {
       Navigator.pushReplacement(
         context,
@@ -201,7 +215,7 @@ class _ProfileSetupScreenState extends State<ProfileSetupScreen>
       case 1:
         return countryCode != null;
       case 2:
-        return _locationPermission != null && _locationPermission != 'denied';
+        return _locationPermission != null;
       case 3:
         return amistad || citas || servicios || foros;
       default:
@@ -219,15 +233,39 @@ class _ProfileSetupScreenState extends State<ProfileSetupScreen>
         height: MediaQuery.of(context).size.height,
         decoration: const BoxDecoration(color: Color(0xFF0F0F14)),
         padding: const EdgeInsets.fromLTRB(24, 48, 24, 40),
-        child: Column(
+        child: SingleChildScrollView(
+          physics: const ClampingScrollPhysics(),
+          child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            const SizedBox(height: 16),
+
+            // Botón cerrar (X) — esquina superior derecha
+            Align(
+              alignment: Alignment.topRight,
+              child: GestureDetector(
+                onTap: () => Navigator.pop(context),
+                child: Container(
+                  width: 36,
+                  height: 36,
+                  decoration: BoxDecoration(
+                    color: Colors.white.withValues(alpha: 0.08),
+                    borderRadius: BorderRadius.circular(10),
+                  ),
+                  child: Icon(
+                    Icons.close_rounded,
+                    color: Colors.white.withValues(alpha: 0.6),
+                    size: 18,
+                  ),
+                ),
+              ),
+            ),
+
+            const SizedBox(height: 20),
 
             const Text(
-              "Nomad quiere acceder a tu ubicación",
+              "¿Podemos ver tu ubicación?",
               style: TextStyle(
-                fontSize: 36,
+                fontSize: 34,
                 fontWeight: FontWeight.w800,
                 color: Colors.white,
                 letterSpacing: -0.8,
@@ -235,25 +273,117 @@ class _ProfileSetupScreenState extends State<ProfileSetupScreen>
               ),
             ),
 
-            const SizedBox(height: 16),
+            const SizedBox(height: 12),
 
             Text(
-              "Tu ubicación nos ayuda a conectarte con compatriotas cercanos. No compartimos tu posición exacta.",
+              "Nomad usa tu ubicación para conectarte con compatriotas cercanos. Nunca compartimos tu posición exacta con otros usuarios.",
               style: TextStyle(
-                fontSize: 18,
+                fontSize: 16,
                 color: Colors.white.withValues(alpha: 0.45),
-                height: 1.5,
+                height: 1.55,
               ),
             ),
 
-            const Spacer(),
+            const SizedBox(height: 20),
+
+            // Banner de score de confianza
+            Container(
+              padding: const EdgeInsets.all(14),
+              decoration: BoxDecoration(
+                color: const Color(0xFF0D9488).withValues(alpha: 0.1),
+                borderRadius: BorderRadius.circular(14),
+                border: Border.all(
+                  color: const Color(0xFF0D9488).withValues(alpha: 0.35),
+                ),
+              ),
+              child: Row(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  const Icon(
+                    Icons.verified_user_rounded,
+                    color: Color(0xFF0D9488),
+                    size: 20,
+                  ),
+                  const SizedBox(width: 10),
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        const Text(
+                          "Impacto en tu Score de Confianza",
+                          style: TextStyle(
+                            color: Color(0xFF0D9488),
+                            fontSize: 13,
+                            fontWeight: FontWeight.w700,
+                          ),
+                        ),
+                        const SizedBox(height: 4),
+                        Text(
+                          "Tu score valida tu identidad frente a otros Nomads. Compartir ubicación es uno de los factores que más sube tu score — sin él, tu perfil tendrá menor visibilidad y credibilidad en la comunidad.",
+                          style: TextStyle(
+                            color: Colors.white.withValues(alpha: 0.55),
+                            fontSize: 12.5,
+                            height: 1.5,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                ],
+              ),
+            ),
+
+            const SizedBox(height: 28),
+
+            // Opción recomendada: solo al usar
+            Stack(
+              clipBehavior: Clip.none,
+              children: [
+                _permissionOption(
+                  icon: Icons.my_location_rounded,
+                  iconColor: const Color(0xFF0D9488),
+                  iconBg: const Color(0xFF0D9488).withValues(alpha: 0.15),
+                  title: "Permitir solo al usar",
+                  subtitle: "+Score · Solo cuando Nomad está abierta",
+                  onTap: () {
+                    Navigator.pop(context);
+                    setState(() => _locationPermission = 'inUse');
+                    getLocation();
+                  },
+                ),
+                Positioned(
+                  top: -10,
+                  right: 12,
+                  child: Container(
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 8,
+                      vertical: 3,
+                    ),
+                    decoration: BoxDecoration(
+                      color: const Color(0xFF0D9488),
+                      borderRadius: BorderRadius.circular(20),
+                    ),
+                    child: const Text(
+                      "Recomendado",
+                      style: TextStyle(
+                        color: Colors.white,
+                        fontSize: 10.5,
+                        fontWeight: FontWeight.w700,
+                      ),
+                    ),
+                  ),
+                ),
+              ],
+            ),
+
+            const SizedBox(height: 12),
 
             _permissionOption(
-              icon: Icons.check_circle_rounded,
+              icon: Icons.location_on_rounded,
               iconColor: const Color(0xFF38BDF8),
               iconBg: const Color(0xFF38BDF8).withValues(alpha: 0.15),
-              title: "Permitir mi ubicación",
-              subtitle: "Acceso completo mientras usás la app",
+              title: "Permitir siempre",
+              subtitle: "+Score máximo · Acceso completo en todo momento",
               onTap: () {
                 Navigator.pop(context);
                 setState(() => _locationPermission = 'always');
@@ -264,26 +394,11 @@ class _ProfileSetupScreenState extends State<ProfileSetupScreen>
             const SizedBox(height: 12),
 
             _permissionOption(
-              icon: Icons.refresh_rounded,
-              iconColor: const Color(0xFF0D9488),
-              iconBg: const Color(0xFF0D9488).withValues(alpha: 0.15),
-              title: "Permitir solo al usar",
-              subtitle: "Solo cuando Nomad esté abierta",
-              onTap: () {
-                Navigator.pop(context);
-                setState(() => _locationPermission = 'inUse');
-                getLocation();
-              },
-            ),
-
-            const SizedBox(height: 12),
-
-            _permissionOption(
-              icon: Icons.block_rounded,
+              icon: Icons.location_off_rounded,
               iconColor: const Color(0xFFEF4444),
               iconBg: const Color(0xFFEF4444).withValues(alpha: 0.1),
-              title: "No permitir",
-              subtitle: "No podrás avanzar al siguiente paso",
+              title: "No permitir ahora",
+              subtitle: "−Score · Podrás activarlo más tarde desde tu perfil",
               titleColor: const Color(0xFFEF4444),
               onTap: () {
                 Navigator.pop(context);
@@ -291,8 +406,9 @@ class _ProfileSetupScreenState extends State<ProfileSetupScreen>
               },
             ),
 
-            const SizedBox(height: 24),
+            const SizedBox(height: 40),
           ],
+        ),
         ),
       ),
     );
@@ -362,163 +478,186 @@ class _ProfileSetupScreenState extends State<ProfileSetupScreen>
   // ── Build ─────────────────────────────────────────────────────
 
   @override
-  Widget build(BuildContext context) {
-    return Scaffold(
-      backgroundColor: const Color(0xFF0F0F14),
-      body: Stack(
-        children: [
-          // ── Fondo: imagen de ciudad difuminada ────────────────
-          Positioned.fill(
-            child: Image.network(
-              'https://images.unsplash.com/photo-1477959858617-67f85cf4f1df?w=800&q=60',
-              fit: BoxFit.cover,
-              errorBuilder: (_, __, ___) => Container(
-                decoration: const BoxDecoration(
-                  gradient: LinearGradient(
-                    begin: Alignment.topLeft,
-                    end: Alignment.bottomRight,
-                    colors: [
-                      Color(0xFF0F0F1A),
-                      Color(0xFF0D2B28),
-                      Color(0xFF0F1A14),
-                    ],
+Widget build(BuildContext context) {
+  return Scaffold(
+    backgroundColor: const Color(0xFF0F0F14),
+    resizeToAvoidBottomInset: true,
+    body: Stack(
+      children: [
+
+        // CONTENIDO
+        SafeArea(
+          child: FadeTransition(
+            opacity: _fadeIn,
+            child: Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 28),
+              child: Column(
+                children: [
+
+                  const SizedBox(height: 24),
+
+                  // Header: flecha atrás + logo centrado
+                  SizedBox(
+                    width: double.infinity,
+                    height: 40,
+                    child: Stack(
+                      alignment: Alignment.center,
+                      children: [
+                        // Logo centrado — IgnorePointer para no bloquear la flecha
+                        Positioned.fill(
+                          child: IgnorePointer(
+                            child: Hero(
+                              tag: "logo",
+                              child: Material(
+                                color: Colors.transparent,
+                                child: const Align(
+                                  alignment: Alignment.center,
+                                  child: Text(
+                                    "Nomad",
+                                    style: TextStyle(
+                                      fontSize: 34,
+                                      fontWeight: FontWeight.bold,
+                                      color: Colors.white,
+                                      letterSpacing: -0.5,
+                                    ),
+                                  ),
+                                ),
+                              ),
+                            ),
+                          ),
+                        ),
+
+                        // Flecha encima — solo visible en pasos 1, 2 y 3
+                        if (step > 0)
+                          Positioned(
+                            left: 0,
+                            child: GestureDetector(
+                              behavior: HitTestBehavior.opaque,
+                              onTap: () => setState(() {
+                                step--;
+                                _showCountryList = false;
+                                _countrySearch = '';
+                                _countrySearchController.clear();
+                                _countryFocusNode.unfocus();
+                              }),
+                              child: Container(
+                                width: 36,
+                                height: 36,
+                                decoration: BoxDecoration(
+                                  color: Colors.white.withValues(alpha: 0.08),
+                                  borderRadius: BorderRadius.circular(10),
+                                ),
+                                child: Icon(
+                                  Icons.arrow_back_ios_new_rounded,
+                                  color: Colors.white.withValues(alpha: 0.75),
+                                  size: 16,
+                                ),
+                              ),
+                            ),
+                          ),
+                      ],
+                    ),
                   ),
-                ),
+
+                  const SizedBox(height: 8),
+
+                  Text(
+                    "Paso ${step + 1} de 4",
+                    style: TextStyle(
+                      color: Colors.white.withValues(alpha: 0.45),
+                      fontSize: 13,
+                    ),
+                  ),
+
+                  const SizedBox(height: 16),
+
+                  _progressIndicator(),
+
+                  const SizedBox(height: 36),
+
+                  /// 🔥 FIX PRINCIPAL
+                  Expanded(
+                    child: AnimatedSwitcher(
+                      duration: const Duration(milliseconds: 350),
+
+                      transitionBuilder: (child, animation) =>
+                          FadeTransition(
+                            opacity: animation,
+                            child: SlideTransition(
+                              position: Tween(
+                                begin: const Offset(0.05, 0),
+                                end: Offset.zero,
+                              ).animate(animation),
+                              child: child,
+                            ),
+                          ),
+
+                      child: Align(
+                        alignment: Alignment.topCenter,
+
+                        /// permite scroll si el contenido crece
+                        child: SingleChildScrollView(
+                          controller: _scrollController,
+                          physics: const ClampingScrollPhysics(),
+
+                          child: ConstrainedBox(
+                            constraints: BoxConstraints(
+                              minHeight:
+                                  MediaQuery.of(context).size.height * 0.55,
+                            ),
+
+                            child: IntrinsicHeight(
+                              child: buildStep(),
+                            ),
+                          ),
+                        ),
+                      ),
+                    ),
+                  ),
+
+                  SizedBox(
+                    width: double.infinity,
+                    height: 54,
+                    child: ElevatedButton(
+                      onPressed: _canContinue() ? nextStep : null,
+
+                      style: ElevatedButton.styleFrom(
+                        backgroundColor: const Color(0xFF0D9488),
+                        foregroundColor: Colors.white,
+
+                        disabledBackgroundColor:
+                            Colors.white.withValues(alpha: 0.15),
+
+                        disabledForegroundColor:
+                            Colors.white.withValues(alpha: 0.35),
+
+                        shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(16),
+                        ),
+
+                        elevation: 0,
+                      ),
+
+                      child: const Text(
+                        "Continuar",
+                        style: TextStyle(
+                          fontSize: 16,
+                          fontWeight: FontWeight.w600,
+                        ),
+                      ),
+                    ),
+                  ),
+
+                  const SizedBox(height: 24),
+                ],
               ),
             ),
           ),
-
-          // Blur sobre la imagen
-          Positioned.fill(
-            child: BackdropFilter(
-              filter: ImageFilter.blur(sigmaX: 18, sigmaY: 18),
-              child: Container(color: Colors.black.withValues(alpha: 0.55)),
-            ),
-          ),
-
-          // Degradado inferior para que el contenido resalte
-          Positioned.fill(
-            child: Container(
-              decoration: const BoxDecoration(
-                gradient: LinearGradient(
-                  begin: Alignment.topCenter,
-                  end: Alignment.bottomCenter,
-                  colors: [
-                    Colors.transparent,
-                    Color(0xCC0F0F14),
-                    Color(0xFF0F0F14),
-                  ],
-                  stops: [0.0, 0.55, 1.0],
-                ),
-              ),
-            ),
-          ),
-
-          // ── Contenido ─────────────────────────────────────────
-          SafeArea(
-            child: FadeTransition(
-              opacity: _fadeIn,
-              child: Padding(
-                padding: const EdgeInsets.symmetric(horizontal: 28),
-                child: Column(
-                  children: [
-                    const SizedBox(height: 24),
-
-                    // Logo
-                    Hero(
-                      tag: "logo",
-                      child: Material(
-                        color: Colors.transparent,
-                        child: const Text(
-                          "Nomad",
-                          style: TextStyle(
-                            fontSize: 34,
-                            fontWeight: FontWeight.bold,
-                            color: Colors.white,
-                            letterSpacing: -0.5,
-                          ),
-                        ),
-                      ),
-                    ),
-
-                    const SizedBox(height: 8),
-
-                    Text(
-                      "Paso ${step + 1} de 4",
-                      style: TextStyle(
-                        color: Colors.white.withValues(alpha: 0.45),
-                        fontSize: 13,
-                      ),
-                    ),
-
-                    const SizedBox(height: 16),
-
-                    // Indicador de pasos
-                    _progressIndicator(),
-
-                    const SizedBox(height: 36),
-
-                    // Paso actual
-                    Expanded(
-                      child: AnimatedSwitcher(
-                        duration: const Duration(milliseconds: 350),
-                        transitionBuilder: (child, animation) => FadeTransition(
-                          opacity: animation,
-                          child: SlideTransition(
-                            position: Tween(
-                              begin: const Offset(0.05, 0),
-                              end: Offset.zero,
-                            ).animate(animation),
-                            child: child,
-                          ),
-                        ),
-                        child: Align(
-                          alignment: Alignment.topCenter,
-                          child: buildStep(),
-                        ),
-                      ),
-                    ),
-
-                    // Botón continuar
-                    SizedBox(
-                      width: double.infinity,
-                      height: 54,
-                      child: ElevatedButton(
-                        onPressed: _canContinue() ? nextStep : null,
-                        style: ElevatedButton.styleFrom(
-                          backgroundColor: const Color(0xFF0D9488),
-                          foregroundColor: Colors.white,
-                          disabledBackgroundColor: Colors.white.withValues(
-                            alpha: 0.15,
-                          ),
-                          disabledForegroundColor: Colors.white.withValues(
-                            alpha: 0.35,
-                          ),
-                          shape: RoundedRectangleBorder(
-                            borderRadius: BorderRadius.circular(16),
-                          ),
-                          elevation: 0,
-                        ),
-                        child: Text(
-                          step == 3 ? "Continuar" : "Continuar",
-                          style: const TextStyle(
-                            fontSize: 16,
-                            fontWeight: FontWeight.w600,
-                          ),
-                        ),
-                      ),
-                    ),
-
-                    const SizedBox(height: 24),
-                  ],
-                ),
-              ),
-            ),
-          ),
-        ],
-      ),
-    );
-  }
+        ),
+      ],
+    ),
+  );
+}
 
   // ── Indicador de pasos ────────────────────────────────────────
 
@@ -729,6 +868,10 @@ class _ProfileSetupScreenState extends State<ProfileSetupScreen>
 
   // ── Step 1: País ──────────────────────────────────────────────
 
+  final TextEditingController _countrySearchController =
+      TextEditingController();
+  final FocusNode _countryFocusNode = FocusNode();
+
   Widget countryStep() {
     final allCountries = CountryService().getAll();
     final filtered = _countrySearch.isEmpty
@@ -767,19 +910,74 @@ class _ProfileSetupScreenState extends State<ProfileSetupScreen>
 
         const SizedBox(height: 24),
 
-        // Campo selector
-        GestureDetector(
-          onTap: () => setState(() {
-            _showCountryList = !_showCountryList;
-            _countrySearch = '';
-          }),
-          child: Container(
-            height: 54,
-            padding: const EdgeInsets.symmetric(horizontal: 16),
-            decoration: BoxDecoration(
-              color: Colors.white.withValues(alpha: 0.07),
+        // Campo único: actúa como selector y como buscador al mismo tiempo
+        TextField(
+          controller: _countrySearchController,
+          focusNode: _countryFocusNode,
+          readOnly: !_showCountryList,
+          enableInteractiveSelection: false, // elimina la "gota" de selección
+          style: const TextStyle(color: Colors.white, fontSize: 15),
+          decoration: InputDecoration(
+            hintText: _showCountryList
+                ? 'Buscar país...'
+                : (selectedCountry ?? 'Seleccionar país'),
+            hintStyle: TextStyle(
+              color: _showCountryList
+                  ? Colors.white.withValues(alpha: 0.35)
+                  : selectedCountry != null
+                  ? Colors.white
+                  : Colors.white.withValues(alpha: 0.3),
+              fontSize: 15,
+            ),
+            prefixIcon: _showCountryList
+                ? Icon(
+                    Icons.search_rounded,
+                    color: Colors.white.withValues(alpha: 0.4),
+                    size: 20,
+                  )
+                : Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      const SizedBox(width: 16),
+                      Icon(
+                        Icons.public,
+                        color: Colors.white.withValues(alpha: 0.4),
+                        size: 20,
+                      ),
+                      if (countryCode != null) ...[
+                        const SizedBox(width: 8),
+                        Text(
+                          Country.parse(countryCode!).flagEmoji,
+                          style: const TextStyle(fontSize: 20),
+                        ),
+                      ],
+                      const SizedBox(width: 8),
+                    ],
+                  ),
+            suffixIcon: AnimatedRotation(
+              turns: _showCountryList ? 0.5 : 0,
+              duration: const Duration(milliseconds: 200),
+              child: Icon(
+                Icons.expand_more_rounded,
+                color: Colors.white.withValues(alpha: 0.3),
+                size: 20,
+              ),
+            ),
+            filled: true,
+            fillColor: Colors.white.withValues(alpha: 0.07),
+            contentPadding: const EdgeInsets.symmetric(
+              horizontal: 16,
+              vertical: 16,
+            ),
+            border: OutlineInputBorder(
               borderRadius: BorderRadius.circular(14),
-              border: Border.all(
+              borderSide: BorderSide(
+                color: Colors.white.withValues(alpha: 0.12),
+              ),
+            ),
+            enabledBorder: OutlineInputBorder(
+              borderRadius: BorderRadius.circular(14),
+              borderSide: BorderSide(
                 color: _showCountryList
                     ? const Color(0xFF0D9488)
                     : countryCode != null
@@ -787,130 +985,104 @@ class _ProfileSetupScreenState extends State<ProfileSetupScreen>
                     : Colors.white.withValues(alpha: 0.12),
               ),
             ),
-            child: Row(
-              children: [
-                Icon(
-                  Icons.public,
-                  color: Colors.white.withValues(alpha: 0.4),
-                  size: 20,
-                ),
-                const SizedBox(width: 12),
-                if (countryCode != null) ...[
-                  Text(
-                    Country.parse(countryCode!).flagEmoji,
-                    style: const TextStyle(fontSize: 20),
-                  ),
-                  const SizedBox(width: 8),
-                ],
-                Text(
-                  selectedCountry ?? "Seleccionar país",
-                  style: TextStyle(
-                    fontSize: 15,
-                    color: selectedCountry != null
-                        ? Colors.white
-                        : Colors.white.withValues(alpha: 0.3),
-                  ),
-                ),
-                const Spacer(),
-                AnimatedRotation(
-                  turns: _showCountryList ? 0.5 : 0,
-                  duration: const Duration(milliseconds: 200),
-                  child: Icon(
-                    Icons.expand_more_rounded,
-                    color: Colors.white.withValues(alpha: 0.3),
-                    size: 20,
-                  ),
-                ),
-              ],
+            focusedBorder: OutlineInputBorder(
+              borderRadius: BorderRadius.circular(14),
+              borderSide: const BorderSide(
+                color: Color(0xFF0D9488),
+                width: 1.5,
+              ),
             ),
           ),
+          onTap: () {
+            setState(() {
+              _showCountryList = true;
+              _countrySearch = '';
+              _countrySearchController.clear();
+            });
+            // Scroll al tope para que el buscador quede visible
+            WidgetsBinding.instance.addPostFrameCallback((_) {
+              if (_scrollController.hasClients) {
+                _scrollController.animateTo(
+                  0,
+                  duration: const Duration(milliseconds: 250),
+                  curve: Curves.easeOut,
+                );
+              }
+            });
+            // Habilitar escritura y enfocar
+            Future.microtask(() => _countryFocusNode.requestFocus());
+          },
+          onChanged: (v) => setState(() => _countrySearch = v),
         ),
 
-        // Lista inline — aparece directamente sin animación
+        // Lista inline de países — Column puro, compatible con IntrinsicHeight
         if (_showCountryList) ...[
-          const SizedBox(height: 8),
-
-          // Buscador
-          TextField(
-            autofocus: true,
-            style: const TextStyle(color: Colors.white, fontSize: 14),
-            decoration: InputDecoration(
-              hintText: 'Buscar país...',
-              hintStyle: TextStyle(
-                color: Colors.white.withValues(alpha: 0.35),
-                fontSize: 14,
-              ),
-              prefixIcon: Icon(
-                Icons.search_rounded,
-                color: Colors.white.withValues(alpha: 0.4),
-                size: 20,
-              ),
-              filled: true,
-              fillColor: Colors.white.withValues(alpha: 0.07),
-              contentPadding: const EdgeInsets.symmetric(
-                horizontal: 16,
-                vertical: 12,
-              ),
-              border: OutlineInputBorder(
-                borderRadius: BorderRadius.circular(12),
-                borderSide: BorderSide(
-                  color: Colors.white.withValues(alpha: 0.12),
-                ),
-              ),
-              enabledBorder: OutlineInputBorder(
-                borderRadius: BorderRadius.circular(12),
-                borderSide: BorderSide(
-                  color: Colors.white.withValues(alpha: 0.12),
-                ),
-              ),
-              focusedBorder: OutlineInputBorder(
-                borderRadius: BorderRadius.circular(12),
-                borderSide: const BorderSide(
-                  color: Color(0xFF0D9488),
-                  width: 1.5,
-                ),
-              ),
-            ),
-            onChanged: (v) => setState(() => _countrySearch = v),
-          ),
-
           const SizedBox(height: 6),
 
-          // Lista de países con altura fija
-          Container(
-            height: 220,
+          DecoratedBox(
             decoration: BoxDecoration(
               color: Colors.white.withValues(alpha: 0.04),
               borderRadius: BorderRadius.circular(12),
               border: Border.all(color: Colors.white.withValues(alpha: 0.08)),
             ),
-            child: ListView.builder(
+            child: Padding(
               padding: const EdgeInsets.symmetric(vertical: 4),
-              itemCount: filtered.length,
-              itemBuilder: (_, i) {
-                final c = filtered[i];
-                return ListTile(
-                  dense: true,
-                  leading: Text(
-                    c.flagEmoji,
-                    style: const TextStyle(fontSize: 22),
-                  ),
-                  title: Text(
-                    c.name,
-                    style: const TextStyle(
-                      color: Colors.white,
-                      fontSize: 14,
-                      fontWeight: FontWeight.w500,
+              child: filtered.isEmpty
+                  ? Padding(
+                      padding: const EdgeInsets.symmetric(vertical: 20),
+                      child: Center(
+                        child: Text(
+                          'Sin resultados',
+                          style: TextStyle(
+                            color: Colors.white.withValues(alpha: 0.35),
+                            fontSize: 14,
+                          ),
+                        ),
+                      ),
+                    )
+                  : Column(
+                      mainAxisSize: MainAxisSize.min,
+                      children: filtered.map((c) {
+                        return InkWell(
+                          borderRadius: BorderRadius.circular(8),
+                          onTap: () {
+                            _countryFocusNode.unfocus();
+                            setState(() {
+                              selectedCountry = c.name;
+                              countryCode = c.countryCode;
+                              _showCountryList = false;
+                              _countrySearch = '';
+                              _countrySearchController.clear();
+                            });
+                          },
+                          child: Padding(
+                            padding: const EdgeInsets.symmetric(
+                              horizontal: 12,
+                              vertical: 10,
+                            ),
+                            child: Row(
+                              children: [
+                                Text(
+                                  c.flagEmoji,
+                                  style: const TextStyle(fontSize: 22),
+                                ),
+                                const SizedBox(width: 12),
+                                Expanded(
+                                  child: Text(
+                                    c.name,
+                                    style: const TextStyle(
+                                      color: Colors.white,
+                                      fontSize: 14,
+                                      fontWeight: FontWeight.w500,
+                                    ),
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ),
+                        );
+                      }).toList(),
                     ),
-                  ),
-                  onTap: () => setState(() {
-                    selectedCountry = c.name;
-                    countryCode = c.countryCode;
-                    _showCountryList = false;
-                    _countrySearch = '';
-                  }),
-                );
-              },
             ),
           ),
         ],
@@ -1224,6 +1396,7 @@ class _ProfileSetupScreenState extends State<ProfileSetupScreen>
                 desc: 'Conoce compatriotas',
                 selected: amistad,
                 onTap: () => setState(() => amistad = !amistad),
+                circleSize: 150,
               ),
             ),
             const SizedBox(width: 16),
@@ -1234,6 +1407,7 @@ class _ProfileSetupScreenState extends State<ProfileSetupScreen>
                 desc: 'Conecta romanticamante',
                 selected: citas,
                 onTap: () => setState(() => citas = !citas),
+                circleSize: 150,
               ),
             ),
           ],
@@ -1275,6 +1449,7 @@ class _ProfileSetupScreenState extends State<ProfileSetupScreen>
     required String desc,
     required bool selected,
     required VoidCallback onTap,
+    double circleSize = 120,
   }) {
     const circleBg = Color(0xFF1E3A5F);
     const circleBgSelected = Color(0xFF1E3A8A);
@@ -1290,8 +1465,8 @@ class _ProfileSetupScreenState extends State<ProfileSetupScreen>
             children: [
               AnimatedContainer(
                 duration: const Duration(milliseconds: 200),
-                width: 120,
-                height: 120,
+                width: circleSize,
+                height: circleSize,
                 decoration: BoxDecoration(
                   shape: BoxShape.circle,
                   color: selected ? circleBgSelected : circleBg,
@@ -1425,7 +1600,7 @@ class _HugAnimationWidgetState extends State<HugAnimationWidget>
     return AnimatedBuilder(
       animation: _anim,
       builder: (_, __) => CustomPaint(
-        size: const Size(84, 84),
+        size: const Size(120, 120),
         painter: _HugPainter(_anim.value),
       ),
     );
@@ -1443,10 +1618,15 @@ class _HugPainter extends CustomPainter {
   @override
   void paint(Canvas canvas, Size size) {
     final e = _ease(p.clamp(0.0, 1.0));
-    final w = size.width;
-    final h = size.height;
+    // Escalar todo el dibujo proporcionalmente al tamaño base 84x84
+    final scaleF = size.width / 84.0;
+    canvas.save();
+    canvas.scale(scaleF, scaleF);
+    final w = 84.0;
+    final h = 84.0;
     final cxc = w / 2;
-    final groundY = h - 2;
+    // Centrar verticalmente: las figuras miden ~26px de alto, centrarlas en h/2
+    final groundY = h / 2 + 13.0;
     final lx = _lerp(cxc - 14, cxc, e);
     final rx = _lerp(cxc + 14, cxc, e);
     final headY = groundY - 26;
@@ -1573,6 +1753,8 @@ class _HugPainter extends CustomPainter {
         );
       canvas.drawPath(path2, paintRArm);
     }
+
+    canvas.restore();
   }
 
   @override
@@ -1648,7 +1830,7 @@ class _HeartbeatWidgetState extends State<HeartbeatWidget>
   @override
   Widget build(BuildContext context) {
     return CustomPaint(
-      size: const Size(84, 84),
+      size: const Size(116, 116),
       painter: _HeartPainter(_beatScale),
     );
   }
@@ -1662,7 +1844,7 @@ class _HeartPainter extends CustomPainter {
   void paint(Canvas canvas, Size size) {
     final cx = size.width / 2;
     final cy = size.height / 2 + 2;
-    const s = 18.0;
+    final s = 18.0 * (size.width / 84.0);
 
     canvas.save();
     canvas.translate(cx, cy);

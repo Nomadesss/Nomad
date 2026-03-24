@@ -5,7 +5,7 @@ import 'package:firebase_auth/firebase_auth.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:flutter_localizations/flutter_localizations.dart';
 import 'app_theme.dart';
-
+import 'package:flutter/services.dart';
 //import 'core/theme/app_theme.dart';
 import 'features/auth/login_screen.dart';
 import 'features/auth/registration_screen.dart';
@@ -17,9 +17,13 @@ import 'features/profile/perfil_screen.dart';
 import 'features/profile/profile_setup_screen.dart';
 import 'services/biometric_service.dart';
 
+
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
   await Firebase.initializeApp(options: DefaultFirebaseOptions.currentPlatform);
+  await SystemChrome.setPreferredOrientations([
+    DeviceOrientation.portraitUp,
+  ]);
   runApp(const NomadApp());
 }
 
