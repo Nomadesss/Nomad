@@ -1,18 +1,6 @@
 import 'package:flutter/material.dart';
 import '../../../services/social_service.dart';
 
-// ─────────────────────────────────────────────────────────────────────────────
-// LikeButton — reemplaza el like_button.dart anterior.
-//
-// Ahora está conectado a Firestore:
-//  - El estado liked viene de un Stream (post_likes/{postId}_{uid})
-//  - El contador viene de un Stream (posts/{postId}.likesCount)
-//  - Usa UI optimista: anima de inmediato, revierte si Firestore falla
-//
-// Uso en PostCard:
-//   LikeButton(postId: item["id"], postAuthorId: item["authorId"])
-// ─────────────────────────────────────────────────────────────────────────────
-
 class LikeButton extends StatefulWidget {
   final String postId;
   final String postAuthorId;
@@ -32,8 +20,7 @@ class _LikeButtonState extends State<LikeButton>
   late AnimationController _bounceCtrl;
   late Animation<double> _bounceAnim;
 
-  bool _optimisticLiked = false;
-  bool _initialized = false;
+  bool? _optimisticLiked; // null = todavía no llegó el stream
   bool _loading = false;
 
   @override
@@ -50,6 +37,20 @@ class _LikeButtonState extends State<LikeButton>
     ]).animate(CurvedAnimation(parent: _bounceCtrl, curve: Curves.easeOut));
   }
 
+  // ✅ FIX PRINCIPAL: cuando Flutter reutiliza este State con un postId distinto
+  // (por ejemplo al hacer scroll en el feed), reseteamos el estado local
+  // para que el nuevo stream arranque desde cero.
+  @override
+  void didUpdateWidget(LikeButton oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (oldWidget.postId != widget.postId) {
+      setState(() {
+        _optimisticLiked = null;
+        _loading = false;
+      });
+    }
+  }
+
   @override
   void dispose() {
     _bounceCtrl.dispose();
@@ -57,9 +58,10 @@ class _LikeButtonState extends State<LikeButton>
   }
 
   Future<void> _toggle() async {
-    if (_loading) return;
+    if (_loading || _optimisticLiked == null) return;
 
-    final wasLiked = _optimisticLiked;
+    final wasLiked = _optimisticLiked!;
+
     setState(() {
       _optimisticLiked = !wasLiked;
       _loading = true;
@@ -83,14 +85,19 @@ class _LikeButtonState extends State<LikeButton>
   @override
   Widget build(BuildContext context) {
     return StreamBuilder<bool>(
+      // ✅ key por postId — fuerza a Flutter a recrear el StreamBuilder si cambia el post
+      key: ValueKey(widget.postId),
       stream: SocialService.likedStream(widget.postId),
       builder: (context, likedSnap) {
-        if (!_initialized && likedSnap.hasData) {
+        // Sincronizar con Firestore siempre que no haya toggle en curso
+        if (likedSnap.hasData && !_loading) {
           _optimisticLiked = likedSnap.data!;
-          _initialized = true;
         }
 
+        final liked = _optimisticLiked ?? false;
+
         return StreamBuilder<int>(
+          key: ValueKey('count_${widget.postId}'),
           stream: SocialService.likesCountStream(widget.postId),
           builder: (context, countSnap) {
             final count = countSnap.data ?? 0;
@@ -106,11 +113,9 @@ class _LikeButtonState extends State<LikeButton>
                       transitionBuilder: (child, anim) =>
                           ScaleTransition(scale: anim, child: child),
                       child: Icon(
-                        _optimisticLiked
-                            ? Icons.favorite
-                            : Icons.favorite_border,
-                        key: ValueKey(_optimisticLiked),
-                        color: _optimisticLiked
+                        liked ? Icons.favorite : Icons.favorite_border,
+                        key: ValueKey(liked),
+                        color: liked
                             ? const Color(0xFFE24B4A)
                             : const Color(0xFF134E4A),
                         size: 26,

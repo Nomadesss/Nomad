@@ -17,13 +17,10 @@ import 'features/profile/perfil_screen.dart';
 import 'features/profile/profile_setup_screen.dart';
 import 'services/biometric_service.dart';
 
-
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
   await Firebase.initializeApp(options: DefaultFirebaseOptions.currentPlatform);
-  await SystemChrome.setPreferredOrientations([
-    DeviceOrientation.portraitUp,
-  ]);
+  await SystemChrome.setPreferredOrientations([DeviceOrientation.portraitUp]);
   runApp(const NomadApp());
 }
 

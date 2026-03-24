@@ -4,17 +4,7 @@ import 'like_button.dart';
 import 'comments_screen.dart';
 import 'user_profile_trigger.dart';
 import 'user_profile_card.dart';
-
-// ─────────────────────────────────────────────────────────────────────────────
-// PostCard — tarjeta de publicación conectada a Firebase.
-//
-// Cambios respecto a la versión anterior:
-//  - postId y postAuthorId son ahora campos requeridos
-//  - LikeButton delega todo a SocialService (likes reales)
-//  - El ícono de comentario abre CommentsScreen
-//  - El avatar/nombre usa UserProfileTrigger (popover/bottomsheet)
-//  - El campo "likes" como int ya no es necesario (viene del stream)
-// ─────────────────────────────────────────────────────────────────────────────
+import '../../../services/social_service.dart';
 
 class PostCard extends StatefulWidget {
   final String postId;
@@ -23,7 +13,6 @@ class PostCard extends StatefulWidget {
   final List<String> images;
   final String caption;
 
-  // Datos opcionales para el popover de perfil
   final String? userCountryFlag;
   final String? userCity;
   final String? userBio;
@@ -64,20 +53,18 @@ class _PostCardState extends State<PostCard> {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-
           // ── Header del post ───────────────────────────────────────────────
           Padding(
             padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
             child: Row(
               children: [
-
                 UserProfileTrigger(
                   user: UserProfileData(
-                    username:     widget.username,
-                    fullName:     widget.username,
-                    countryFlag:  widget.userCountryFlag,
-                    city:         widget.userCity,
-                    bio:          widget.userBio,
+                    username: widget.username,
+                    fullName: widget.username,
+                    countryFlag: widget.userCountryFlag,
+                    city: widget.userCity,
+                    bio: widget.userBio,
                   ),
                   child: Row(
                     children: [
@@ -104,17 +91,13 @@ class _PostCardState extends State<PostCard> {
                           ),
                           const Text(
                             "Hace 2 h",
-                            style: TextStyle(
-                              fontSize: 11,
-                              color: Colors.grey,
-                            ),
+                            style: TextStyle(fontSize: 11, color: Colors.grey),
                           ),
                         ],
                       ),
                     ],
                   ),
                 ),
-
                 const Spacer(),
                 const Icon(Icons.more_horiz, size: 22),
               ],
@@ -125,7 +108,6 @@ class _PostCardState extends State<PostCard> {
           Stack(
             alignment: Alignment.center,
             children: [
-
               GestureDetector(
                 onDoubleTap: _onDoubleTap,
                 child: SizedBox(
@@ -142,8 +124,6 @@ class _PostCardState extends State<PostCard> {
                   ),
                 ),
               ),
-
-              // Corazón animado al hacer doble tap
               AnimatedScale(
                 duration: const Duration(milliseconds: 200),
                 scale: showHeart ? 1 : 0,
@@ -153,8 +133,6 @@ class _PostCardState extends State<PostCard> {
                   size: 120,
                 ),
               ),
-
-              // Indicador de páginas
               if (widget.images.length > 1)
                 Positioned(
                   bottom: 10,
@@ -163,7 +141,7 @@ class _PostCardState extends State<PostCard> {
                       widget.images.length,
                       (i) => Container(
                         margin: const EdgeInsets.symmetric(horizontal: 3),
-                        width:  currentPage == i ? 8 : 6,
+                        width: currentPage == i ? 8 : 6,
                         height: currentPage == i ? 8 : 6,
                         decoration: BoxDecoration(
                           color: currentPage == i
@@ -183,27 +161,49 @@ class _PostCardState extends State<PostCard> {
             padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
             child: Row(
               children: [
-
                 // Like conectado a Firestore
                 LikeButton(
-                  postId:       widget.postId,
+                  postId: widget.postId,
                   postAuthorId: widget.postAuthorId,
                 ),
 
                 const SizedBox(width: 18),
 
-                // Comentario → abre CommentsScreen
-                GestureDetector(
-                  onTap: () => CommentsScreen.show(
-                    context,
-                    postId:       widget.postId,
-                    postAuthorId: widget.postAuthorId,
-                  ),
-                  child: Icon(
-                    PhosphorIcons.chatCircle(),
-                    size: 24,
-                    color: const Color(0xFF134E4A),
-                  ),
+                // ✅ Comentario con conteo real desde Firestore
+                StreamBuilder<int>(
+                  stream: SocialService.commentsCountStream(widget.postId),
+                  builder: (context, snap) {
+                    final count = snap.data ?? 0;
+                    return GestureDetector(
+                      onTap: () => CommentsScreen.show(
+                        context,
+                        postId: widget.postId,
+                        postAuthorId: widget.postAuthorId,
+                      ),
+                      child: Row(
+                        children: [
+                          Icon(
+                            PhosphorIcons.chatCircle(),
+                            size: 24,
+                            color: const Color(0xFF134E4A),
+                          ),
+                          const SizedBox(width: 5),
+                          AnimatedSwitcher(
+                            duration: const Duration(milliseconds: 200),
+                            child: Text(
+                              '$count',
+                              key: ValueKey(count),
+                              style: const TextStyle(
+                                fontSize: 13,
+                                fontWeight: FontWeight.w600,
+                                color: Color(0xFF134E4A),
+                              ),
+                            ),
+                          ),
+                        ],
+                      ),
+                    );
+                  },
                 ),
 
                 const SizedBox(width: 18),

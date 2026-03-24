@@ -1,11 +1,7 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:flutter/foundation.dart';
 
-import 'user_service.dart';
 import 'location_service.dart';
-
-/// 🔥 Toggle de mocks
-const USE_MOCK_FEED = true;
 
 //
 // ─────────────────────────────────────────────
@@ -41,6 +37,23 @@ class PostModel {
     this.createdAt,
     this.type = 'post',
   });
+
+  factory PostModel.fromDoc(DocumentSnapshot doc) {
+    final d = doc.data() as Map<String, dynamic>? ?? {};
+    return PostModel(
+      docId: doc.id,
+      authorId: d['authorId'] as String? ?? '',
+      username: d['username'] as String? ?? '',
+      images: List<String>.from(d['images'] as List? ?? []),
+      caption: d['caption'] as String? ?? '',
+      city: d['city'] as String?,
+      countryFlag: d['countryFlag'] as String?,
+      bio: d['bio'] as String?,
+      likesCount: (d['likesCount'] as num?)?.toInt() ?? 0,
+      commentsCount: (d['commentsCount'] as num?)?.toInt() ?? 0,
+      createdAt: (d['createdAt'] as Timestamp?)?.toDate(),
+    );
+  }
 }
 
 class EventModel {
@@ -74,21 +87,19 @@ class FeedResult {
     this.hasMore = false,
   });
 
-  static const empty = FeedResult(
-    posts: [],
-    events: [],
-    combined: [],
-  );
+  static const empty = FeedResult(posts: [], events: [], combined: []);
 }
 
 //
 // ─────────────────────────────────────────────
-// FEED SERVICE
+// FEED SERVICE — conectado a Firestore real
 // ─────────────────────────────────────────────
 //
 
 class FeedService {
   static final _db = FirebaseFirestore.instance;
+
+  static const int _pageSize = 10;
 
   static Future<FeedResult> getFeed({
     String? city,
@@ -96,174 +107,80 @@ class FeedService {
     required String userId,
     DocumentSnapshot? startAfterDoc,
   }) async {
+    try {
+      // Determinar ciudad efectiva: parámetro > GPS > IP > fallback
+      final effectiveCity = (city?.trim().isNotEmpty == true)
+          ? city!.trim().toLowerCase()
+          : (locationData?.cityEffective?.trim().toLowerCase() ?? '');
 
-    /// 🔥 MOCK ACTIVADO
-    if (USE_MOCK_FEED) {
-      await Future.delayed(const Duration(milliseconds: 800)); // simula loading
-      return _mockFeedPersonalized(userId);
-    }
+      // ── Query base: posts ordenados por fecha ──────────────────────────────
+      //
+      // Filtramos por ciudad si tenemos una.
+      // Si no hay ciudad, traemos los posts más recientes globales.
+      //
+      // Índice requerido en Firestore:
+      //   posts → city (ASC) + createdAt (DESC)
 
-    // --- AQUÍ IRÍA TU LÓGICA REAL ---
-    return FeedResult.empty;
-  }
+      Query query = _db
+          .collection('posts')
+          .orderBy('createdAt', descending: true)
+          .limit(_pageSize);
 
-  //
-  // ─────────────────────────────────────────────
-  // MOCK REALISTA TIPO INSTAGRAM
-  // ─────────────────────────────────────────────
-  //
+      if (effectiveCity.isNotEmpty) {
+        query = _db
+            .collection('posts')
+            .where('city', isEqualTo: effectiveCity)
+            .orderBy('createdAt', descending: true)
+            .limit(_pageSize);
+      }
 
-  static FeedResult _mockFeedPersonalized(String userId) {
-    final now = DateTime.now();
+      // Paginación: arrancar después del último doc de la página anterior
+      if (startAfterDoc != null) {
+        query = query.startAfterDocument(startAfterDoc);
+      }
 
-    // ─────────────────────────────────────────────
-    // 👤 Usuario actual (simulado)
-    // ─────────────────────────────────────────────
+      final snap = await query.get();
+      final docs = snap.docs;
 
-    final userCity = "madrid";
-    final userCountry = "uruguay";
+      if (docs.isEmpty) {
+        return FeedResult.empty;
+      }
 
-    final followingIds = ["user_1", "user_3"];
+      final posts = docs
+          .map(PostModel.fromDoc)
+          .where((p) => p.docId.isNotEmpty && p.images.isNotEmpty)
+          .toList();
 
-    // ─────────────────────────────────────────────
-    // 🌍 Usuarios mock
-    // country = origen (clave para coterráneos)
-    // ─────────────────────────────────────────────
+      // Eventos hardcodeados por ahora (podés conectarlos a Firestore después)
+      final events = <EventModel>[];
 
-    final users = [
-      ("user_0", "MateoUy", "uruguay", "madrid"),
-      ("user_1", "SofiUy", "uruguay", "barcelona"),
-      ("user_2", "CarlosAr", "argentina", "madrid"),
-      ("user_3", "LuUy", "uruguay", "madrid"),
-      ("user_4", "ValeCl", "chile", "madrid"),
-      ("user_5", "JuanUy", "uruguay", "lisboa"),
-      ("user_6", "AnaPe", "peru", "madrid"),
-      ("user_7", "TomUy", "uruguay", "madrid"),
-    ];
+      final combined = _buildCombinedFeed(posts: posts, events: events);
 
-    final captions = [
-      "Recién llegado, buscando laburo 👀",
-      "Algún uruguayo por acá? 🇺🇾",
-      "Recomendaciones de barrios?",
-      "After office hoy 🍻",
-      "Trámites de residencia",
-      "Buscando room 🙏",
-    ];
-
-    // ─────────────────────────────────────────────
-    // 🧱 Generar posts
-    // ─────────────────────────────────────────────
-
-    final posts = List.generate(20, (i) {
-      final user = users[i % users.length];
-
-      return PostModel(
-        docId: 'mock_$i',
-        authorId: user.$1,
-        username: user.$2,
-        countryFlag: _flag(user.$3),
-        bio: "De ${user.$3} en ${user.$4}",
-        city: user.$4,
-        images: [
-          "https://picsum.photos/500/400?random=${i + 100}"
-        ],
-        caption: captions[i % captions.length],
-        likesCount: 10 + i * 2,
-        commentsCount: i,
-        createdAt: now.subtract(Duration(minutes: i * 12)),
+      return FeedResult(
+        posts: posts,
+        events: events,
+        combined: combined,
+        lastDoc: docs.last,
+        hasMore: docs.length == _pageSize,
       );
-    });
-
-    // ─────────────────────────────────────────────
-    // 🧠 SCORING SEGÚN TU LÓGICA
-    // ─────────────────────────────────────────────
-
-    double score(PostModel post) {
-      double s = 0;
-
-      final isSameCountry =
-          post.bio?.toLowerCase().contains(userCountry) ?? false;
-
-      final isSameCity = post.city == userCity;
-
-      // 🥇 Coterráneo + misma ciudad
-      if (isSameCountry && isSameCity) s += 100;
-
-      // 🥈 Coterráneo + otra ciudad
-      else if (isSameCountry) s += 80;
-
-      // 🥉 Migrante + misma ciudad
-      else if (isSameCity) s += 60;
-
-      // 🪶 Migrante + otra ciudad
-      else s += 40;
-
-      // Amigos
-      if (followingIds.contains(post.authorId)) s += 30;
-
-      // Engagement
-      s += post.likesCount * 0.3;
-
-      // Recencia
-      final minutesAgo =
-          now.difference(post.createdAt ?? now).inMinutes;
-      s += (100 - minutesAgo).clamp(0, 100);
-
-      return s;
+    } catch (e) {
+      debugPrint('[FeedService] Error cargando feed: $e');
+      return FeedResult.empty;
     }
-
-    posts.sort((a, b) => score(b).compareTo(score(a)));
-
-    // ─────────────────────────────────────────────
-    // 🎉 Eventos (se mantienen)
-    // ─────────────────────────────────────────────
-
-    final events = [
-      EventModel(
-        docId: "event_1",
-        title: "Uruguayos en Madrid 🇺🇾",
-        location: "Madrid",
-        date: "Hoy 20:00",
-      ),
-      EventModel(
-        docId: "event_2",
-        title: "Networking migrantes 🌍",
-        location: "Madrid",
-        date: "Mañana",
-      ),
-    ];
-
-    final combined = _buildCombinedFeed(
-      followingPosts: posts.take(10).toList(),
-      nearbyPosts: posts.skip(10).toList(),
-      events: events,
-    );
-
-    return FeedResult(
-      posts: posts,
-      events: events,
-      combined: combined,
-      hasMore: false,
-    );
   }
 
-  //
-  // ─────────────────────────────────────────────
-  // COMBINADOR (igual que el tuyo)
-  // ─────────────────────────────────────────────
-  //
+  // ── Combinador posts + eventos ─────────────────────────────────────────────
+  // Intercala un evento cada 5 posts.
 
   static List<dynamic> _buildCombinedFeed({
-    required List<PostModel> followingPosts,
-    required List<PostModel> nearbyPosts,
+    required List<PostModel> posts,
     required List<EventModel> events,
   }) {
-    final allPosts = [...followingPosts, ...nearbyPosts];
     final result = <dynamic>[];
     var eventIdx = 0;
 
-    for (var i = 0; i < allPosts.length; i++) {
-      result.add(allPosts[i]);
+    for (var i = 0; i < posts.length; i++) {
+      result.add(posts[i]);
 
       if ((i + 1) % 5 == 0 && eventIdx < events.length) {
         result.add(events[eventIdx]);
@@ -272,25 +189,9 @@ class FeedService {
     }
 
     while (eventIdx < events.length) {
-      result.add(events[eventIdx]);
-      eventIdx++;
+      result.add(events[eventIdx++]);
     }
 
     return result;
   }
-
-  static String _flag(String country) {
-  switch (country) {
-    case "uruguay":
-      return "🇺🇾";
-    case "argentina":
-      return "🇦🇷";
-    case "chile":
-      return "🇨🇱";
-    case "peru":
-      return "🇵🇪";
-    default:
-      return "🌍";
-  }
-}
 }
