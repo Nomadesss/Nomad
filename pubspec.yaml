@@ -49,6 +49,8 @@ dependencies:
   flutter_svg: ^2.0.10
   phosphor_flutter: ^2.1.0
   google_fonts: ^8.0.2
+  just_audio: ^0.9.36
+  uuid: ^4.4.0
 
 dev_dependencies:
   flutter_test:

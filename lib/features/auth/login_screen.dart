@@ -1,7 +1,5 @@
 import 'dart:ui';
 import 'package:flutter/material.dart';
-import 'package:firebase_auth/firebase_auth.dart';
-import 'package:google_sign_in/google_sign_in.dart';
 import 'package:google_fonts/google_fonts.dart';
 
 import '../../services/auth_service.dart';
@@ -24,8 +22,6 @@ class _LoginScreenState extends State<LoginScreen>
   late Animation<Offset> _buttonsSlide;
 
   bool _isLoading = false;
-
-  final GoogleSignIn _googleSignIn = GoogleSignIn();
 
   @override
   void initState() {
@@ -75,14 +71,25 @@ class _LoginScreenState extends State<LoginScreen>
     setState(() => _isLoading = true);
 
     try {
-      await _googleSignIn.signOut();
-      await FirebaseAuth.instance.signOut();
-
-      final user = await AuthService().signInWithGoogle();
+      final result = await AuthService().signInWithGoogle();
 
       if (!mounted) return;
       setState(() => _isLoading = false);
-      if (user == null) return;
+
+      // Error explícito devuelto por el servicio
+      if (result.error != null) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text(result.error!),
+            backgroundColor: Colors.redAccent,
+            behavior: SnackBarBehavior.floating,
+          ),
+        );
+        return;
+      }
+
+      // El usuario canceló el selector de cuentas
+      if (result.user == null) return;
 
       Navigator.pushReplacement(
         context,
@@ -92,7 +99,7 @@ class _LoginScreenState extends State<LoginScreen>
       if (!mounted) return;
       setState(() => _isLoading = false);
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
+        SnackBar(
           content: Text('No se pudo iniciar sesión. Intentá de nuevo.'),
           backgroundColor: Colors.redAccent,
           behavior: SnackBarBehavior.floating,
@@ -115,6 +122,7 @@ class _LoginScreenState extends State<LoginScreen>
   @override
   Widget build(BuildContext context) {
     return Scaffold(
+      resizeToAvoidBottomInset: false, // ← Fix principal
       body: Stack(
         children: [
           /// BACKGROUND
@@ -123,6 +131,7 @@ class _LoginScreenState extends State<LoginScreen>
             builder: (context, child) {
               return Transform.scale(
                 scale: _backgroundZoom.value,
+                alignment: Alignment.center, // ← Evita que el zoom se desplace
                 child: Stack(
                   children: [
                     Positioned.fill(
@@ -157,117 +166,98 @@ class _LoginScreenState extends State<LoginScreen>
             ),
           ),
 
-          SafeArea(
-            child: Padding(
-              padding: const EdgeInsets.symmetric(horizontal: 30),
+          /// LOGO — posición fija, no depende del viewport
+          Positioned(
+            top: 80,
+            left: 30,
+            right: 30,
+            child: FadeTransition(
+              opacity: _logoFade,
               child: Column(
-                mainAxisAlignment: MainAxisAlignment.start,
                 children: [
-                  const SizedBox(height: 60),
-
-                  /// LOGO
-                  FadeTransition(
-                    opacity: _logoFade,
-                    child: Column(
-                      children: [
-                        Hero(
-                          tag: "logo",
-                          child: Text(
-                            "Nomad",
-                            style: GoogleFonts.pacifico(
-                              fontSize: 64,
-                              color: Color(0xFF0D9488),
-                            ),
-                          ),
-                        ),
-                        SizedBox(height: 10),
-                        Text(
-                          "Siéntete más cerca de tu casa",
-                          textAlign: TextAlign.center,
-                          style: GoogleFonts.pacifico(
-                            fontSize: 20,
-                            color: Color(0xFF0D9488),
-                          ),
-                        ),
-                      ],
-                    ),
-                  ),
-
-                  /// BOTONES
-                  const Spacer(),
-                  FadeTransition(
-                    opacity: _buttonsFade,
-                    child: SlideTransition(
-                      position: _buttonsSlide,
-                      child: Column(
-                        children: [
-                          if (_isLoading)
-                            const CircularProgressIndicator(color: Colors.white)
-                          else
-                            Column(
-                              children: [
-                                _socialButton(
-                                  "assets/icons/google.png",
-                                  "Continuar con Google",
-                                  _loginGoogle,
-                                ),
-
-                                const SizedBox(height: 12),
-
-                                _socialButton(
-                                  "assets/icons/apple.png",
-                                  "Continuar con Apple",
-                                  () {},
-                                ),
-
-                                const SizedBox(height: 12),
-
-                                // ── Teléfono (ahora conectado) ──
-                                _socialButton(
-                                  "assets/icons/phone.png",
-                                  "Iniciar sesión con número de celular",
-                                  _loginTelefono,
-                                ),
-
-                                const SizedBox(height: 12),
-
-                                /// LINK DE REGISTRO
-                                GestureDetector(
-                                  onTap: () =>
-                                      Navigator.pushNamed(context, '/registro'),
-                                  child: RichText(
-                                    text: const TextSpan(
-                                      style: TextStyle(fontSize: 14),
-                                      children: [
-                                        TextSpan(
-                                          text: '¿No tenés cuenta? ',
-                                          style: TextStyle(
-                                            color: Colors.white54,
-                                          ),
-                                        ),
-                                        TextSpan(
-                                          text: 'Registrate aquí',
-                                          style: TextStyle(
-                                            color: Colors.white,
-                                            fontWeight: FontWeight.w600,
-                                            decoration:
-                                                TextDecoration.underline,
-                                            decorationColor: Colors.white,
-                                          ),
-                                        ),
-                                      ],
-                                    ),
-                                  ),
-                                ),
-                              ],
-                            ),
-
-                          const SizedBox(height: 20),
-                        ],
+                  Hero(
+                    tag: "logo",
+                    child: Text(
+                      "Nomad",
+                      style: GoogleFonts.pacifico(
+                        fontSize: 64,
+                        color: Color(0xFF0D9488),
                       ),
                     ),
                   ),
+                  SizedBox(height: 10),
+                  Text(
+                    "Siéntete más cerca de tu casa",
+                    textAlign: TextAlign.center,
+                    style: GoogleFonts.pacifico(
+                      fontSize: 20,
+                      color: Color(0xFF0D9488),
+                    ),
+                  ),
                 ],
+              ),
+            ),
+          ),
+
+          /// BOTONES — anclados al fondo, posición fija
+          Positioned(
+            bottom: 40,
+            left: 30,
+            right: 30,
+            child: FadeTransition(
+              opacity: _buttonsFade,
+              child: SlideTransition(
+                position: _buttonsSlide,
+                child: _isLoading
+                    ? const Center(
+                        child: CircularProgressIndicator(color: Colors.white),
+                      )
+                    : Column(
+                        children: [
+                          _socialButton(
+                            "assets/icons/google.png",
+                            "Continuar con Google",
+                            _loginGoogle,
+                          ),
+                          const SizedBox(height: 12),
+                          _socialButton(
+                            "assets/icons/apple.png",
+                            "Continuar con Apple",
+                            () {},
+                          ),
+                          const SizedBox(height: 12),
+                          _socialButton(
+                            "assets/icons/phone.png",
+                            "Iniciar sesión con número de celular",
+                            _loginTelefono,
+                          ),
+                          const SizedBox(height: 12),
+                          GestureDetector(
+                            onTap: () =>
+                                Navigator.pushNamed(context, '/registro'),
+                            child: RichText(
+                              text: const TextSpan(
+                                style: TextStyle(fontSize: 14),
+                                children: [
+                                  TextSpan(
+                                    text: '¿No tenés cuenta? ',
+                                    style: TextStyle(color: Colors.white54),
+                                  ),
+                                  TextSpan(
+                                    text: 'Registrate aquí',
+                                    style: TextStyle(
+                                      color: Colors.white,
+                                      fontWeight: FontWeight.w600,
+                                      decoration: TextDecoration.underline,
+                                      decorationColor: Colors.white,
+                                    ),
+                                  ),
+                                ],
+                              ),
+                            ),
+                          ),
+                        ],
+                      ),
               ),
             ),
           ),

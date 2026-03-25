@@ -1,6 +1,15 @@
 import 'package:flutter/material.dart';
 import 'dart:math' show pi;
 
+import '../nueva_historia_screen.dart';
+import '../nueva_publicacion_screen.dart';
+import '../crear_evento_screen.dart';
+import '../mensaje_comunidad_screen.dart';
+
+// NOTA sobre los imports: ajustá las rutas según tu estructura de carpetas.
+// Si las pantallas están en features/feed/, los imports de arriba son correctos.
+// Si las pusiste en otra carpeta, actualizá las rutas.
+
 class StoriesBar extends StatelessWidget {
   const StoriesBar({super.key});
 
@@ -59,8 +68,6 @@ class _BlobBorderPainter extends CustomPainter {
     final w = size.width;
     final h = size.height;
 
-    // Interpola entre 4 formas de border-radius usando puntos de control
-    // Cada forma está definida por 8 valores de radio (TL-H, TL-V, TR-H, TR-V, BR-H, BR-V, BL-H, BL-V)
     final shapes = [
       [0.30, 0.70, 0.70, 0.30, 0.70, 0.30, 0.30, 0.70],
       [0.70, 0.30, 0.30, 0.70, 0.30, 0.70, 0.70, 0.30],
@@ -68,7 +75,6 @@ class _BlobBorderPainter extends CustomPainter {
       [0.40, 0.60, 0.70, 0.30, 0.40, 0.70, 0.30, 0.60],
     ];
 
-    // Interpola entre la forma actual y la siguiente
     final totalShapes = shapes.length;
     final scaledProgress = progress * totalShapes;
     final shapeIndex = scaledProgress.floor() % totalShapes;
@@ -83,11 +89,9 @@ class _BlobBorderPainter extends CustomPainter {
       (i) => current[i] + (next[i] - current[i]) * ease,
     );
 
-    // Dibuja el path del blob con los radios interpolados
     final path = _buildBlobPath(w, h, r);
 
     if (!viewed) {
-      // Borde con gradiente
       final gradient = const LinearGradient(
         begin: Alignment.topLeft,
         end: Alignment.bottomRight,
@@ -100,7 +104,6 @@ class _BlobBorderPainter extends CustomPainter {
         ..strokeCap = StrokeCap.round;
       canvas.drawPath(path, paint);
     } else {
-      // Borde gris para vistas
       final paint = Paint()
         ..color = const Color(0xFFD1D5DB)
         ..style = PaintingStyle.stroke
@@ -110,7 +113,6 @@ class _BlobBorderPainter extends CustomPainter {
   }
 
   Path _buildBlobPath(double w, double h, List<double> r) {
-    // r = [TL-H, TL-V, TR-H, TR-V, BR-H, BR-V, BL-H, BL-V] como fracción de w/h
     final tlH = r[0] * w, tlV = r[1] * h;
     final trH = r[2] * w, trV = r[3] * h;
     final brH = r[4] * w, brV = r[5] * h;
@@ -132,59 +134,6 @@ class _BlobBorderPainter extends CustomPainter {
   @override
   bool shouldRepaint(_BlobBorderPainter old) =>
       old.progress != progress || old.viewed != viewed;
-}
-
-class _BlobClipper extends CustomClipper<Path> {
-  final double progress;
-
-  const _BlobClipper({required this.progress});
-
-  @override
-  Path getClip(Size size) {
-    final w = size.width;
-    final h = size.height;
-
-    final shapes = [
-      [0.30, 0.70, 0.70, 0.30, 0.70, 0.30, 0.30, 0.70],
-      [0.70, 0.30, 0.30, 0.70, 0.30, 0.70, 0.70, 0.30],
-      [0.50, 0.50, 0.30, 0.70, 0.60, 0.40, 0.60, 0.40],
-      [0.40, 0.60, 0.70, 0.30, 0.40, 0.70, 0.30, 0.60],
-    ];
-
-    final totalShapes = shapes.length;
-    final scaledProgress = progress * totalShapes;
-    final shapeIndex = scaledProgress.floor() % totalShapes;
-    final nextIndex = (shapeIndex + 1) % totalShapes;
-    final t = scaledProgress - scaledProgress.floor();
-    final ease = t < 0.5 ? 2 * t * t : -1 + (4 - 2 * t) * t;
-
-    final current = shapes[shapeIndex];
-    final next = shapes[nextIndex];
-    final r = List.generate(
-      8,
-      (i) => current[i] + (next[i] - current[i]) * ease,
-    );
-
-    final tlH = r[0] * w, tlV = r[1] * h;
-    final trH = r[2] * w, trV = r[3] * h;
-    final brH = r[4] * w, brV = r[5] * h;
-    final blH = r[6] * w, blV = r[7] * h;
-
-    return Path()
-      ..moveTo(tlH, 0)
-      ..lineTo(w - trH, 0)
-      ..quadraticBezierTo(w, 0, w, trV)
-      ..lineTo(w, h - brV)
-      ..quadraticBezierTo(w, h, w - brH, h)
-      ..lineTo(blH, h)
-      ..quadraticBezierTo(0, h, 0, h - blV)
-      ..lineTo(0, tlV)
-      ..quadraticBezierTo(0, 0, tlH, 0)
-      ..close();
-  }
-
-  @override
-  bool shouldReclip(_BlobClipper old) => old.progress != progress;
 }
 
 // ── Story bubble ──────────────────────────────────────────────
@@ -252,7 +201,6 @@ class _StoryBubbleState extends State<_StoryBubble>
                   child: Stack(
                     alignment: Alignment.center,
                     children: [
-                      // Borde blob animado
                       CustomPaint(
                         size: const Size(66, 66),
                         painter: _BlobBorderPainter(
@@ -260,7 +208,6 @@ class _StoryBubbleState extends State<_StoryBubble>
                           viewed: widget.viewed,
                         ),
                       ),
-                      // Avatar con clip blob
                       ClipPath(
                         clipper: _BlobClippy(progress: _anim.value),
                         child: SizedBox(
@@ -311,8 +258,13 @@ class _StoryBubbleState extends State<_StoryBubble>
   }
 
   void _handleTap(BuildContext context) {
-    if (widget.isCreate) _openCreateMenu(context);
+    if (widget.isCreate) {
+      _openCreateMenu(context);
+    }
+    // TODO: si no es isCreate, abrir el viewer de la historia
   }
+
+  // ── Bottom sheet de creación ───────────────────────────────────────────────
 
   void _openCreateMenu(BuildContext context) {
     showModalBottomSheet(
@@ -320,32 +272,156 @@ class _StoryBubbleState extends State<_StoryBubble>
       shape: const RoundedRectangleBorder(
         borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
       ),
+      backgroundColor: Colors.white,
       builder: (_) => SafeArea(
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
+        child: Padding(
+          padding: const EdgeInsets.symmetric(vertical: 8),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              // Handle
+              Container(
+                width: 36,
+                height: 4,
+                margin: const EdgeInsets.only(bottom: 16),
+                decoration: BoxDecoration(
+                  color: const Color(0xFFCCFBF1),
+                  borderRadius: BorderRadius.circular(2),
+                ),
+              ),
+
+              _OpcionMenu(
+                emoji: '🕐',
+                titulo: 'Nueva historia',
+                subtitulo: 'Desaparece en 24 horas',
+                onTap: () {
+                  Navigator.pop(context);
+                  Navigator.push(
+                    context,
+                    MaterialPageRoute(
+                      builder: (_) => const NuevaHistoriaScreen(),
+                    ),
+                  );
+                },
+              ),
+
+              _OpcionMenu(
+                emoji: '🖼️',
+                titulo: 'Nueva publicación',
+                subtitulo: 'Aparece en el feed y tu perfil',
+                onTap: () {
+                  Navigator.pop(context);
+                  Navigator.push(
+                    context,
+                    MaterialPageRoute(
+                      builder: (_) => const NuevaPublicacionScreen(),
+                    ),
+                  );
+                },
+              ),
+
+              _OpcionMenu(
+                emoji: '📅',
+                titulo: 'Crear evento',
+                subtitulo: 'Con fecha, lugar y descripción',
+                onTap: () {
+                  Navigator.pop(context);
+                  Navigator.push(
+                    context,
+                    MaterialPageRoute(
+                      builder: (_) => const CrearEventoScreen(),
+                    ),
+                  );
+                },
+              ),
+
+              _OpcionMenu(
+                emoji: '📣',
+                titulo: 'Mensaje a la comunidad',
+                subtitulo: 'Un aviso para todos los nomads',
+                onTap: () {
+                  Navigator.pop(context);
+                  Navigator.push(
+                    context,
+                    MaterialPageRoute(
+                      builder: (_) => const MensajeComunidadScreen(),
+                    ),
+                  );
+                },
+              ),
+
+              const SizedBox(height: 8),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+// ── Opción del menú ───────────────────────────────────────────────────────────
+
+class _OpcionMenu extends StatelessWidget {
+  final String emoji;
+  final String titulo;
+  final String subtitulo;
+  final VoidCallback onTap;
+
+  const _OpcionMenu({
+    required this.emoji,
+    required this.titulo,
+    required this.subtitulo,
+    required this.onTap,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return InkWell(
+      onTap: onTap,
+      child: Padding(
+        padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 12),
+        child: Row(
           children: [
-            const SizedBox(height: 10),
-            ListTile(
-              leading: const Icon(Icons.history),
-              title: const Text("Nueva historia"),
-              onTap: () {},
+            Container(
+              width: 44,
+              height: 44,
+              decoration: BoxDecoration(
+                color: const Color(0xFFE6FAF8),
+                borderRadius: BorderRadius.circular(12),
+              ),
+              child: Center(
+                child: Text(emoji, style: const TextStyle(fontSize: 20)),
+              ),
             ),
-            ListTile(
-              leading: const Icon(Icons.photo),
-              title: const Text("Nueva publicación"),
-              onTap: () {},
+            const SizedBox(width: 14),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    titulo,
+                    style: const TextStyle(
+                      fontSize: 15,
+                      fontWeight: FontWeight.w600,
+                      color: Color(0xFF134E4A),
+                    ),
+                  ),
+                  const SizedBox(height: 2),
+                  Text(
+                    subtitulo,
+                    style: const TextStyle(
+                      fontSize: 12,
+                      color: Color(0xFF6B7280),
+                    ),
+                  ),
+                ],
+              ),
             ),
-            ListTile(
-              leading: const Icon(Icons.event),
-              title: const Text("Crear evento"),
-              onTap: () {},
+            const Icon(
+              Icons.chevron_right,
+              color: Color(0xFF5EEAD4),
+              size: 20,
             ),
-            ListTile(
-              leading: const Icon(Icons.campaign),
-              title: const Text("Mensaje a la comunidad"),
-              onTap: () {},
-            ),
-            const SizedBox(height: 10),
           ],
         ),
       ),
@@ -353,7 +429,7 @@ class _StoryBubbleState extends State<_StoryBubble>
   }
 }
 
-// ── Clipper separado (necesita ser clase top-level o named) ───
+// ── Clipper separado ──────────────────────────────────────────────────────────
 
 class _BlobClippy extends CustomClipper<Path> {
   final double progress;
