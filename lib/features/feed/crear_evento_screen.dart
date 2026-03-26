@@ -21,27 +21,27 @@ class CrearEventoScreen extends StatefulWidget {
 }
 
 class _CrearEventoScreenState extends State<CrearEventoScreen> {
-  final _formKey          = GlobalKey<FormState>();
-  final _tituloCtrl       = TextEditingController();
-  final _descripcionCtrl  = TextEditingController();
-  final _lugarCtrl        = TextEditingController();
-  final _capacidadCtrl    = TextEditingController();
+  final _formKey = GlobalKey<FormState>();
+  final _tituloCtrl = TextEditingController();
+  final _descripcionCtrl = TextEditingController();
+  final _lugarCtrl = TextEditingController();
+  final _capacidadCtrl = TextEditingController();
 
   DateTime? _fecha;
   TimeOfDay? _hora;
-  String    _tipoEvento = 'Meetup';
-  String?   _locationPlaceId;
-  File?     _coverImage;
-  bool      _guardando = false;
+  String _tipoEvento = 'Meetup';
+  String? _locationPlaceId;
+  File? _coverImage;
+  bool _guardando = false;
 
   final _picker = ImagePicker();
 
   static const _tipos = [
-    ('Meetup',       '🤝'),
-    ('Cultural',     '🎭'),
+    ('Meetup', '🤝'),
+    ('Cultural', '🎭'),
     ('Gastronómico', '🍽️'),
-    ('Deportivo',    '⚽'),
-    ('Otro',         '📌'),
+    ('Deportivo', '⚽'),
+    ('Otro', '📌'),
   ];
 
   @override
@@ -60,40 +60,55 @@ class _CrearEventoScreenState extends State<CrearEventoScreen> {
       context: context,
       backgroundColor: const Color(0xFF1A1A24),
       shape: const RoundedRectangleBorder(
-          borderRadius: BorderRadius.vertical(top: Radius.circular(16))),
+        borderRadius: BorderRadius.vertical(top: Radius.circular(16)),
+      ),
       builder: (_) => SafeArea(
         child: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
             Container(
-              width: 36, height: 4,
+              width: 36,
+              height: 4,
               margin: const EdgeInsets.symmetric(vertical: 12),
               decoration: BoxDecoration(
-                  color: Colors.white24,
-                  borderRadius: BorderRadius.circular(2)),
+                color: Colors.white24,
+                borderRadius: BorderRadius.circular(2),
+              ),
             ),
             ListTile(
-              leading: Icon(PhosphorIcons.images(),
-                  color: const Color(0xFF34D399)),
-              title: const Text('Galería',
-                  style: TextStyle(color: Colors.white)),
+              leading: Icon(
+                PhosphorIcons.images(),
+                color: const Color(0xFF34D399),
+              ),
+              title: const Text(
+                'Galería',
+                style: TextStyle(color: Colors.white),
+              ),
               onTap: () async {
                 Navigator.pop(context);
                 final picked = await _picker.pickImage(
-                    source: ImageSource.gallery, imageQuality: 85);
+                  source: ImageSource.gallery,
+                  imageQuality: 85,
+                );
                 if (picked != null && mounted)
                   setState(() => _coverImage = File(picked.path));
               },
             ),
             ListTile(
-              leading: Icon(PhosphorIcons.camera(),
-                  color: const Color(0xFF34D399)),
-              title: const Text('Cámara',
-                  style: TextStyle(color: Colors.white)),
+              leading: Icon(
+                PhosphorIcons.camera(),
+                color: const Color(0xFF34D399),
+              ),
+              title: const Text(
+                'Cámara',
+                style: TextStyle(color: Colors.white),
+              ),
               onTap: () async {
                 Navigator.pop(context);
                 final picked = await _picker.pickImage(
-                    source: ImageSource.camera, imageQuality: 85);
+                  source: ImageSource.camera,
+                  imageQuality: 85,
+                );
                 if (picked != null && mounted)
                   setState(() => _coverImage = File(picked.path));
               },
@@ -160,36 +175,45 @@ class _CrearEventoScreenState extends State<CrearEventoScreen> {
     setState(() => _guardando = true);
 
     final fechaCompleta = DateTime(
-      _fecha!.year, _fecha!.month, _fecha!.day,
-      _hora!.hour, _hora!.minute,
+      _fecha!.year,
+      _fecha!.month,
+      _fecha!.day,
+      _hora!.hour,
+      _hora!.minute,
     );
 
     final result = await EventService.createEvent(
-      title:           _tituloCtrl.text,
-      description:     _descripcionCtrl.text,
-      location:        _lugarCtrl.text,
+      title: _tituloCtrl.text,
+      description: _descripcionCtrl.text,
+      location: _lugarCtrl.text,
       locationPlaceId: _locationPlaceId,
-      fecha:           fechaCompleta,
-      tipo:            _tipoEvento,
-      capacidad:       int.tryParse(_capacidadCtrl.text),
-      coverImage:      _coverImage,
+      fecha: fechaCompleta,
+      tipo: _tipoEvento,
+      capacidad: int.tryParse(_capacidadCtrl.text),
+      coverImage: _coverImage,
     );
 
     if (!mounted) return;
     setState(() => _guardando = false);
 
-    if (result.error != null) { _snack(result.error!); return; }
+    if (result.error != null) {
+      _snack(result.error!);
+      return;
+    }
 
     Navigator.pop(context);
-    ScaffoldMessenger.of(context).showSnackBar(const SnackBar(
-      content: Text('¡Evento creado!'),
-      backgroundColor: Color(0xFF0D9488),
-      behavior: SnackBarBehavior.floating,
-    ));
+    ScaffoldMessenger.of(context).showSnackBar(
+      const SnackBar(
+        content: Text('¡Evento creado!'),
+        backgroundColor: Color(0xFF0D9488),
+        behavior: SnackBarBehavior.floating,
+      ),
+    );
   }
 
   void _snack(String msg) => ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(content: Text(msg), behavior: SnackBarBehavior.floating));
+    SnackBar(content: Text(msg), behavior: SnackBarBehavior.floating),
+  );
 
   String get _fechaFormateada => _fecha == null
       ? 'Elegir fecha'
@@ -213,9 +237,14 @@ class _CrearEventoScreenState extends State<CrearEventoScreen> {
           icon: const Icon(Icons.close, color: Colors.white),
           onPressed: () => Navigator.pop(context),
         ),
-        title: const Text('Crear evento',
-            style: TextStyle(
-                color: Colors.white, fontWeight: FontWeight.w600, fontSize: 16)),
+        title: const Text(
+          'Crear evento',
+          style: TextStyle(
+            color: Colors.white,
+            fontWeight: FontWeight.w600,
+            fontSize: 16,
+          ),
+        ),
       ),
       body: Form(
         key: _formKey,
@@ -224,9 +253,11 @@ class _CrearEventoScreenState extends State<CrearEventoScreen> {
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-
               // ── Foto de portada ──────────────────────────────────────────
-              _DarkLabel(icono: PhosphorIcons.image(), texto: 'Foto de portada (opcional)'),
+              _DarkLabel(
+                icono: PhosphorIcons.image(),
+                texto: 'Foto de portada (opcional)',
+              ),
               const SizedBox(height: 10),
               GestureDetector(
                 onTap: _elegirPortada,
@@ -234,31 +265,38 @@ class _CrearEventoScreenState extends State<CrearEventoScreen> {
                   height: 160,
                   width: double.infinity,
                   decoration: BoxDecoration(
-                    color: Colors.white.withValues(alpha: 0.06),
+                    color: Colors.black,
                     borderRadius: BorderRadius.circular(16),
                     border: Border.all(
-                        color: const Color(0xFF0D9488).withValues(alpha: 0.35)),
+                      color: const Color(0xFF0D9488).withValues(alpha: 0.35),
+                    ),
                     image: _coverImage != null
                         ? DecorationImage(
                             image: FileImage(_coverImage!),
-                            fit: BoxFit.cover)
+                            fit: BoxFit.contain,
+                            alignment: Alignment.center,
+                          )
                         : null,
                   ),
                   child: _coverImage != null
                       ? Stack(
                           children: [
                             Positioned(
-                              top: 8, right: 8,
+                              top: 8,
+                              right: 8,
                               child: GestureDetector(
-                                onTap: () =>
-                                    setState(() => _coverImage = null),
+                                onTap: () => setState(() => _coverImage = null),
                                 child: Container(
                                   padding: const EdgeInsets.all(6),
                                   decoration: BoxDecoration(
-                                      color: Colors.black54,
-                                      shape: BoxShape.circle),
-                                  child: const Icon(Icons.close,
-                                      color: Colors.white, size: 16),
+                                    color: Colors.black54,
+                                    shape: BoxShape.circle,
+                                  ),
+                                  child: const Icon(
+                                    Icons.close,
+                                    color: Colors.white,
+                                    size: 16,
+                                  ),
                                 ),
                               ),
                             ),
@@ -266,13 +304,50 @@ class _CrearEventoScreenState extends State<CrearEventoScreen> {
                         )
                       : Column(
                           mainAxisAlignment: MainAxisAlignment.center,
+
                           children: [
-                            Icon(PhosphorIcons.image(),
-                                color: const Color(0xFF0D9488), size: 32),
-                            const SizedBox(height: 8),
-                            const Text('Agregar foto de portada',
-                                style: TextStyle(
-                                    color: Colors.white38, fontSize: 13)),
+                            Container(
+                              width: 54,
+                              height: 54,
+
+                              decoration: BoxDecoration(
+                                shape: BoxShape.circle,
+
+                                gradient: LinearGradient(
+                                  colors: [
+                                    Color(0xFF0D9488),
+                                    Color(0xFF34D399),
+                                  ],
+                                ),
+                              ),
+
+                              child: Icon(
+                                PhosphorIcons.image(),
+                                color: Colors.white,
+                              ),
+                            ),
+
+                            SizedBox(height: 12),
+
+                            Text(
+                              "Sumá una portada",
+
+                              style: TextStyle(
+                                color: Colors.white,
+                                fontWeight: FontWeight.w600,
+                              ),
+                            ),
+
+                            SizedBox(height: 4),
+
+                            Text(
+                              "Hace tu evento más atractivo",
+
+                              style: TextStyle(
+                                color: Colors.white38,
+                                fontSize: 12,
+                              ),
+                            ),
                           ],
                         ),
                 ),
@@ -295,10 +370,20 @@ class _CrearEventoScreenState extends State<CrearEventoScreen> {
                         duration: const Duration(milliseconds: 180),
                         margin: const EdgeInsets.only(right: 8),
                         padding: const EdgeInsets.symmetric(
-                            horizontal: 16, vertical: 10),
+                          horizontal: 16,
+                          vertical: 10,
+                        ),
                         decoration: BoxDecoration(
+                          gradient: sel
+                              ? LinearGradient(
+                                  colors: [
+                                    Color(0xFF0D9488),
+                                    Color(0xFF34D399),
+                                  ],
+                                )
+                              : null,
                           color: sel
-                              ? const Color(0xFF0D9488)
+                              ? null
                               : Colors.white.withValues(alpha: 0.07),
                           borderRadius: BorderRadius.circular(22),
                           border: Border.all(
@@ -309,16 +394,16 @@ class _CrearEventoScreenState extends State<CrearEventoScreen> {
                         ),
                         child: Row(
                           children: [
-                            Text(tipo.$2,
-                                style: const TextStyle(fontSize: 14)),
+                            Text(tipo.$2, style: const TextStyle(fontSize: 14)),
                             const SizedBox(width: 6),
-                            Text(tipo.$1,
-                                style: TextStyle(
-                                    fontSize: 13,
-                                    fontWeight: FontWeight.w500,
-                                    color: sel
-                                        ? Colors.white
-                                        : Colors.white70)),
+                            Text(
+                              tipo.$1,
+                              style: TextStyle(
+                                fontSize: 13,
+                                fontWeight: FontWeight.w500,
+                                color: sel ? Colors.white : Colors.white70,
+                              ),
+                            ),
                           ],
                         ),
                       ),
@@ -344,7 +429,9 @@ class _CrearEventoScreenState extends State<CrearEventoScreen> {
 
               // ── Descripción ──────────────────────────────────────────────
               _DarkLabel(
-                  icono: PhosphorIcons.textAlignLeft(), texto: 'Descripción'),
+                icono: PhosphorIcons.textAlignLeft(),
+                texto: 'Sobre el evento',
+              ),
               const SizedBox(height: 10),
               _DarkField(
                 controller: _descripcionCtrl,
@@ -356,7 +443,9 @@ class _CrearEventoScreenState extends State<CrearEventoScreen> {
 
               // ── Fecha y hora ─────────────────────────────────────────────
               _DarkLabel(
-                  icono: PhosphorIcons.calendarBlank(), texto: 'Fecha y hora'),
+                icono: PhosphorIcons.calendarBlank(),
+                texto: 'Fecha y hora',
+              ),
               const SizedBox(height: 10),
               Row(
                 children: [
@@ -391,7 +480,7 @@ class _CrearEventoScreenState extends State<CrearEventoScreen> {
                 dark: true,
                 onSelected: (pred, detail) {
                   _locationPlaceId = pred.placeId;
-                  _lugarCtrl.text  = pred.description;
+                  _lugarCtrl.text = pred.description;
                 },
               ),
 
@@ -399,8 +488,9 @@ class _CrearEventoScreenState extends State<CrearEventoScreen> {
 
               // ── Capacidad máxima ─────────────────────────────────────────
               _DarkLabel(
-                  icono: PhosphorIcons.users(),
-                  texto: 'Capacidad máxima (opcional)'),
+                icono: PhosphorIcons.users(),
+                texto: 'Capacidad máxima (opcional)',
+              ),
               const SizedBox(height: 10),
               _DarkField(
                 controller: _capacidadCtrl,
@@ -409,7 +499,7 @@ class _CrearEventoScreenState extends State<CrearEventoScreen> {
                 prefixIcon: PhosphorIcons.users(),
               ),
 
-              const SizedBox(height: 36),
+              const SizedBox(height: 42),
 
               // ── Botón crear ──────────────────────────────────────────────
               GestureDetector(
@@ -418,26 +508,37 @@ class _CrearEventoScreenState extends State<CrearEventoScreen> {
                   height: 54,
                   decoration: BoxDecoration(
                     gradient: const LinearGradient(
-                        colors: [Color(0xFF0D9488), Color(0xFF34D399)]),
+                      colors: [Color(0xFF0D9488), Color(0xFF34D399)],
+                    ),
                     borderRadius: BorderRadius.circular(30),
                   ),
                   child: Center(
                     child: _guardando
                         ? const SizedBox(
-                            width: 22, height: 22,
+                            width: 22,
+                            height: 22,
                             child: CircularProgressIndicator(
-                                color: Colors.white, strokeWidth: 2))
+                              color: Colors.white,
+                              strokeWidth: 2,
+                            ),
+                          )
                         : Row(
                             mainAxisAlignment: MainAxisAlignment.center,
                             children: [
-                              Icon(PhosphorIcons.calendarPlus(),
-                                  color: Colors.white, size: 20),
+                              Icon(
+                                PhosphorIcons.calendarPlus(),
+                                color: Colors.white,
+                                size: 20,
+                              ),
                               const SizedBox(width: 10),
-                              const Text('Crear evento',
-                                  style: TextStyle(
-                                      color: Colors.white,
-                                      fontWeight: FontWeight.w600,
-                                      fontSize: 16)),
+                              const Text(
+                                'Crear evento',
+                                style: TextStyle(
+                                  color: Colors.white,
+                                  fontWeight: FontWeight.w600,
+                                  fontSize: 16,
+                                ),
+                              ),
                             ],
                           ),
                   ),
@@ -464,11 +565,14 @@ class _DarkLabel extends StatelessWidget {
       children: [
         Icon(icono, size: 14, color: const Color(0xFF0D9488)),
         const SizedBox(width: 6),
-        Text(texto,
-            style: const TextStyle(
-                fontSize: 13,
-                fontWeight: FontWeight.w600,
-                color: Colors.white70)),
+        Text(
+          texto,
+          style: const TextStyle(
+            fontSize: 13,
+            fontWeight: FontWeight.w600,
+            color: Colors.white70,
+          ),
+        ),
       ],
     );
   }
@@ -504,18 +608,23 @@ class _DarkField extends StatelessWidget {
         maxLines: maxLines,
         keyboardType: keyboardType,
         validator: validator,
-        style: const TextStyle(color: Colors.white, fontSize: 14),
+        style: const TextStyle(
+          color: Colors.white,
+          fontSize: 15,
+          fontWeight: FontWeight.w500,
+        ),
         decoration: InputDecoration(
           hintText: hint,
           hintStyle: const TextStyle(color: Colors.white30, fontSize: 14),
           prefixIcon: prefixIcon != null
               ? Icon(prefixIcon, color: const Color(0xFF5EEAD4), size: 18)
               : null,
-          contentPadding:
-              const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
+          contentPadding: const EdgeInsets.symmetric(
+            horizontal: 16,
+            vertical: 14,
+          ),
           border: InputBorder.none,
-          errorStyle:
-              const TextStyle(color: Colors.redAccent, fontSize: 11),
+          errorStyle: const TextStyle(color: Colors.redAccent, fontSize: 11),
         ),
       ),
     );
@@ -540,8 +649,7 @@ class _SelectorTile extends StatelessWidget {
     return GestureDetector(
       onTap: onTap,
       child: Container(
-        padding:
-            const EdgeInsets.symmetric(horizontal: 12, vertical: 14),
+        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 14),
         decoration: BoxDecoration(
           color: activo
               ? const Color(0xFF0D9488).withValues(alpha: 0.15)
@@ -555,21 +663,22 @@ class _SelectorTile extends StatelessWidget {
         ),
         child: Row(
           children: [
-            Icon(icono,
-                size: 15,
-                color: activo
-                    ? const Color(0xFF0D9488)
-                    : Colors.white38),
+            Icon(
+              icono,
+              size: 15,
+              color: activo ? const Color(0xFF0D9488) : Colors.white38,
+            ),
             const SizedBox(width: 8),
             Expanded(
-              child: Text(label,
-                  style: TextStyle(
-                      fontSize: 12,
-                      fontWeight: activo
-                          ? FontWeight.w600
-                          : FontWeight.normal,
-                      color: activo ? Colors.white : Colors.white38),
-                  overflow: TextOverflow.ellipsis),
+              child: Text(
+                label,
+                style: TextStyle(
+                  fontSize: 13,
+                  fontWeight: activo ? FontWeight.w600 : FontWeight.normal,
+                  color: activo ? Colors.white : Colors.white38,
+                ),
+                overflow: TextOverflow.ellipsis,
+              ),
             ),
           ],
         ),
