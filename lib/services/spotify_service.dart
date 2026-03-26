@@ -16,7 +16,7 @@ import 'package:http/http.dart' as http;
 
 class SpotifyService {
   // ── Credenciales — reemplazar con las tuyas ────────────────────────────────
-  static const _clientId     = '6e06d76d90bb4b5483d6ee0ff762c6db';
+  static const _clientId = '6e06d76d90bb4b5483d6ee0ff762c6db';
   static const _clientSecret = 'a7ca436d37b549f1ba07e9d88c0df4ec';
 
   static String? _accessToken;
@@ -28,13 +28,13 @@ class SpotifyService {
     // Reutilizar token si todavía es válido (con 60s de margen)
     if (_accessToken != null &&
         _tokenExpiry != null &&
-        DateTime.now().isBefore(_tokenExpiry!.subtract(const Duration(seconds: 60)))) {
+        DateTime.now().isBefore(
+          _tokenExpiry!.subtract(const Duration(seconds: 60)),
+        )) {
       return _accessToken;
     }
 
-    final credentials = base64Encode(
-      utf8.encode('$_clientId:$_clientSecret'),
-    );
+    final credentials = base64Encode(utf8.encode('$_clientId:$_clientSecret'));
 
     try {
       final response = await http.post(
@@ -70,10 +70,10 @@ class SpotifyService {
     try {
       final uri = Uri.parse('https://api.spotify.com/v1/search').replace(
         queryParameters: {
-          'q':     query,
-          'type':  'track',
+          'q': query,
+          'type': 'track',
           'limit': '10',
-          'market': 'AR', // cambiar según tu mercado principal
+          'market': 'US', // cambiar según tu mercado principal
         },
       );
 
@@ -85,10 +85,7 @@ class SpotifyService {
       if (response.statusCode == 200) {
         final data = json.decode(response.body);
         final items = data['tracks']['items'] as List<dynamic>;
-        return items
-            .where((item) => item['preview_url'] != null)
-            .map((item) => SpotifyTrack.fromJson(item))
-            .toList();
+        return items.map((item) => SpotifyTrack.fromJson(item)).toList();
       }
     } catch (_) {}
 
@@ -102,8 +99,8 @@ class SpotifyTrack {
   final String id;
   final String name;
   final String artist;
-  final String? albumArt;    // URL de la imagen del álbum
-  final String? previewUrl;  // Preview de 30 segundos
+  final String? albumArt; // URL de la imagen del álbum
+  final String? previewUrl; // Preview de 30 segundos
 
   const SpotifyTrack({
     required this.id,
@@ -124,10 +121,10 @@ class SpotifyTrack {
         : null;
 
     return SpotifyTrack(
-      id:         json['id'] as String,
-      name:       json['name'] as String,
-      artist:     artists,
-      albumArt:   albumArt,
+      id: json['id'] as String,
+      name: json['name'] as String,
+      artist: artists,
+      albumArt: albumArt,
       previewUrl: json['preview_url'] as String?,
     );
   }

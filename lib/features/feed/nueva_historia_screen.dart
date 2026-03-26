@@ -30,10 +30,7 @@ class _NuevaHistoriaScreenState extends State<NuevaHistoriaScreen> {
   final _picker = ImagePicker();
 
   Future<void> _elegirFuente(ImageSource source) async {
-    final picked = await _picker.pickImage(
-      source: source,
-      imageQuality: 85,
-    );
+    final picked = await _picker.pickImage(source: source, imageQuality: 85);
     if (picked != null && mounted) {
       setState(() => _imagen = File(picked.path));
     }
@@ -90,8 +87,10 @@ class _NuevaHistoriaScreenState extends State<NuevaHistoriaScreen> {
                   children: [
                     Icon(PhosphorIcons.textT(), color: Colors.white, size: 18),
                     const SizedBox(width: 4),
-                    const Text('Texto',
-                        style: TextStyle(color: Colors.white, fontSize: 14)),
+                    const Text(
+                      'Texto',
+                      style: TextStyle(color: Colors.white, fontSize: 14),
+                    ),
                   ],
                 ),
               ),
@@ -109,48 +108,84 @@ class _NuevaHistoriaScreenState extends State<NuevaHistoriaScreen> {
     return Center(
       child: Column(
         mainAxisAlignment: MainAxisAlignment.center,
+
         children: [
+          /// icono estilo story
           Container(
-            width: 90,
-            height: 90,
+            width: 110,
+            height: 110,
+
             decoration: BoxDecoration(
-              color: const Color(0xFF0D9488).withValues(alpha: 0.15),
               shape: BoxShape.circle,
-              border: Border.all(
-                color: const Color(0xFF0D9488).withValues(alpha: 0.4),
-                width: 2,
+
+              gradient: LinearGradient(
+                colors: [Color(0xFF0D9488), Color(0xFF34D399)],
               ),
             ),
-            child: Icon(
-              PhosphorIcons.image(),
-              size: 40,
-              color: const Color(0xFF0D9488),
+
+            padding: EdgeInsets.all(3),
+
+            child: Container(
+              decoration: BoxDecoration(
+                shape: BoxShape.circle,
+
+                color: Color(0xFF0F0F14),
+              ),
+
+              child: Icon(
+                PhosphorIcons.sparkle(),
+
+                size: 40,
+
+                color: Color(0xFF34D399),
+              ),
             ),
           ),
-          const SizedBox(height: 28),
+
+          const SizedBox(height: 26),
+
           const Text(
-            'Elegí una foto para tu historia',
+            'Compartí un momento',
+
             style: TextStyle(
               color: Colors.white,
-              fontSize: 16,
-              fontWeight: FontWeight.w500,
+
+              fontSize: 18,
+              fontWeight: FontWeight.w600,
             ),
           ),
-          const SizedBox(height: 8),
-          const Text(
-            'Desaparece en 24 horas',
-            style: TextStyle(color: Colors.white38, fontSize: 13),
+
+          const SizedBox(height: 6),
+
+          Text(
+            'Visible por 24 horas para tu comunidad',
+
+            style: TextStyle(
+              color: Colors.white.withOpacity(.45),
+
+              fontSize: 13,
+            ),
           ),
-          const SizedBox(height: 40),
-          _opcionBoton(
+
+          const SizedBox(height: 38),
+
+          /// botón principal
+          _botonPrimario(
             icono: PhosphorIcons.images(),
+
             label: 'Elegir de la galería',
+
             onTap: () => _elegirFuente(ImageSource.gallery),
           ),
+
           const SizedBox(height: 14),
-          _opcionBoton(
+
+          /// botón secundario
+          _botonSecundario(
             icono: PhosphorIcons.camera(),
+
             label: 'Tomar una foto',
+
             onTap: () => _elegirFuente(ImageSource.camera),
           ),
         ],
@@ -158,32 +193,95 @@ class _NuevaHistoriaScreenState extends State<NuevaHistoriaScreen> {
     );
   }
 
-  Widget _opcionBoton({
+  Widget _botonPrimario({
     required IconData icono,
     required String label,
     required VoidCallback onTap,
   }) {
     return GestureDetector(
       onTap: onTap,
+
       child: Container(
-        width: 260,
-        padding: const EdgeInsets.symmetric(vertical: 14, horizontal: 24),
+        width: 270,
+
+        padding: const EdgeInsets.symmetric(vertical: 15, horizontal: 24),
+
         decoration: BoxDecoration(
-          color: const Color(0xFF0D9488).withValues(alpha: 0.20),
-          borderRadius: BorderRadius.circular(30),
-          border: Border.all(
-            color: const Color(0xFF34D399).withValues(alpha: 0.4),
+          gradient: LinearGradient(
+            colors: [Color(0xFF0D9488), Color(0xFF34D399)],
           ),
+
+          borderRadius: BorderRadius.circular(30),
+
+          boxShadow: [
+            BoxShadow(
+              color: Color(0xFF34D399).withOpacity(.25),
+
+              blurRadius: 18,
+              offset: Offset(0, 6),
+            ),
+          ],
         ),
+
         child: Row(
           mainAxisAlignment: MainAxisAlignment.center,
+
           children: [
-            Icon(icono, color: const Color(0xFF34D399), size: 20),
+            Icon(icono, color: Colors.white, size: 20),
+
             const SizedBox(width: 12),
+
             Text(
               label,
+
               style: const TextStyle(
                 color: Colors.white,
+
+                fontSize: 15,
+                fontWeight: FontWeight.w600,
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _botonSecundario({
+    required IconData icono,
+    required String label,
+    required VoidCallback onTap,
+  }) {
+    return GestureDetector(
+      onTap: onTap,
+
+      child: Container(
+        width: 270,
+
+        padding: const EdgeInsets.symmetric(vertical: 14, horizontal: 24),
+
+        decoration: BoxDecoration(
+          borderRadius: BorderRadius.circular(30),
+
+          border: Border.all(color: Color(0xFF34D399).withOpacity(.35)),
+
+          color: Color(0xFF0D9488).withOpacity(.12),
+        ),
+
+        child: Row(
+          mainAxisAlignment: MainAxisAlignment.center,
+
+          children: [
+            Icon(icono, color: Color(0xFF34D399), size: 20),
+
+            const SizedBox(width: 12),
+
+            Text(
+              label,
+
+              style: const TextStyle(
+                color: Colors.white,
+
                 fontSize: 15,
                 fontWeight: FontWeight.w500,
               ),
@@ -199,58 +297,123 @@ class _NuevaHistoriaScreenState extends State<NuevaHistoriaScreen> {
   Widget _previsualizacion() {
     return Stack(
       fit: StackFit.expand,
+
       children: [
-        // Imagen de fondo
-        Image.file(_imagen!, fit: BoxFit.cover),
+        /// imagen
+        AnimatedSwitcher(
+          duration: Duration(milliseconds: 250),
 
-        // Overlay oscuro sutil
-        Container(color: Colors.black.withValues(alpha: 0.15)),
+          child: Image.file(
+            _imagen!,
 
-        // Campo de texto encima de la imagen
-        if (_mostrarTexto)
-          Positioned(
-            bottom: 120,
-            left: 20,
-            right: 20,
-            child: Container(
-              decoration: BoxDecoration(
-                color: Colors.black.withValues(alpha: 0.45),
-                borderRadius: BorderRadius.circular(12),
-              ),
-              child: TextField(
-                controller: _textoCtrl,
-                maxLines: 3,
-                style: const TextStyle(
-                  color: Colors.white,
-                  fontSize: 18,
-                  fontWeight: FontWeight.w500,
-                ),
-                decoration: const InputDecoration(
-                  hintText: 'Escribí algo...',
-                  hintStyle: TextStyle(color: Colors.white54),
-                  contentPadding: EdgeInsets.all(16),
-                  border: InputBorder.none,
-                ),
+            key: ValueKey(_imagen!.path),
+
+            fit: BoxFit.cover,
+          ),
+        ),
+
+        /// overlay cinematográfico
+        Positioned.fill(
+          child: Container(
+            decoration: BoxDecoration(
+              gradient: LinearGradient(
+                begin: Alignment.topCenter,
+
+                end: Alignment.bottomCenter,
+
+                colors: [
+                  Colors.black.withOpacity(.15),
+
+                  Colors.transparent,
+
+                  Colors.transparent,
+
+                  Colors.black.withOpacity(.45),
+                ],
+
+                stops: [.0, .25, .55, 1],
               ),
             ),
           ),
+        ),
 
-        // Botón para cambiar imagen
+        /// botón cambiar imagen
         Positioned(
           top: 16,
+
           right: 16,
+
           child: GestureDetector(
             onTap: () => _elegirFuente(ImageSource.gallery),
+
             child: Container(
-              padding: const EdgeInsets.all(8),
+              padding: EdgeInsets.all(10),
+
               decoration: BoxDecoration(
-                color: Colors.black.withValues(alpha: 0.45),
+                color: Colors.black.withOpacity(.35),
+
                 shape: BoxShape.circle,
+
+                border: Border.all(color: Colors.white.withOpacity(.15)),
               ),
+
               child: Icon(
                 PhosphorIcons.arrowsClockwise(),
+
                 color: Colors.white,
+
                 size: 20,
+              ),
+            ),
+          ),
+        ),
+
+        /// texto sobre imagen
+        AnimatedOpacity(
+          duration: Duration(milliseconds: 180),
+
+          opacity: _mostrarTexto ? 1 : 0,
+
+          child: Align(
+            alignment: Alignment.center,
+
+            child: Padding(
+              padding: EdgeInsets.symmetric(horizontal: 24),
+
+              child: Container(
+                padding: EdgeInsets.symmetric(horizontal: 18, vertical: 14),
+
+                decoration: BoxDecoration(
+                  color: Colors.black.withOpacity(.35),
+
+                  borderRadius: BorderRadius.circular(18),
+
+                  border: Border.all(color: Colors.white.withOpacity(.12)),
+                ),
+
+                child: TextField(
+                  controller: _textoCtrl,
+
+                  maxLines: 3,
+
+                  textAlign: TextAlign.center,
+
+                  style: TextStyle(
+                    color: Colors.white,
+
+                    fontSize: 20,
+
+                    fontWeight: FontWeight.w600,
+                  ),
+
+                  decoration: InputDecoration(
+                    hintText: "Escribí algo...",
+
+                    hintStyle: TextStyle(color: Colors.white.withOpacity(.45)),
+
+                    border: InputBorder.none,
+                  ),
+                ),
               ),
             ),
           ),
@@ -264,38 +427,68 @@ class _NuevaHistoriaScreenState extends State<NuevaHistoriaScreen> {
   Widget _botonPublicar() {
     return SafeArea(
       child: Padding(
-        padding: const EdgeInsets.fromLTRB(20, 12, 20, 20),
+        padding: EdgeInsets.fromLTRB(22, 12, 22, 22),
+
         child: GestureDetector(
           onTap: _publicando ? null : _publicar,
-          child: Container(
-            height: 54,
+
+          child: AnimatedContainer(
+            duration: Duration(milliseconds: 160),
+
+            height: 56,
+
             decoration: BoxDecoration(
-              gradient: const LinearGradient(
+              gradient: LinearGradient(
                 colors: [Color(0xFF0D9488), Color(0xFF34D399)],
               ),
-              borderRadius: BorderRadius.circular(30),
+
+              borderRadius: BorderRadius.circular(40),
+
+              boxShadow: [
+                BoxShadow(
+                  color: Color(0xFF34D399).withOpacity(.35),
+
+                  blurRadius: 20,
+
+                  offset: Offset(0, 8),
+                ),
+              ],
             ),
+
             child: Center(
               child: _publicando
-                  ? const SizedBox(
+                  ? SizedBox(
                       width: 22,
                       height: 22,
+
                       child: CircularProgressIndicator(
                         color: Colors.white,
+
                         strokeWidth: 2,
                       ),
                     )
                   : Row(
                       mainAxisAlignment: MainAxisAlignment.center,
+
                       children: [
-                        Icon(PhosphorIcons.paperPlaneTilt(),
-                            color: Colors.white, size: 20),
-                        const SizedBox(width: 10),
-                        const Text(
-                          'Publicar historia',
+                        Icon(
+                          PhosphorIcons.paperPlaneTilt(),
+
+                          color: Colors.white,
+
+                          size: 20,
+                        ),
+
+                        SizedBox(width: 10),
+
+                        Text(
+                          "Publicar historia",
+
                           style: TextStyle(
                             color: Colors.white,
+
                             fontWeight: FontWeight.w600,
+
                             fontSize: 16,
                           ),
                         ),

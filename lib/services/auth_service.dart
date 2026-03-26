@@ -7,20 +7,49 @@ import 'user_model.dart';
 // ─────────────────────────────────────────────────────────────────────────────
 // AuthService — autenticación y creación de perfil en Nomad
 //
-// Colección Firestore: 'users'  ← unificado. Era 'usuarios', estaba roto.
+// Colección Firestore: 'users'
 //
 // Convención de retorno:
 //   Todos los métodos devuelven ({T? data, String? error}).
 //   Si error == null → operación exitosa.
 //   Si error != null → mostrar el mensaje al usuario.
+//
+// ── Convención de nombres de campos (ÚNICA fuente de verdad) ─────────────────
+//
+//   Campo             Tipo          Notas
+//   ────────────────  ────────────  ─────────────────────────────────────────
+//   uid               String
+//   email             String
+//   nombres           String?       Solo registro con email
+//   apellidos         String?       Solo registro con email
+//   nombreCompleto    String?       Siempre presente si hay nombre
+//   fotoUrl           String?       URL de foto de perfil
+//   fechaNacimiento   Timestamp?
+//   nacionalidad      String?
+//   nacionalidadCode  String?
+//   countryFlag       String?
+//   terminosAceptados bool          Fuente de verdad GDPR (booleano)
+//   gdprAceptadoEn    Timestamp?    Fuente de verdad GDPR (timestamp)
+//   gdprVersion       String?
+//   followersCount    int
+//   followingCount    int
+//   creadoEn          Timestamp     Server timestamp de creación
+//   actualizadoEn     Timestamp     Server timestamp de última modificación
+//   dataDeletionRequestedAt Timestamp? GDPR Art.17
+//
+//   ELIMINADOS (eran duplicados con nombres en inglés):
+//     name        → usar nombreCompleto
+//     photo       → usar fotoUrl
+//     acceptedTerms → usar terminosAceptados
+//     acceptedAt  → usar gdprAceptadoEn
+//     createdAt   → usar creadoEn
+//
 // ─────────────────────────────────────────────────────────────────────────────
 
 class AuthService {
   final FirebaseAuth _auth = FirebaseAuth.instance;
   final FirebaseFirestore _db = FirebaseFirestore.instance;
 
-  // Nombre de la colección en un solo lugar.
-  // Si alguna vez cambia, se cambia acá y listo.
   static const _usersCollection = 'users';
 
   // ── Stream de estado de sesión ─────────────────────────────────────────────
@@ -51,8 +80,10 @@ class AuthService {
   //   3. Firestore → crea el documento si es nuevo, o lo actualiza si ya existe.
   //      Usa set + merge:true para NO pisar datos del onboarding si ya los tenía.
   //
-  // CORRECCIÓN: en el original este método no tocaba Firestore.
-  // El usuario entraba pero no tenía documento → todo lo demás fallaba.
+  // El documento inicial NO incluye terminosAceptados:true porque el flujo
+  // de Google no mostró la pantalla de términos. El router debe detectar
+  // gdprCompliant == false y llevar al usuario a la pantalla de términos
+  // antes de entrar al feed. Desde ahí se llama aceptarTerminos().
 
   Future<({UserModel? user, String? error})> signInWithGoogle() async {
     try {
@@ -75,29 +106,27 @@ class AuthService {
         return (user: null, error: 'No se pudo autenticar. Intentá de nuevo.');
       }
 
-      // Verificar si el documento ya existe en Firestore.
       final docRef = _db.collection(_usersCollection).doc(firebaseUser.uid);
       final docSnap = await docRef.get();
 
       if (!docSnap.exists) {
         // Primera vez con Google → crear documento base.
-        // NO pedimos términos acá porque el flujo de Google no los mostró.
-        // El router debe detectar gdprCompliant == false y llevar al usuario
-        // a la pantalla de términos antes de entrar al feed.
         final newUser = UserModel(
-          uid:           firebaseUser.uid,
-          email:         firebaseUser.email ?? '',
-          nombreCompleto: firebaseUser.displayName,
-          fotoUrl:       firebaseUser.photoURL,
-          // gdprAceptadoEn se completa en el paso de términos post-Google
+          uid:              firebaseUser.uid,
+          email:            firebaseUser.email ?? '',
+          nombreCompleto:   firebaseUser.displayName,
+          fotoUrl:          firebaseUser.photoURL,
           terminosAceptados: false,
-          gdprAceptadoEn: null,
+          gdprAceptadoEn:   null,
+          followersCount:   0,
+          followingCount:   0,
         );
 
+        // IMPORTANTE: usamos toMap() que ya incluye creadoEn y actualizadoEn
+        // con FieldValue.serverTimestamp(). No se agregan campos extra acá.
         await docRef.set(newUser.toMap());
         return (user: newUser, error: null);
       } else {
-        // Usuario existente → leer y devolver su modelo actual.
         final existingUser = UserModel.fromDoc(docSnap);
         return (user: existingUser, error: null);
       }
@@ -109,16 +138,6 @@ class AuthService {
   }
 
   // ── Registro con email y contraseña ───────────────────────────────────────
-  //
-  // CAMBIOS respecto al original:
-  //   - Eliminada la query manual de email duplicado. Firebase Auth ya lo
-  //     detecta atómicamente con 'email-already-in-use'. La query extra era
-  //     redundante y tenía una race condition (dos usuarios registrándose
-  //     con el mismo email al mismo tiempo podían pasar los dos la query).
-  //   - 'usuarios' → 'users'.
-  //   - terminosAceptados ya no es hardcodeado false.
-  //   - Recibe gdprAceptadoEn como parámetro — obligatorio por GDPR.
-  //   - Devuelve UserModel en lugar de solo null/error.
 
   Future<({UserModel? user, String? error})> registrarConEmail({
     required String nombres,
@@ -130,15 +149,11 @@ class AuthService {
     // El caller (la pantalla de registro) debe pasar DateTime.now() en ese momento.
     required DateTime gdprAceptadoEn,
     String gdprVersion = '1.0',
-    // Campos opcionales del perfil migratorio.
-    // Si el registro tiene pantalla de origen, pasarlos acá.
-    // Si no, se completan después desde el perfil.
     String? nacionalidad,
     String? nacionalidadCode,
     String? countryFlag,
   }) async {
     try {
-      // 1. Crear usuario en Firebase Auth.
       final userCredential = await _auth.createUserWithEmailAndPassword(
         email: email.trim().toLowerCase(),
         password: password,
@@ -149,38 +164,31 @@ class AuthService {
         return (user: null, error: 'No se pudo crear el usuario. Intentá de nuevo.');
       }
 
-      // 2. Actualizar displayName en Firebase Auth.
-      //    Esto hace que firebaseUser.displayName funcione en otros servicios.
       final nombreCompleto = '${nombres.trim()} ${apellidos.trim()}';
       await firebaseUser.updateDisplayName(nombreCompleto);
 
-      // 3. Construir el modelo tipado.
       final newUser = UserModel(
-        uid:            firebaseUser.uid,
-        email:          email.trim().toLowerCase(),
-        nombres:        nombres.trim(),
-        apellidos:      apellidos.trim(),
-        nombreCompleto: nombreCompleto,
-        fechaNacimiento: fechaNacimiento,
+        uid:              firebaseUser.uid,
+        email:            email.trim().toLowerCase(),
+        nombres:          nombres.trim(),
+        apellidos:        apellidos.trim(),
+        nombreCompleto:   nombreCompleto,
+        fechaNacimiento:  fechaNacimiento,
         nacionalidad:     nacionalidad,
         nacionalidadCode: nacionalidadCode,
         countryFlag:      countryFlag,
-        // GDPR: guardamos el timestamp real de aceptación.
         terminosAceptados: true,
-        gdprAceptadoEn:    gdprAceptadoEn,
-        gdprVersion:       gdprVersion,
-        // Contadores iniciales.
-        followersCount: 0,
-        followingCount: 0,
+        gdprAceptadoEn:   gdprAceptadoEn,
+        gdprVersion:      gdprVersion,
+        followersCount:   0,
+        followingCount:   0,
       );
 
-      // 4. Guardar documento en Firestore.
       await _db
           .collection(_usersCollection)
           .doc(firebaseUser.uid)
           .set(newUser.toMap());
 
-      // 5. Enviar email de verificación (no bloqueante — si falla, no importa).
       firebaseUser.sendEmailVerification().ignore();
 
       return (user: newUser, error: null);
@@ -192,11 +200,6 @@ class AuthService {
   }
 
   // ── Login con email y contraseña ───────────────────────────────────────────
-  //
-  // NUEVO. Faltaba en el servicio original.
-  //
-  // Devuelve el UserModel leído de Firestore, no el User de Firebase Auth,
-  // para que el caller tenga el perfil completo listo desde el primer momento.
 
   Future<({UserModel? user, String? error})> loginConEmail({
     required String email,
@@ -213,21 +216,22 @@ class AuthService {
         return (user: null, error: 'No se pudo iniciar sesión. Intentá de nuevo.');
       }
 
-      // Leer el documento de Firestore para devolver el modelo completo.
       final docSnap = await _db
           .collection(_usersCollection)
           .doc(firebaseUser.uid)
           .get();
 
       if (!docSnap.exists) {
-        // Caso edge: el usuario existe en Auth pero no en Firestore
-        // (ej: se creó antes de que existiera este servicio).
+        // Caso edge: usuario existe en Auth pero no en Firestore.
         // Creamos un documento mínimo para no dejarlo sin perfil.
         final minimalUser = UserModel(
-          uid:   firebaseUser.uid,
-          email: firebaseUser.email ?? email,
+          uid:            firebaseUser.uid,
+          email:          firebaseUser.email ?? email,
           nombreCompleto: firebaseUser.displayName,
-          fotoUrl: firebaseUser.photoURL,
+          fotoUrl:        firebaseUser.photoURL,
+          terminosAceptados: false,
+          followersCount: 0,
+          followingCount: 0,
         );
         await _db
             .collection(_usersCollection)
@@ -245,36 +249,24 @@ class AuthService {
   }
 
   // ── Cerrar sesión ──────────────────────────────────────────────────────────
-  //
-  // NUEVO. Faltaba en el servicio original.
-  //
-  // Cierra sesión tanto en Firebase Auth como en Google Sign In.
-  // Si el usuario entró con Google, hay que desconectarlo de ambos
-  // para que la próxima vez muestre el selector de cuentas.
 
   Future<void> cerrarSesion() async {
     try {
       await GoogleSignIn().signOut(); // no-op si entró con email
     } catch (_) {
       // Google Sign In puede no estar inicializado si entró con email.
-      // Ignoramos el error y continuamos con Firebase Auth.
     }
     await _auth.signOut();
   }
 
   // ── Reset de contraseña ────────────────────────────────────────────────────
-  //
-  // NUEVO. Faltaba en el servicio original.
-  //
-  // Firebase envía un email con link de reset.
-  // El método retorna null si tuvo éxito, o un mensaje de error si falló.
 
   Future<String?> resetPassword({required String email}) async {
     try {
       await _auth.sendPasswordResetEmail(
         email: email.trim().toLowerCase(),
       );
-      return null; // éxito
+      return null;
     } on FirebaseAuthException catch (e) {
       return _mapAuthError(e);
     } catch (e) {
@@ -285,7 +277,10 @@ class AuthService {
   // ── Aceptar términos (post Google Sign In) ─────────────────────────────────
   //
   // Llamar desde la pantalla de términos que aparece después del primer
-  // Google Sign In, cuando gdprCompliant == false.
+  // Google Sign In, cuando terminosAceptados == false.
+  //
+  // IMPORTANTE: solo escribe los campos de la convención en español.
+  // No agrega acceptedTerms, acceptedAt ni createdAt.
 
   Future<String?> aceptarTerminos({
     required String uid,
@@ -316,8 +311,6 @@ class AuthService {
   }
 
   // ── Mapeo de errores de Firebase Auth → mensajes en español ───────────────
-  //
-  // Centralizado acá para no tener switches duplicados en auth y login.
 
   String _mapAuthError(FirebaseAuthException e) {
     switch (e.code) {
@@ -328,7 +321,6 @@ class AuthService {
       case 'wrong-password':
         return 'Contraseña incorrecta.';
       case 'invalid-credential':
-        // Firebase v10+ unifica user-not-found + wrong-password en este código.
         return 'Email o contraseña incorrectos.';
       case 'weak-password':
         return 'La contraseña debe tener al menos 6 caracteres.';

@@ -1,14 +1,11 @@
 import 'package:flutter/material.dart';
 import 'dart:math' show pi;
+import 'dart:ui' show ImageFilter;
 
 import '../nueva_historia_screen.dart';
 import '../nueva_publicacion_screen.dart';
 import '../crear_evento_screen.dart';
 import '../mensaje_comunidad_screen.dart';
-
-// NOTA sobre los imports: ajustá las rutas según tu estructura de carpetas.
-// Si las pantallas están en features/feed/, los imports de arriba son correctos.
-// Si las pusiste en otra carpeta, actualizá las rutas.
 
 class StoriesBar extends StatelessWidget {
   const StoriesBar({super.key});
@@ -264,94 +261,212 @@ class _StoryBubbleState extends State<_StoryBubble>
     // TODO: si no es isCreate, abrir el viewer de la historia
   }
 
-  // ── Bottom sheet de creación ───────────────────────────────────────────────
+  // ── Bottom sheet — Glass teal oscuro ──────────────────────────────────────
+  //
+  // Diseño: panel traslúcido sobre fondo oscuro teal (#0F2E29).
+  // Cada opción tiene su propio tinte de color + tag identificador.
+  // isScrollControlled: true para que el sheet se ajuste al contenido
+  // sin forzar altura fija.
 
   void _openCreateMenu(BuildContext context) {
     showModalBottomSheet(
       context: context,
+      isScrollControlled: true,
+      backgroundColor: Colors.transparent,
+      // Fondo oscuro detrás del sheet — refuerza la atmósfera teal.
+      barrierColor: const Color(0xFF0A2420).withOpacity(0.72),
       shape: const RoundedRectangleBorder(
-        borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
+        borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
       ),
-      backgroundColor: Colors.white,
-      builder: (_) => SafeArea(
-        child: Padding(
-          padding: const EdgeInsets.symmetric(vertical: 8),
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              // Handle
-              Container(
-                width: 36,
-                height: 4,
-                margin: const EdgeInsets.only(bottom: 16),
-                decoration: BoxDecoration(
-                  color: const Color(0xFFCCFBF1),
-                  borderRadius: BorderRadius.circular(2),
+      builder: (_) => const _CreateMenuSheet(),
+    );
+  }
+}
+
+// ── Sheet completo ────────────────────────────────────────────────────────────
+
+class _CreateMenuSheet extends StatefulWidget {
+  const _CreateMenuSheet();
+
+  @override
+  State<_CreateMenuSheet> createState() => _CreateMenuSheetState();
+}
+
+class _CreateMenuSheetState extends State<_CreateMenuSheet>
+    with SingleTickerProviderStateMixin {
+  late AnimationController _anim;
+  late Animation<double> _fade;
+  late Animation<Offset> _slide;
+
+  @override
+  void initState() {
+    super.initState();
+
+    _anim = AnimationController(
+      vsync: this,
+      duration: const Duration(milliseconds: 420),
+    );
+
+    _fade = CurvedAnimation(parent: _anim, curve: Curves.easeOut);
+
+    _slide = Tween(
+      begin: const Offset(0, 0.08),
+      end: Offset.zero,
+    ).animate(CurvedAnimation(parent: _anim, curve: Curves.easeOutCubic));
+
+    _anim.forward();
+  }
+
+  @override
+  void dispose() {
+    _anim.dispose();
+    super.dispose();
+  }
+
+  static const options = [
+    _CreateOption(
+      icon: Icons.auto_awesome_rounded,
+      title: "Nueva historia",
+      subtitle: "Desaparece en 24 horas",
+      color: Color(0xFF14B8A6),
+      tag: "24h",
+    ),
+
+    _CreateOption(
+      icon: Icons.grid_view_rounded,
+      title: "Nueva publicación",
+      subtitle: "Aparece en el feed",
+      color: Color(0xFFF59E0B),
+      tag: "Feed",
+    ),
+
+    _CreateOption(
+      icon: Icons.event_rounded,
+      title: "Crear evento",
+      subtitle: "Con fecha y ubicación",
+      color: Color(0xFF3B82F6),
+      tag: "Evento",
+    ),
+
+    _CreateOption(
+      icon: Icons.campaign_rounded,
+      title: "Mensaje a la comunidad",
+      subtitle: "Aviso global",
+      color: Color(0xFFA855F7),
+      tag: "Global",
+    ),
+  ];
+
+  void navigate(BuildContext context, int index) {
+    Navigator.pop(context);
+
+    final screens = [
+      const NuevaHistoriaScreen(),
+      const NuevaPublicacionScreen(),
+      const CrearEventoScreen(),
+      const MensajeComunidadScreen(),
+    ];
+
+    Navigator.push(context, MaterialPageRoute(builder: (_) => screens[index]));
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return SlideTransition(
+      position: _slide,
+
+      child: FadeTransition(
+        opacity: _fade,
+
+        child: ClipRRect(
+          borderRadius: const BorderRadius.vertical(top: Radius.circular(30)),
+
+          child: BackdropFilter(
+            filter: ImageFilter.blur(sigmaX: 22, sigmaY: 22),
+
+            child: Container(
+              padding: const EdgeInsets.fromLTRB(22, 14, 22, 26),
+
+              decoration: BoxDecoration(
+                gradient: LinearGradient(
+                  begin: Alignment.topCenter,
+                  end: Alignment.bottomCenter,
+
+                  colors: [
+                    const Color(0xFF0B1F1B).withOpacity(.96),
+                    const Color(0xFF071513).withOpacity(.98),
+                  ],
+                ),
+
+                border: Border.all(color: Colors.white.withOpacity(.07)),
+              ),
+
+              child: SafeArea(
+                top: false,
+
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+
+                  crossAxisAlignment: CrossAxisAlignment.start,
+
+                  children: [
+                    Center(
+                      child: Container(
+                        width: 36,
+                        height: 4,
+                        margin: const EdgeInsets.only(bottom: 18),
+                        decoration: BoxDecoration(
+                          color: Colors.white.withOpacity(.18),
+                          borderRadius: BorderRadius.circular(30),
+                        ),
+                      ),
+                    ),
+
+                    Container(
+                      height: 1,
+                      margin: const EdgeInsets.only(bottom: 14),
+
+                      decoration: BoxDecoration(
+                        gradient: LinearGradient(
+                          colors: [
+                            Colors.transparent,
+
+                            Colors.white.withOpacity(.08),
+
+                            Colors.transparent,
+                          ],
+                        ),
+                      ),
+                    ),
+
+                    Text(
+                      "Crear",
+
+                      style: TextStyle(
+                        fontSize: 22,
+                        fontWeight: FontWeight.w700,
+                        letterSpacing: -0.3,
+
+                        color: Colors.white.withOpacity(.92),
+                      ),
+                    ),
+
+                    const SizedBox(height: 22),
+
+                    ...List.generate(
+                      options.length,
+
+                      (i) => _CreateTile(
+                        data: options[i],
+                        onTap: () => navigate(context, i),
+                      ),
+                    ),
+
+                    const SizedBox(height: 6),
+                  ],
                 ),
               ),
-
-              _OpcionMenu(
-                emoji: '🕐',
-                titulo: 'Nueva historia',
-                subtitulo: 'Desaparece en 24 horas',
-                onTap: () {
-                  Navigator.pop(context);
-                  Navigator.push(
-                    context,
-                    MaterialPageRoute(
-                      builder: (_) => const NuevaHistoriaScreen(),
-                    ),
-                  );
-                },
-              ),
-
-              _OpcionMenu(
-                emoji: '🖼️',
-                titulo: 'Nueva publicación',
-                subtitulo: 'Aparece en el feed y tu perfil',
-                onTap: () {
-                  Navigator.pop(context);
-                  Navigator.push(
-                    context,
-                    MaterialPageRoute(
-                      builder: (_) => const NuevaPublicacionScreen(),
-                    ),
-                  );
-                },
-              ),
-
-              _OpcionMenu(
-                emoji: '📅',
-                titulo: 'Crear evento',
-                subtitulo: 'Con fecha, lugar y descripción',
-                onTap: () {
-                  Navigator.pop(context);
-                  Navigator.push(
-                    context,
-                    MaterialPageRoute(
-                      builder: (_) => const CrearEventoScreen(),
-                    ),
-                  );
-                },
-              ),
-
-              _OpcionMenu(
-                emoji: '📣',
-                titulo: 'Mensaje a la comunidad',
-                subtitulo: 'Un aviso para todos los nomads',
-                onTap: () {
-                  Navigator.pop(context);
-                  Navigator.push(
-                    context,
-                    MaterialPageRoute(
-                      builder: (_) => const MensajeComunidadScreen(),
-                    ),
-                  );
-                },
-              ),
-
-              const SizedBox(height: 8),
-            ],
+            ),
           ),
         ),
       ),
@@ -359,70 +474,278 @@ class _StoryBubbleState extends State<_StoryBubble>
   }
 }
 
-// ── Opción del menú ───────────────────────────────────────────────────────────
+class _CreateOption {
+  final IconData icon;
+  final String title;
+  final String subtitle;
+  final Color color;
+  final String tag;
 
-class _OpcionMenu extends StatelessWidget {
-  final String emoji;
-  final String titulo;
-  final String subtitulo;
+  const _CreateOption({
+    required this.icon,
+    required this.title,
+    required this.subtitle,
+    required this.color,
+    required this.tag,
+  });
+}
+
+class _CreateTile extends StatefulWidget {
+  final _CreateOption data;
   final VoidCallback onTap;
 
-  const _OpcionMenu({
-    required this.emoji,
-    required this.titulo,
-    required this.subtitulo,
-    required this.onTap,
-  });
+  const _CreateTile({required this.data, required this.onTap});
+
+  @override
+  State<_CreateTile> createState() => _CreateTileState();
+}
+
+class _CreateTileState extends State<_CreateTile> {
+  bool pressed = false;
 
   @override
   Widget build(BuildContext context) {
-    return InkWell(
-      onTap: onTap,
-      child: Padding(
-        padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 12),
+    final d = widget.data;
+
+    return GestureDetector(
+      onTapDown: (_) => setState(() => pressed = true),
+
+      onTapUp: (_) {
+        setState(() => pressed = false);
+        widget.onTap();
+      },
+
+      onTapCancel: () => setState(() => pressed = false),
+
+      child: AnimatedContainer(
+        duration: const Duration(milliseconds: 120),
+
+        margin: const EdgeInsets.only(bottom: 14),
+
+        padding: const EdgeInsets.all(14),
+
+        decoration: BoxDecoration(
+          borderRadius: BorderRadius.circular(20),
+
+          color: pressed ? d.color.withOpacity(.20) : d.color.withOpacity(.11),
+
+          border: Border.all(color: Colors.white.withOpacity(.08)),
+
+          boxShadow: [
+            BoxShadow(
+              color: d.color.withOpacity(.08),
+
+              blurRadius: 14,
+              offset: const Offset(0, 6),
+            ),
+          ],
+        ),
+
         child: Row(
           children: [
             Container(
-              width: 44,
-              height: 44,
+              width: 48,
+              height: 48,
+
               decoration: BoxDecoration(
-                color: const Color(0xFFE6FAF8),
-                borderRadius: BorderRadius.circular(12),
+                color: d.color.withOpacity(.18),
+
+                borderRadius: BorderRadius.circular(16),
               ),
-              child: Center(
-                child: Text(emoji, style: const TextStyle(fontSize: 20)),
-              ),
+
+              child: Icon(d.icon, color: d.color, size: 24),
             ),
+
             const SizedBox(width: 14),
+
             Expanded(
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
+
                 children: [
                   Text(
-                    titulo,
+                    d.title,
+
                     style: const TextStyle(
-                      fontSize: 15,
+                      fontSize: 15.5,
                       fontWeight: FontWeight.w600,
-                      color: Color(0xFF134E4A),
+                      letterSpacing: -.2,
+
+                      color: Colors.white,
                     ),
                   ),
-                  const SizedBox(height: 2),
+
+                  const SizedBox(height: 4),
+
                   Text(
-                    subtitulo,
-                    style: const TextStyle(
-                      fontSize: 12,
-                      color: Color(0xFF6B7280),
+                    d.subtitle,
+
+                    style: TextStyle(
+                      fontSize: 12.5,
+                      color: Colors.white.withOpacity(.55),
                     ),
                   ),
                 ],
               ),
             ),
-            const Icon(
-              Icons.chevron_right,
-              color: Color(0xFF5EEAD4),
-              size: 20,
+
+            Container(
+              padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
+
+              decoration: BoxDecoration(
+                color: d.color.withOpacity(.18),
+
+                borderRadius: BorderRadius.circular(10),
+              ),
+
+              child: Text(
+                d.tag,
+
+                style: TextStyle(
+                  fontSize: 11,
+                  fontWeight: FontWeight.w600,
+
+                  color: d.color,
+                ),
+              ),
             ),
           ],
+        ),
+      ),
+    );
+  }
+}
+
+// ── Datos de cada opción ──────────────────────────────────────────────────────
+
+class _OpcionData {
+  final String emoji;
+  final String titulo;
+  final String subtitulo;
+  final Color tintColor;
+  final Color tagColor;
+  final Color tagBg;
+  final String tagTexto;
+
+  const _OpcionData({
+    required this.emoji,
+    required this.titulo,
+    required this.subtitulo,
+    required this.tintColor,
+    required this.tagColor,
+    required this.tagBg,
+    required this.tagTexto,
+  });
+}
+
+// ── Fila individual con glass y tinte ────────────────────────────────────────
+
+class _GlassOpcion extends StatefulWidget {
+  final _OpcionData data;
+  final VoidCallback onTap;
+
+  const _GlassOpcion({required this.data, required this.onTap});
+
+  @override
+  State<_GlassOpcion> createState() => _GlassOpcionState();
+}
+
+class _GlassOpcionState extends State<_GlassOpcion> {
+  bool _pressed = false;
+
+  @override
+  Widget build(BuildContext context) {
+    return GestureDetector(
+      onTapDown: (_) => setState(() => _pressed = true),
+      onTapUp: (_) {
+        setState(() => _pressed = false);
+        widget.onTap();
+      },
+      onTapCancel: () => setState(() => _pressed = false),
+      child: AnimatedScale(
+        scale: _pressed ? 0.97 : 1.0,
+        duration: const Duration(milliseconds: 110),
+        child: AnimatedContainer(
+          duration: const Duration(milliseconds: 110),
+          margin: const EdgeInsets.only(bottom: 8),
+          padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+          decoration: BoxDecoration(
+            // Tinte individual de color sobre fondo glass.
+            color: _pressed
+                ? widget.data.tintColor.withOpacity(0.18)
+                : widget.data.tintColor.withOpacity(0.10),
+            borderRadius: BorderRadius.circular(16),
+            border: Border.all(
+              color: _pressed
+                  ? Colors.white.withOpacity(0.20)
+                  : Colors.white.withOpacity(0.08),
+              width: 0.5,
+            ),
+          ),
+          child: Row(
+            children: [
+              // Ícono con fondo tintado
+              Container(
+                width: 40,
+                height: 40,
+                decoration: BoxDecoration(
+                  color: widget.data.tintColor.withOpacity(0.20),
+                  borderRadius: BorderRadius.circular(12),
+                ),
+                child: Center(
+                  child: Text(
+                    widget.data.emoji,
+                    style: const TextStyle(fontSize: 18),
+                  ),
+                ),
+              ),
+              const SizedBox(width: 14),
+
+              // Texto
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      widget.data.titulo,
+                      style: TextStyle(
+                        fontSize: 14,
+                        fontWeight: FontWeight.w600,
+                        color: Colors.white.withOpacity(0.90),
+                      ),
+                    ),
+                    const SizedBox(height: 2),
+                    Text(
+                      widget.data.subtitulo,
+                      style: TextStyle(
+                        fontSize: 11,
+                        color: Colors.white.withOpacity(0.45),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+
+              const SizedBox(width: 10),
+
+              // Tag de categoría
+              Container(
+                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                decoration: BoxDecoration(
+                  color: widget.data.tagBg,
+                  borderRadius: BorderRadius.circular(8),
+                ),
+                child: Text(
+                  widget.data.tagTexto,
+                  style: TextStyle(
+                    fontSize: 9,
+                    fontWeight: FontWeight.w600,
+                    color: widget.data.tagColor,
+                  ),
+                ),
+              ),
+            ],
+          ),
         ),
       ),
     );
