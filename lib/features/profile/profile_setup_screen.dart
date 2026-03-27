@@ -72,13 +72,10 @@ class _ProfileSetupScreenState extends State<ProfileSetupScreen>
     super.dispose();
   }
 
-  // ── Lógica (sin cambios) ──────────────────────────────────────
-
   void _onUsernameChanged(String value) {
     _debounceTimer?.cancel();
     final username = value.trim();
 
-    // Reset inmediato mientras escribe
     setState(() {
       usernameAvailable = false;
       usernameError = "";
@@ -87,7 +84,6 @@ class _ProfileSetupScreenState extends State<ProfileSetupScreen>
 
     if (username.length < 3) return;
 
-    // Esperar 600ms sin escribir antes de consultar Firestore
     _debounceTimer = Timer(const Duration(milliseconds: 600), () async {
       final regex = RegExp(r'^[a-zA-Z0-9_]{6,15}$');
 
@@ -150,14 +146,12 @@ class _ProfileSetupScreenState extends State<ProfileSetupScreen>
     final user = FirebaseAuth.instance.currentUser;
     if (user == null) return;
 
-    // Calcular score en el cliente
     final location = _locationData ?? LocationData();
     final scoreResult = TrustScoreService.calculate(
       location: location,
       user: user,
     );
 
-    // Guardar perfil + ubicación + score preliminar en Firestore
     await FirebaseFirestore.instance.collection("users").doc(user.uid).set({
       "username": usernameController.text.trim(),
       "country": selectedCountry,
@@ -166,7 +160,6 @@ class _ProfileSetupScreenState extends State<ProfileSetupScreen>
       "trustScore": {...scoreResult.toMap(), "pendingCloudValidation": true},
     }, SetOptions(merge: true));
 
-    // Llamar a la Cloud Function para validación server-side
     try {
       final functions = FirebaseFunctions.instanceFor(region: 'us-central1');
       await functions.httpsCallable('validateTrustScore').call({
@@ -174,10 +167,7 @@ class _ProfileSetupScreenState extends State<ProfileSetupScreen>
         'locationData': location.toMap(),
         'clientScore': scoreResult.score,
       });
-    } catch (_) {
-      // Si la Cloud Function falla, el score del cliente ya está guardado
-      // La función puede reintentarse más tarde
-    }
+    } catch (_) {}
 
     if (!mounted) return;
     Navigator.pushReplacement(
@@ -190,7 +180,6 @@ class _ProfileSetupScreenState extends State<ProfileSetupScreen>
     if (!_canContinue()) return;
     if (step < 3) {
       setState(() => step++);
-      // Volver al tope al cambiar de paso
       WidgetsBinding.instance.addPostFrameCallback((_) {
         if (_scrollController.hasClients) {
           _scrollController.animateTo(
@@ -236,179 +225,175 @@ class _ProfileSetupScreenState extends State<ProfileSetupScreen>
         child: SingleChildScrollView(
           physics: const ClampingScrollPhysics(),
           child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-
-            // Botón cerrar (X) — esquina superior derecha
-            Align(
-              alignment: Alignment.topRight,
-              child: GestureDetector(
-                onTap: () => Navigator.pop(context),
-                child: Container(
-                  width: 36,
-                  height: 36,
-                  decoration: BoxDecoration(
-                    color: Colors.white.withValues(alpha: 0.08),
-                    borderRadius: BorderRadius.circular(10),
-                  ),
-                  child: Icon(
-                    Icons.close_rounded,
-                    color: Colors.white.withValues(alpha: 0.6),
-                    size: 18,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Align(
+                alignment: Alignment.topRight,
+                child: GestureDetector(
+                  onTap: () => Navigator.pop(context),
+                  child: Container(
+                    width: 36,
+                    height: 36,
+                    decoration: BoxDecoration(
+                      color: Colors.white.withValues(alpha: 0.08),
+                      borderRadius: BorderRadius.circular(10),
+                    ),
+                    child: Icon(
+                      Icons.close_rounded,
+                      color: Colors.white.withValues(alpha: 0.6),
+                      size: 18,
+                    ),
                   ),
                 ),
               ),
-            ),
 
-            const SizedBox(height: 20),
+              const SizedBox(height: 20),
 
-            const Text(
-              "¿Podemos ver tu ubicación?",
-              style: TextStyle(
-                fontSize: 34,
-                fontWeight: FontWeight.w800,
-                color: Colors.white,
-                letterSpacing: -0.8,
-                height: 1.15,
-              ),
-            ),
-
-            const SizedBox(height: 12),
-
-            Text(
-              "Nomad usa tu ubicación para conectarte con compatriotas cercanos. Nunca compartimos tu posición exacta con otros usuarios.",
-              style: TextStyle(
-                fontSize: 16,
-                color: Colors.white.withValues(alpha: 0.45),
-                height: 1.55,
-              ),
-            ),
-
-            const SizedBox(height: 20),
-
-            // Banner de score de confianza
-            Container(
-              padding: const EdgeInsets.all(14),
-              decoration: BoxDecoration(
-                color: const Color(0xFF0D9488).withValues(alpha: 0.1),
-                borderRadius: BorderRadius.circular(14),
-                border: Border.all(
-                  color: const Color(0xFF0D9488).withValues(alpha: 0.35),
+              const Text(
+                "¿Podemos ver tu ubicación?",
+                style: TextStyle(
+                  fontSize: 34,
+                  fontWeight: FontWeight.w800,
+                  color: Colors.white,
+                  letterSpacing: -0.8,
+                  height: 1.15,
                 ),
               ),
-              child: Row(
-                crossAxisAlignment: CrossAxisAlignment.start,
+
+              const SizedBox(height: 12),
+
+              Text(
+                "Nomad usa tu ubicación para conectarte con compatriotas cercanos. Nunca compartimos tu posición exacta con otros usuarios.",
+                style: TextStyle(
+                  fontSize: 16,
+                  color: Colors.white.withValues(alpha: 0.45),
+                  height: 1.55,
+                ),
+              ),
+
+              const SizedBox(height: 20),
+
+              Container(
+                padding: const EdgeInsets.all(14),
+                decoration: BoxDecoration(
+                  color: const Color(0xFF0D9488).withValues(alpha: 0.1),
+                  borderRadius: BorderRadius.circular(14),
+                  border: Border.all(
+                    color: const Color(0xFF0D9488).withValues(alpha: 0.35),
+                  ),
+                ),
+                child: Row(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    const Icon(
+                      Icons.verified_user_rounded,
+                      color: Color(0xFF0D9488),
+                      size: 20,
+                    ),
+                    const SizedBox(width: 10),
+                    Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          const Text(
+                            "Impacto en tu Score de Confianza",
+                            style: TextStyle(
+                              color: Color(0xFF0D9488),
+                              fontSize: 13,
+                              fontWeight: FontWeight.w700,
+                            ),
+                          ),
+                          const SizedBox(height: 4),
+                          Text(
+                            "Tu score valida tu identidad frente a otros Nomads. Compartir ubicación es uno de los factores que más sube tu score — sin él, tu perfil tendrá menor visibilidad y credibilidad en la comunidad.",
+                            style: TextStyle(
+                              color: Colors.white.withValues(alpha: 0.55),
+                              fontSize: 12.5,
+                              height: 1.5,
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+
+              const SizedBox(height: 28),
+
+              Stack(
+                clipBehavior: Clip.none,
                 children: [
-                  const Icon(
-                    Icons.verified_user_rounded,
-                    color: Color(0xFF0D9488),
-                    size: 20,
+                  _permissionOption(
+                    icon: Icons.my_location_rounded,
+                    iconColor: const Color(0xFF0D9488),
+                    iconBg: const Color(0xFF0D9488).withValues(alpha: 0.15),
+                    title: "Permitir solo al usar",
+                    subtitle: "+Score · Solo cuando Nomad está abierta",
+                    onTap: () {
+                      Navigator.pop(context);
+                      setState(() => _locationPermission = 'inUse');
+                      getLocation();
+                    },
                   ),
-                  const SizedBox(width: 10),
-                  Expanded(
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        const Text(
-                          "Impacto en tu Score de Confianza",
-                          style: TextStyle(
-                            color: Color(0xFF0D9488),
-                            fontSize: 13,
-                            fontWeight: FontWeight.w700,
-                          ),
+                  Positioned(
+                    top: -10,
+                    right: 12,
+                    child: Container(
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 8,
+                        vertical: 3,
+                      ),
+                      decoration: BoxDecoration(
+                        color: const Color(0xFF0D9488),
+                        borderRadius: BorderRadius.circular(20),
+                      ),
+                      child: const Text(
+                        "Recomendado",
+                        style: TextStyle(
+                          color: Colors.white,
+                          fontSize: 10.5,
+                          fontWeight: FontWeight.w700,
                         ),
-                        const SizedBox(height: 4),
-                        Text(
-                          "Tu score valida tu identidad frente a otros Nomads. Compartir ubicación es uno de los factores que más sube tu score — sin él, tu perfil tendrá menor visibilidad y credibilidad en la comunidad.",
-                          style: TextStyle(
-                            color: Colors.white.withValues(alpha: 0.55),
-                            fontSize: 12.5,
-                            height: 1.5,
-                          ),
-                        ),
-                      ],
+                      ),
                     ),
                   ),
                 ],
               ),
-            ),
 
-            const SizedBox(height: 28),
+              const SizedBox(height: 12),
 
-            // Opción recomendada: solo al usar
-            Stack(
-              clipBehavior: Clip.none,
-              children: [
-                _permissionOption(
-                  icon: Icons.my_location_rounded,
-                  iconColor: const Color(0xFF0D9488),
-                  iconBg: const Color(0xFF0D9488).withValues(alpha: 0.15),
-                  title: "Permitir solo al usar",
-                  subtitle: "+Score · Solo cuando Nomad está abierta",
-                  onTap: () {
-                    Navigator.pop(context);
-                    setState(() => _locationPermission = 'inUse');
-                    getLocation();
-                  },
-                ),
-                Positioned(
-                  top: -10,
-                  right: 12,
-                  child: Container(
-                    padding: const EdgeInsets.symmetric(
-                      horizontal: 8,
-                      vertical: 3,
-                    ),
-                    decoration: BoxDecoration(
-                      color: const Color(0xFF0D9488),
-                      borderRadius: BorderRadius.circular(20),
-                    ),
-                    child: const Text(
-                      "Recomendado",
-                      style: TextStyle(
-                        color: Colors.white,
-                        fontSize: 10.5,
-                        fontWeight: FontWeight.w700,
-                      ),
-                    ),
-                  ),
-                ),
-              ],
-            ),
+              _permissionOption(
+                icon: Icons.location_on_rounded,
+                iconColor: const Color(0xFF38BDF8),
+                iconBg: const Color(0xFF38BDF8).withValues(alpha: 0.15),
+                title: "Permitir siempre",
+                subtitle: "+Score máximo · Acceso completo en todo momento",
+                onTap: () {
+                  Navigator.pop(context);
+                  setState(() => _locationPermission = 'always');
+                  getLocation();
+                },
+              ),
 
-            const SizedBox(height: 12),
+              const SizedBox(height: 12),
 
-            _permissionOption(
-              icon: Icons.location_on_rounded,
-              iconColor: const Color(0xFF38BDF8),
-              iconBg: const Color(0xFF38BDF8).withValues(alpha: 0.15),
-              title: "Permitir siempre",
-              subtitle: "+Score máximo · Acceso completo en todo momento",
-              onTap: () {
-                Navigator.pop(context);
-                setState(() => _locationPermission = 'always');
-                getLocation();
-              },
-            ),
+              _permissionOption(
+                icon: Icons.location_off_rounded,
+                iconColor: const Color(0xFFEF4444),
+                iconBg: const Color(0xFFEF4444).withValues(alpha: 0.1),
+                title: "No permitir ahora",
+                subtitle: "−Score · Podrás activarlo más tarde desde tu perfil",
+                titleColor: const Color(0xFFEF4444),
+                onTap: () {
+                  Navigator.pop(context);
+                  setState(() => _locationPermission = 'denied');
+                },
+              ),
 
-            const SizedBox(height: 12),
-
-            _permissionOption(
-              icon: Icons.location_off_rounded,
-              iconColor: const Color(0xFFEF4444),
-              iconBg: const Color(0xFFEF4444).withValues(alpha: 0.1),
-              title: "No permitir ahora",
-              subtitle: "−Score · Podrás activarlo más tarde desde tu perfil",
-              titleColor: const Color(0xFFEF4444),
-              onTap: () {
-                Navigator.pop(context);
-                setState(() => _locationPermission = 'denied');
-              },
-            ),
-
-            const SizedBox(height: 40),
-          ],
-        ),
+              const SizedBox(height: 40),
+            ],
+          ),
         ),
       ),
     );
@@ -478,186 +463,166 @@ class _ProfileSetupScreenState extends State<ProfileSetupScreen>
   // ── Build ─────────────────────────────────────────────────────
 
   @override
-Widget build(BuildContext context) {
-  return Scaffold(
-    backgroundColor: const Color(0xFF0F0F14),
-    resizeToAvoidBottomInset: true,
-    body: Stack(
-      children: [
+  Widget build(BuildContext context) {
+    return Scaffold(
+      backgroundColor: const Color(0xFF0F0F14),
+      resizeToAvoidBottomInset: true,
+      body: Stack(
+        children: [
+          SafeArea(
+            child: FadeTransition(
+              opacity: _fadeIn,
+              child: Padding(
+                padding: const EdgeInsets.symmetric(horizontal: 28),
+                child: Column(
+                  children: [
+                    const SizedBox(height: 24),
 
-        // CONTENIDO
-        SafeArea(
-          child: FadeTransition(
-            opacity: _fadeIn,
-            child: Padding(
-              padding: const EdgeInsets.symmetric(horizontal: 28),
-              child: Column(
-                children: [
-
-                  const SizedBox(height: 24),
-
-                  // Header: flecha atrás + logo centrado
-                  SizedBox(
-                    width: double.infinity,
-                    height: 40,
-                    child: Stack(
-                      alignment: Alignment.center,
-                      children: [
-                        // Logo centrado — IgnorePointer para no bloquear la flecha
-                        Positioned.fill(
-                          child: IgnorePointer(
-                            child: Hero(
-                              tag: "logo",
-                              child: Material(
-                                color: Colors.transparent,
-                                child: const Align(
-                                  alignment: Alignment.center,
-                                  child: Text(
-                                    "Nomad",
-                                    style: TextStyle(
-                                      fontSize: 34,
-                                      fontWeight: FontWeight.bold,
-                                      color: Colors.white,
-                                      letterSpacing: -0.5,
+                    SizedBox(
+                      width: double.infinity,
+                      height: 40,
+                      child: Stack(
+                        alignment: Alignment.center,
+                        children: [
+                          Positioned.fill(
+                            child: IgnorePointer(
+                              child: Hero(
+                                tag: "logo",
+                                child: Material(
+                                  color: Colors.transparent,
+                                  child: const Align(
+                                    alignment: Alignment.center,
+                                    child: Text(
+                                      "Nomad",
+                                      style: TextStyle(
+                                        fontSize: 34,
+                                        fontWeight: FontWeight.bold,
+                                        color: Colors.white,
+                                        letterSpacing: -0.5,
+                                      ),
                                     ),
                                   ),
                                 ),
                               ),
                             ),
                           ),
-                        ),
 
-                        // Flecha encima — solo visible en pasos 1, 2 y 3
-                        if (step > 0)
-                          Positioned(
-                            left: 0,
-                            child: GestureDetector(
-                              behavior: HitTestBehavior.opaque,
-                              onTap: () => setState(() {
-                                step--;
-                                _showCountryList = false;
-                                _countrySearch = '';
-                                _countrySearchController.clear();
-                                _countryFocusNode.unfocus();
-                              }),
-                              child: Container(
-                                width: 36,
-                                height: 36,
-                                decoration: BoxDecoration(
-                                  color: Colors.white.withValues(alpha: 0.08),
-                                  borderRadius: BorderRadius.circular(10),
-                                ),
-                                child: Icon(
-                                  Icons.arrow_back_ios_new_rounded,
-                                  color: Colors.white.withValues(alpha: 0.75),
-                                  size: 16,
+                          if (step > 0)
+                            Positioned(
+                              left: 0,
+                              child: GestureDetector(
+                                behavior: HitTestBehavior.opaque,
+                                onTap: () => setState(() {
+                                  step--;
+                                  _showCountryList = false;
+                                  _countrySearch = '';
+                                  _countrySearchController.clear();
+                                  _countryFocusNode.unfocus();
+                                }),
+                                child: Container(
+                                  width: 36,
+                                  height: 36,
+                                  decoration: BoxDecoration(
+                                    color: Colors.white.withValues(alpha: 0.08),
+                                    borderRadius: BorderRadius.circular(10),
+                                  ),
+                                  child: Icon(
+                                    Icons.arrow_back_ios_new_rounded,
+                                    color: Colors.white.withValues(alpha: 0.75),
+                                    size: 16,
+                                  ),
                                 ),
                               ),
                             ),
-                          ),
-                      ],
+                        ],
+                      ),
                     ),
-                  ),
 
-                  const SizedBox(height: 8),
+                    const SizedBox(height: 8),
 
-                  Text(
-                    "Paso ${step + 1} de 4",
-                    style: TextStyle(
-                      color: Colors.white.withValues(alpha: 0.45),
-                      fontSize: 13,
+                    Text(
+                      "Paso ${step + 1} de 4",
+                      style: TextStyle(
+                        color: Colors.white.withValues(alpha: 0.45),
+                        fontSize: 13,
+                      ),
                     ),
-                  ),
 
-                  const SizedBox(height: 16),
+                    const SizedBox(height: 16),
 
-                  _progressIndicator(),
+                    _progressIndicator(),
 
-                  const SizedBox(height: 36),
+                    const SizedBox(height: 36),
 
-                  /// 🔥 FIX PRINCIPAL
-                  Expanded(
-                    child: AnimatedSwitcher(
-                      duration: const Duration(milliseconds: 350),
-
-                      transitionBuilder: (child, animation) =>
-                          FadeTransition(
-                            opacity: animation,
-                            child: SlideTransition(
-                              position: Tween(
-                                begin: const Offset(0.05, 0),
-                                end: Offset.zero,
-                              ).animate(animation),
-                              child: child,
-                            ),
+                    Expanded(
+                      child: AnimatedSwitcher(
+                        duration: const Duration(milliseconds: 350),
+                        transitionBuilder: (child, animation) => FadeTransition(
+                          opacity: animation,
+                          child: SlideTransition(
+                            position: Tween(
+                              begin: const Offset(0.05, 0),
+                              end: Offset.zero,
+                            ).animate(animation),
+                            child: child,
                           ),
-
-                      child: Align(
-                        alignment: Alignment.topCenter,
-
-                        /// permite scroll si el contenido crece
-                        child: SingleChildScrollView(
-                          controller: _scrollController,
-                          physics: const ClampingScrollPhysics(),
-
-                          child: ConstrainedBox(
-                            constraints: BoxConstraints(
-                              minHeight:
-                                  MediaQuery.of(context).size.height * 0.55,
-                            ),
-
-                            child: IntrinsicHeight(
-                              child: buildStep(),
+                        ),
+                        child: Align(
+                          alignment: Alignment.topCenter,
+                          child: SingleChildScrollView(
+                            controller: _scrollController,
+                            physics: const ClampingScrollPhysics(),
+                            child: ConstrainedBox(
+                              constraints: BoxConstraints(
+                                minHeight:
+                                    MediaQuery.of(context).size.height * 0.55,
+                              ),
+                              child: IntrinsicHeight(child: buildStep()),
                             ),
                           ),
                         ),
                       ),
                     ),
-                  ),
 
-                  SizedBox(
-                    width: double.infinity,
-                    height: 54,
-                    child: ElevatedButton(
-                      onPressed: _canContinue() ? nextStep : null,
-
-                      style: ElevatedButton.styleFrom(
-                        backgroundColor: const Color(0xFF0D9488),
-                        foregroundColor: Colors.white,
-
-                        disabledBackgroundColor:
-                            Colors.white.withValues(alpha: 0.15),
-
-                        disabledForegroundColor:
-                            Colors.white.withValues(alpha: 0.35),
-
-                        shape: RoundedRectangleBorder(
-                          borderRadius: BorderRadius.circular(16),
+                    SizedBox(
+                      width: double.infinity,
+                      height: 54,
+                      child: ElevatedButton(
+                        onPressed: _canContinue() ? nextStep : null,
+                        style: ElevatedButton.styleFrom(
+                          backgroundColor: const Color(0xFF0D9488),
+                          foregroundColor: Colors.white,
+                          disabledBackgroundColor: Colors.white.withValues(
+                            alpha: 0.15,
+                          ),
+                          disabledForegroundColor: Colors.white.withValues(
+                            alpha: 0.35,
+                          ),
+                          shape: RoundedRectangleBorder(
+                            borderRadius: BorderRadius.circular(16),
+                          ),
+                          elevation: 0,
                         ),
-
-                        elevation: 0,
-                      ),
-
-                      child: const Text(
-                        "Continuar",
-                        style: TextStyle(
-                          fontSize: 16,
-                          fontWeight: FontWeight.w600,
+                        child: const Text(
+                          "Continuar",
+                          style: TextStyle(
+                            fontSize: 16,
+                            fontWeight: FontWeight.w600,
+                          ),
                         ),
                       ),
                     ),
-                  ),
 
-                  const SizedBox(height: 24),
-                ],
+                    const SizedBox(height: 24),
+                  ],
+                ),
               ),
             ),
           ),
-        ),
-      ],
-    ),
-  );
-}
+        ],
+      ),
+    );
+  }
 
   // ── Indicador de pasos ────────────────────────────────────────
 
@@ -910,12 +875,11 @@ Widget build(BuildContext context) {
 
         const SizedBox(height: 24),
 
-        // Campo único: actúa como selector y como buscador al mismo tiempo
         TextField(
           controller: _countrySearchController,
           focusNode: _countryFocusNode,
           readOnly: !_showCountryList,
-          enableInteractiveSelection: false, // elimina la "gota" de selección
+          enableInteractiveSelection: false,
           style: const TextStyle(color: Colors.white, fontSize: 15),
           decoration: InputDecoration(
             hintText: _showCountryList
@@ -999,7 +963,6 @@ Widget build(BuildContext context) {
               _countrySearch = '';
               _countrySearchController.clear();
             });
-            // Scroll al tope para que el buscador quede visible
             WidgetsBinding.instance.addPostFrameCallback((_) {
               if (_scrollController.hasClients) {
                 _scrollController.animateTo(
@@ -1009,13 +972,11 @@ Widget build(BuildContext context) {
                 );
               }
             });
-            // Habilitar escritura y enfocar
             Future.microtask(() => _countryFocusNode.requestFocus());
           },
           onChanged: (v) => setState(() => _countrySearch = v),
         ),
 
-        // Lista inline de países — Column puro, compatible con IntrinsicHeight
         if (_showCountryList) ...[
           const SizedBox(height: 6),
 
@@ -1118,6 +1079,7 @@ Widget build(BuildContext context) {
   Widget locationStep() {
     final loc = _locationData;
     final hasGPS = loc != null && loc.gpsGranted && loc.lat != null;
+    final denied = _locationPermission == 'denied';
 
     return Column(
       key: const ValueKey(2),
@@ -1134,7 +1096,7 @@ Widget build(BuildContext context) {
           ),
         ),
 
-        const SizedBox(height: 10),
+        const SizedBox(height: 8),
 
         Text(
           "Acercate a tus compatriotas",
@@ -1144,145 +1106,219 @@ Widget build(BuildContext context) {
           ),
         ),
 
-        const SizedBox(height: 60),
+        const SizedBox(height: 20),
 
-        // Círculo de geolocalización centrado
-        Center(
-          child: Column(
-            mainAxisAlignment: MainAxisAlignment.center,
-            children: [
-              GestureDetector(
-                onTap: _loadingLocation
-                    ? null
-                    : () => _showLocationPermissionDialog(),
-                child: Stack(
-                  alignment: Alignment.center,
-                  children: [
-                    if (_loadingLocation)
-                      SizedBox(
-                        width: 224,
-                        height: 224,
+        // ── Mapa de ciudad nocturna ───────────────────────────────
+        ClipRRect(
+          borderRadius: BorderRadius.circular(24),
+          child: SizedBox(
+            height: 300,
+            child: Stack(
+              fit: StackFit.expand,
+              children: [
+                // Fondo: foto de ciudad nocturna con cruce peatonal
+                Image.network(
+                  'https://images.unsplash.com/photo-1519501025264-65ba15a82390?w=800&q=80',
+                  fit: BoxFit.cover,
+                  width: double.infinity,
+                  height: double.infinity,
+                  loadingBuilder: (_, child, progress) {
+                    if (progress == null) return child;
+                    return Container(
+                      color: const Color(0xFF0A1F1C),
+                      child: const Center(
                         child: CircularProgressIndicator(
-                          strokeWidth: 2.5,
-                          color: const Color(0xFF38BDF8).withValues(alpha: 0.7),
+                          strokeWidth: 2,
+                          color: Color(0xFF0D9488),
                         ),
                       ),
-                    AnimatedContainer(
-                      duration: const Duration(milliseconds: 200),
-                      width: 210,
-                      height: 210,
-                      decoration: BoxDecoration(
-                        shape: BoxShape.circle,
-                        color: _locationPermission == 'denied'
-                            ? const Color(0xFF3A1E1E)
-                            : loc != null
-                            ? const Color(0xFF1E3A8A)
-                            : const Color(0xFF1E3A5F),
-                        border: Border.all(
-                          color: _locationPermission == 'denied'
-                              ? const Color(0xFFEF4444).withValues(alpha: 0.7)
-                              : Colors.white.withValues(
-                                  alpha: loc != null ? 0.9 : 0.45,
-                                ),
-                          width: loc != null ? 2.5 : 2.0,
-                        ),
-                      ),
-                      child: Center(
-                        child: _loadingLocation
-                            ? const SizedBox(
-                                width: 56,
-                                height: 56,
-                                child: CircularProgressIndicator(
-                                  strokeWidth: 2.5,
-                                  color: Color(0xFF38BDF8),
-                                ),
-                              )
-                            : GeoLocationIcon(active: loc != null),
-                      ),
+                    );
+                  },
+                  errorBuilder: (_, __, ___) =>
+                      CustomPaint(painter: _NightCityMapPainter()),
+                ),
+
+                // Tinte oscuro-verde para integrar con la paleta
+                DecoratedBox(
+                  decoration: BoxDecoration(
+                    color: const Color(0xFF0A1F1C).withValues(alpha: 0.45),
+                  ),
+                ),
+
+                // Overlay degradado inferior
+                DecoratedBox(
+                  decoration: BoxDecoration(
+                    gradient: LinearGradient(
+                      begin: Alignment.topCenter,
+                      end: Alignment.bottomCenter,
+                      colors: [
+                        Colors.transparent,
+                        const Color(0xFF0F0F14).withValues(alpha: 0.85),
+                      ],
+                      stops: const [0.45, 1.0],
                     ),
-                    if (loc != null)
-                      Positioned(
-                        top: 12,
-                        right: 12,
-                        child: AnimatedScale(
-                          scale: 1.0,
-                          duration: const Duration(milliseconds: 200),
-                          child: Container(
-                            width: 32,
-                            height: 32,
-                            decoration: const BoxDecoration(
-                              color: Color(0xFF0EA5E9),
-                              shape: BoxShape.circle,
-                            ),
-                            child: const Center(
-                              child: Icon(
-                                Icons.check_rounded,
-                                color: Colors.white,
-                                size: 18,
-                              ),
-                            ),
+                  ),
+                ),
+
+                // Pins flotantes de usuarios
+                if (loc != null) ...[
+                  _MapPin(
+                    left: 0.18,
+                    top: 0.22,
+                    label: 'Sofía · 1.2km',
+                    delay: 0,
+                  ),
+                  _MapPin(
+                    left: 0.62,
+                    top: 0.15,
+                    label: 'Mateo · 2.8km',
+                    delay: 300,
+                  ),
+                  _MapPin(
+                    left: 0.75,
+                    top: 0.50,
+                    label: 'Ana · 0.9km',
+                    delay: 600,
+                  ),
+                  _MapPin(
+                    left: 0.30,
+                    top: 0.60,
+                    label: 'Diego · 3.1km',
+                    delay: 150,
+                  ),
+                ],
+
+                // Pin central (tu ubicación)
+                Center(
+                  child: _CenterLocationPin(
+                    loading: _loadingLocation,
+                    detected: loc != null,
+                    denied: denied,
+                  ),
+                ),
+
+                // Chip de ciudad detectada
+                if (hasGPS)
+                  Positioned(
+                    bottom: 14,
+                    left: 0,
+                    right: 0,
+                    child: Center(
+                      child: Container(
+                        padding: const EdgeInsets.symmetric(
+                          horizontal: 14,
+                          vertical: 7,
+                        ),
+                        decoration: BoxDecoration(
+                          color: const Color(0xFF0D9488).withValues(alpha: 0.2),
+                          borderRadius: BorderRadius.circular(20),
+                          border: Border.all(
+                            color: const Color(
+                              0xFF0D9488,
+                            ).withValues(alpha: 0.5),
                           ),
                         ),
-                      ),
-                  ],
-                ),
-              ),
-
-              const SizedBox(height: 20),
-
-              Text(
-                _loadingLocation
-                    ? "Detectando..."
-                    : _locationPermission == 'denied'
-                    ? "Permiso denegado"
-                    : loc != null
-                    ? "Toca para actualizar"
-                    : "Geolocalizarme",
-                style: TextStyle(
-                  fontSize: 24,
-                  fontWeight: FontWeight.w700,
-                  color: _locationPermission == 'denied'
-                      ? const Color(0xFFEF4444)
-                      : Colors.white,
-                ),
-              ),
-
-              if (loc != null && hasGPS) ...[
-                const SizedBox(height: 16),
-                Container(
-                  padding: const EdgeInsets.symmetric(
-                    horizontal: 20,
-                    vertical: 12,
-                  ),
-                  decoration: BoxDecoration(
-                    color: const Color(0xFF27AE60).withValues(alpha: 0.12),
-                    borderRadius: BorderRadius.circular(14),
-                    border: Border.all(
-                      color: const Color(0xFF27AE60).withValues(alpha: 0.3),
-                    ),
-                  ),
-                  child: Row(
-                    mainAxisSize: MainAxisSize.min,
-                    children: [
-                      const Icon(
-                        Icons.gps_fixed_rounded,
-                        color: Color(0xFF27AE60),
-                        size: 18,
-                      ),
-                      const SizedBox(width: 10),
-                      Text(
-                        '${loc.city ?? 'Ciudad desconocida'}, ${loc.country ?? ''}',
-                        style: const TextStyle(
-                          color: Color(0xFF27AE60),
-                          fontSize: 15,
-                          fontWeight: FontWeight.w600,
+                        child: Row(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            const Icon(
+                              Icons.gps_fixed_rounded,
+                              color: Color(0xFF34D399),
+                              size: 14,
+                            ),
+                            const SizedBox(width: 6),
+                            Text(
+                              '${loc!.city ?? 'Ciudad desconocida'}, ${loc.country ?? ''}',
+                              style: const TextStyle(
+                                color: Color(0xFF34D399),
+                                fontSize: 13,
+                                fontWeight: FontWeight.w600,
+                              ),
+                            ),
+                          ],
                         ),
                       ),
+                    ),
+                  ),
+              ],
+            ),
+          ),
+        ),
+
+        const SizedBox(height: 28),
+
+        // ── Botón geolocalizar ────────────────────────────────────
+        GestureDetector(
+          onTap: _loadingLocation ? null : _showLocationPermissionDialog,
+          child: AnimatedContainer(
+            duration: const Duration(milliseconds: 250),
+            width: double.infinity,
+            height: 58,
+            decoration: BoxDecoration(
+              borderRadius: BorderRadius.circular(18),
+              color: denied
+                  ? const Color(0xFF3A1E1E)
+                  : loc != null
+                  ? const Color(0xFF0D9488).withValues(alpha: 0.25)
+                  : const Color(0xFF0D9488),
+              border: Border.all(
+                color: denied
+                    ? const Color(0xFFEF4444).withValues(alpha: 0.6)
+                    : loc != null
+                    ? const Color(0xFF0D9488).withValues(alpha: 0.6)
+                    : Colors.transparent,
+                width: 1.5,
+              ),
+              boxShadow: denied || loc != null
+                  ? []
+                  : [
+                      BoxShadow(
+                        color: const Color(0xFF0D9488).withValues(alpha: 0.4),
+                        blurRadius: 20,
+                        offset: const Offset(0, 6),
+                      ),
                     ],
+            ),
+            child: Row(
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: [
+                if (_loadingLocation)
+                  const SizedBox(
+                    width: 20,
+                    height: 20,
+                    child: CircularProgressIndicator(
+                      strokeWidth: 2.5,
+                      color: Colors.white,
+                    ),
+                  )
+                else
+                  Icon(
+                    denied
+                        ? Icons.location_off_rounded
+                        : loc != null
+                        ? Icons.gps_fixed_rounded
+                        : Icons.my_location_rounded,
+                    color: denied ? const Color(0xFFEF4444) : Colors.white,
+                    size: 22,
+                  ),
+                const SizedBox(width: 10),
+                Text(
+                  _loadingLocation
+                      ? 'Detectando...'
+                      : denied
+                      ? 'Permiso denegado'
+                      : loc != null
+                      ? 'Actualizar ubicación'
+                      : 'GEOLOCALIZAR',
+                  style: TextStyle(
+                    fontSize: 16,
+                    fontWeight: FontWeight.w700,
+                    letterSpacing: 0.5,
+                    color: denied ? const Color(0xFFEF4444) : Colors.white,
                   ),
                 ),
               ],
-            ],
+            ),
           ),
         ),
       ],
@@ -1396,7 +1432,6 @@ Widget build(BuildContext context) {
                 desc: 'Conoce compatriotas',
                 selected: amistad,
                 onTap: () => setState(() => amistad = !amistad),
-                circleSize: 150,
               ),
             ),
             const SizedBox(width: 16),
@@ -1407,7 +1442,6 @@ Widget build(BuildContext context) {
                 desc: 'Conecta romanticamante',
                 selected: citas,
                 onTap: () => setState(() => citas = !citas),
-                circleSize: 150,
               ),
             ),
           ],
@@ -1449,62 +1483,13 @@ Widget build(BuildContext context) {
     required String desc,
     required bool selected,
     required VoidCallback onTap,
-    double circleSize = 120,
   }) {
-    const circleBg = Color(0xFF1E3A5F);
-    const circleBgSelected = Color(0xFF1E3A8A);
-
     return GestureDetector(
       onTap: onTap,
       child: Column(
         mainAxisSize: MainAxisSize.min,
         children: [
-          Stack(
-            clipBehavior: Clip.none,
-            alignment: Alignment.center,
-            children: [
-              AnimatedContainer(
-                duration: const Duration(milliseconds: 200),
-                width: circleSize,
-                height: circleSize,
-                decoration: BoxDecoration(
-                  shape: BoxShape.circle,
-                  color: selected ? circleBgSelected : circleBg,
-                  border: Border.all(
-                    color: Colors.white.withValues(
-                      alpha: selected ? 0.9 : 0.45,
-                    ),
-                    width: selected ? 2.5 : 2.0,
-                  ),
-                ),
-                child: Center(child: icon),
-              ),
-              Positioned(
-                top: 4,
-                right: 4,
-                child: AnimatedScale(
-                  scale: selected ? 1.0 : 0.0,
-                  duration: const Duration(milliseconds: 200),
-                  alignment: Alignment.topRight,
-                  child: Container(
-                    width: 28,
-                    height: 28,
-                    decoration: const BoxDecoration(
-                      color: Color(0xFF0EA5E9),
-                      shape: BoxShape.circle,
-                    ),
-                    child: const Center(
-                      child: Icon(
-                        Icons.check_rounded,
-                        color: Colors.white,
-                        size: 16,
-                      ),
-                    ),
-                  ),
-                ),
-              ),
-            ],
-          ),
+          _GlowCircle(selected: selected, size: 140, child: icon),
           const SizedBox(height: 12),
           Text(
             label,
@@ -1530,6 +1515,172 @@ Widget build(BuildContext context) {
   }
 }
 
+// ── Círculo con borde brillante animado ───────────────────────
+
+class _GlowCircle extends StatefulWidget {
+  final bool selected;
+  final double size;
+  final Widget child;
+
+  const _GlowCircle({
+    required this.selected,
+    required this.size,
+    required this.child,
+  });
+
+  @override
+  State<_GlowCircle> createState() => _GlowCircleState();
+}
+
+class _GlowCircleState extends State<_GlowCircle>
+    with SingleTickerProviderStateMixin {
+  late AnimationController _ctrl;
+
+  @override
+  void initState() {
+    super.initState();
+    _ctrl = AnimationController(
+      vsync: this,
+      duration: const Duration(milliseconds: 2400),
+    )..repeat();
+  }
+
+  @override
+  void dispose() {
+    _ctrl.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final s = widget.size;
+    return AnimatedBuilder(
+      animation: _ctrl,
+      builder: (_, __) {
+        return Stack(
+          alignment: Alignment.center,
+          children: [
+            // Borde brillante giratorio
+            CustomPaint(
+              size: Size(s + 8, s + 8),
+              painter: _GlowBorderPainter(
+                progress: _ctrl.value,
+                selected: widget.selected,
+              ),
+            ),
+            // Círculo interior con fondo
+            Container(
+              width: s,
+              height: s,
+              decoration: BoxDecoration(
+                shape: BoxShape.circle,
+                color: const Color(0xFF0D2E2A),
+              ),
+              child: Center(child: widget.child),
+            ),
+            // Tick de selección
+            Positioned(
+              top: 6,
+              right: 6,
+              child: AnimatedScale(
+                scale: widget.selected ? 1.0 : 0.0,
+                duration: const Duration(milliseconds: 200),
+                alignment: Alignment.topRight,
+                child: Container(
+                  width: 26,
+                  height: 26,
+                  decoration: const BoxDecoration(
+                    color: Color(0xFF0D9488),
+                    shape: BoxShape.circle,
+                  ),
+                  child: const Center(
+                    child: Icon(
+                      Icons.check_rounded,
+                      color: Colors.white,
+                      size: 15,
+                    ),
+                  ),
+                ),
+              ),
+            ),
+          ],
+        );
+      },
+    );
+  }
+}
+
+class _GlowBorderPainter extends CustomPainter {
+  final double progress;
+  final bool selected;
+
+  const _GlowBorderPainter({required this.progress, required this.selected});
+
+  @override
+  void paint(Canvas canvas, Size size) {
+    final cx = size.width / 2;
+    final cy = size.height / 2;
+    final radius = (size.width / 2) - 2;
+
+    // Fondo del anillo (siempre visible, tenue)
+    canvas.drawCircle(
+      Offset(cx, cy),
+      radius,
+      Paint()
+        ..color = const Color(0xFF0D9488).withValues(alpha: 0.15)
+        ..style = PaintingStyle.stroke
+        ..strokeWidth = 3.0,
+    );
+
+    // Arco brillante giratorio
+    final sweepAngle = selected ? 2 * pi : pi * 0.65;
+    final startAngle = progress * 2 * pi - pi / 2;
+
+    final gradient = SweepGradient(
+      startAngle: startAngle,
+      endAngle: startAngle + sweepAngle,
+      colors: selected
+          ? [
+              const Color(0xFF0D9488),
+              const Color(0xFF34D399),
+              const Color(0xFF0D9488),
+            ]
+          : [
+              Colors.transparent,
+              const Color(0xFF0D9488).withValues(alpha: 0.8),
+              const Color(0xFF34D399),
+              Colors.transparent,
+            ],
+    );
+
+    final rect = Rect.fromCircle(center: Offset(cx, cy), radius: radius);
+    final paint = Paint()
+      ..shader = gradient.createShader(rect)
+      ..style = PaintingStyle.stroke
+      ..strokeWidth = selected ? 3.5 : 2.5
+      ..strokeCap = StrokeCap.round;
+
+    canvas.drawArc(rect, startAngle, sweepAngle, false, paint);
+
+    // Punto brillante en la punta del arco
+    final tipX = cx + radius * cos(startAngle + sweepAngle);
+    final tipY = cy + radius * sin(startAngle + sweepAngle);
+    canvas.drawCircle(
+      Offset(tipX, tipY),
+      selected ? 4.5 : 3.0,
+      Paint()
+        ..color = const Color(
+          0xFF34D399,
+        ).withValues(alpha: selected ? 1.0 : 0.85)
+        ..style = PaintingStyle.fill,
+    );
+  }
+
+  @override
+  bool shouldRepaint(_GlowBorderPainter old) =>
+      old.progress != progress || old.selected != selected;
+}
+
 // ── Animación del abrazo (CustomPainter) ──────────────────────
 
 class HugAnimationWidget extends StatefulWidget {
@@ -1553,7 +1704,6 @@ class _HugAnimationWidgetState extends State<HugAnimationWidget>
       duration: const Duration(milliseconds: 1000),
     );
     _anim = CurvedAnimation(parent: _ctrl, curve: Curves.easeInOut);
-
     if (widget.hugging) _startLoop();
   }
 
@@ -1567,7 +1717,6 @@ class _HugAnimationWidgetState extends State<HugAnimationWidget>
   void _startLoop() {
     _ctrl.forward(from: 0).then((_) {
       if (!mounted || !widget.hugging) return;
-      // pausa 600ms en el abrazo luego vuelve a separarse
       Future.delayed(const Duration(milliseconds: 600), () {
         if (!mounted || !widget.hugging) return;
         _ctrl.reverse().then((_) {
@@ -1612,20 +1761,17 @@ class _HugPainter extends CustomPainter {
   const _HugPainter(this.p);
 
   double _ease(double t) => t < 0.5 ? 2 * t * t : -1 + (4 - 2 * t) * t;
-
   double _lerp(double a, double b, double t) => a + (b - a) * t;
 
   @override
   void paint(Canvas canvas, Size size) {
     final e = _ease(p.clamp(0.0, 1.0));
-    // Escalar todo el dibujo proporcionalmente al tamaño base 84x84
     final scaleF = size.width / 84.0;
     canvas.save();
     canvas.scale(scaleF, scaleF);
     final w = 84.0;
     final h = 84.0;
     final cxc = w / 2;
-    // Centrar verticalmente: las figuras miden ~26px de alto, centrarlas en h/2
     final groundY = h / 2 + 13.0;
     final lx = _lerp(cxc - 14, cxc, e);
     final rx = _lerp(cxc + 14, cxc, e);
@@ -1661,7 +1807,6 @@ class _HugPainter extends CustomPainter {
     final rAngle = _lerp(3.14 + 0.5, 3.14 - 0.9, e);
     final headOffX = _lerp(0, 6.0, e);
 
-    // Figura izquierda
     canvas.drawLine(
       Offset(lx, headY + headR * 2 + 1),
       Offset(
@@ -1687,7 +1832,6 @@ class _HugPainter extends CustomPainter {
     );
     canvas.drawCircle(Offset(lx, headY), headR, fillL);
 
-    // Figura derecha
     canvas.drawLine(
       Offset(rx, headY + headR * 2 + 1),
       Offset(
@@ -1713,7 +1857,6 @@ class _HugPainter extends CustomPainter {
     );
     canvas.drawCircle(Offset(rx + headOffX, headY), headR, fillR);
 
-    // Brazos cruzados
     if (e > 0.5) {
       final a2 = _ease((e - 0.5) / 0.5);
 
@@ -1897,7 +2040,6 @@ class _HeartPainter extends CustomPainter {
         ..style = PaintingStyle.fill,
     );
 
-    // brillo interno
     canvas.drawOval(
       Rect.fromCenter(center: Offset(cx - 5, cy - 7), width: 11, height: 6),
       Paint()
@@ -2000,7 +2142,6 @@ class _BriefcasePainter extends CustomPainter {
     final bw = w * 0.76, bh = h * 0.44;
     const br = 3.0;
 
-    // Documento saliendo (detrás del maletín)
     if (p > 0) {
       final docW = bw * 0.6;
       final docH = h * 0.32;
@@ -2012,15 +2153,14 @@ class _BriefcasePainter extends CustomPainter {
       canvas.save();
       canvas.clipRect(Rect.fromLTWH(dx - 2, 0, docW + 4, by + bh));
 
-      final docPaint = Paint()
-        ..color = const Color(0xFFE0E7FF)
-        ..style = PaintingStyle.fill;
       canvas.drawRRect(
         RRect.fromRectAndRadius(
           Rect.fromLTWH(dx, dy, docW, docH),
           const Radius.circular(3),
         ),
-        docPaint,
+        Paint()
+          ..color = const Color(0xFFE0E7FF)
+          ..style = PaintingStyle.fill,
       );
 
       final linePaint = Paint()
@@ -2039,7 +2179,6 @@ class _BriefcasePainter extends CustomPainter {
       canvas.restore();
     }
 
-    // Asa
     final handleW = bw * 0.36;
     final hx = bx + (bw - handleW) / 2;
     canvas.drawRRect(
@@ -2054,7 +2193,6 @@ class _BriefcasePainter extends CustomPainter {
         ..strokeCap = StrokeCap.round,
     );
 
-    // Cuerpo
     canvas.drawRRect(
       RRect.fromRectAndRadius(
         Rect.fromLTWH(bx, by, bw, bh),
@@ -2065,7 +2203,6 @@ class _BriefcasePainter extends CustomPainter {
         ..style = PaintingStyle.fill,
     );
 
-    // Línea central
     canvas.drawLine(
       Offset(bx, by + bh / 2),
       Offset(bx + bw, by + bh / 2),
@@ -2074,7 +2211,6 @@ class _BriefcasePainter extends CustomPainter {
         ..strokeWidth = 1.5,
     );
 
-    // Cierre
     canvas.drawRRect(
       RRect.fromRectAndRadius(
         Rect.fromLTWH(bx + bw / 2 - 5, by + bh / 2 - 4, 10, 8),
@@ -2085,7 +2221,6 @@ class _BriefcasePainter extends CustomPainter {
         ..style = PaintingStyle.fill,
     );
 
-    // Brillo
     canvas.drawRRect(
       RRect.fromRectAndRadius(
         Rect.fromLTWH(bx + 4, by + 4, bw - 8, 5),
@@ -2188,7 +2323,6 @@ class _MegaphonePainter extends CustomPainter {
     canvas.translate(ox, oy);
     canvas.rotate(-0.3);
 
-    // Bocina
     final hornPath = Path()
       ..moveTo(3, -10)
       ..lineTo(26, -20)
@@ -2202,7 +2336,6 @@ class _MegaphonePainter extends CustomPainter {
         ..style = PaintingStyle.fill,
     );
 
-    // Cuerpo
     canvas.drawRRect(
       RRect.fromRectAndRadius(
         const Rect.fromLTWH(-15, -10, 20, 20),
@@ -2213,7 +2346,6 @@ class _MegaphonePainter extends CustomPainter {
         ..style = PaintingStyle.fill,
     );
 
-    // Mango
     canvas.drawLine(
       const Offset(-8, 10),
       const Offset(-8, 23),
@@ -2223,7 +2355,6 @@ class _MegaphonePainter extends CustomPainter {
         ..strokeCap = StrokeCap.round,
     );
 
-    // Brillo
     final brightPath = Path()
       ..moveTo(5, -8)
       ..lineTo(23, -17)
@@ -2239,7 +2370,6 @@ class _MegaphonePainter extends CustomPainter {
 
     canvas.restore();
 
-    // Ondas sonoras
     if (waveT > 0) {
       final waveData = [
         (r: 22.0, delay: 0.0),
@@ -2277,6 +2407,357 @@ class _MegaphonePainter extends CustomPainter {
 
 // ── Ícono de geolocalización con giro (CustomPainter) ─────────
 
+// ── Mapa nocturno CustomPainter ───────────────────────────────
+
+class _NightCityMapPainter extends CustomPainter {
+  @override
+  void paint(Canvas canvas, Size size) {
+    final w = size.width;
+    final h = size.height;
+
+    // Fondo base oscuro con tinte verde
+    canvas.drawRect(
+      Rect.fromLTWH(0, 0, w, h),
+      Paint()..color = const Color(0xFF0A1F1C),
+    );
+
+    // Grilla de calles principales
+    final streetPaint = Paint()
+      ..color = const Color(0xFF1A3A35)
+      ..strokeWidth = 8
+      ..strokeCap = StrokeCap.round;
+
+    final minorStreetPaint = Paint()
+      ..color = const Color(0xFF152E2A)
+      ..strokeWidth = 3
+      ..strokeCap = StrokeCap.round;
+
+    // Calles horizontales principales
+    for (final y in [0.20, 0.42, 0.65, 0.85]) {
+      canvas.drawLine(Offset(0, h * y), Offset(w, h * y), streetPaint);
+    }
+    // Calles verticales principales
+    for (final x in [0.15, 0.38, 0.60, 0.82]) {
+      canvas.drawLine(Offset(w * x, 0), Offset(w * x, h), streetPaint);
+    }
+    // Calles menores horizontales
+    for (final y in [0.31, 0.53, 0.75]) {
+      canvas.drawLine(Offset(0, h * y), Offset(w, h * y), minorStreetPaint);
+    }
+    // Calles menores verticales
+    for (final x in [0.27, 0.49, 0.71]) {
+      canvas.drawLine(Offset(w * x, 0), Offset(w * x, h), minorStreetPaint);
+    }
+
+    // Manzanas / bloques (rellenos tenue)
+    final blockPaint = Paint()
+      ..color = const Color(0xFF0D2926)
+      ..style = PaintingStyle.fill;
+
+    final blocks = [
+      Rect.fromLTWH(w * 0.16, h * 0.01, w * 0.21, h * 0.18),
+      Rect.fromLTWH(w * 0.39, h * 0.01, w * 0.20, h * 0.18),
+      Rect.fromLTWH(w * 0.61, h * 0.01, w * 0.20, h * 0.18),
+      Rect.fromLTWH(w * 0.01, h * 0.22, w * 0.13, h * 0.18),
+      Rect.fromLTWH(w * 0.16, h * 0.22, w * 0.21, h * 0.18),
+      Rect.fromLTWH(w * 0.39, h * 0.22, w * 0.20, h * 0.18),
+      Rect.fromLTWH(w * 0.61, h * 0.22, w * 0.20, h * 0.18),
+      Rect.fromLTWH(w * 0.83, h * 0.22, w * 0.16, h * 0.18),
+      Rect.fromLTWH(w * 0.01, h * 0.44, w * 0.13, h * 0.19),
+      Rect.fromLTWH(w * 0.16, h * 0.44, w * 0.21, h * 0.19),
+      Rect.fromLTWH(w * 0.39, h * 0.44, w * 0.20, h * 0.19),
+      Rect.fromLTWH(w * 0.61, h * 0.44, w * 0.20, h * 0.19),
+      Rect.fromLTWH(w * 0.83, h * 0.44, w * 0.16, h * 0.19),
+      Rect.fromLTWH(w * 0.01, h * 0.67, w * 0.13, h * 0.16),
+      Rect.fromLTWH(w * 0.16, h * 0.67, w * 0.21, h * 0.16),
+      Rect.fromLTWH(w * 0.39, h * 0.67, w * 0.20, h * 0.16),
+      Rect.fromLTWH(w * 0.61, h * 0.67, w * 0.20, h * 0.16),
+      Rect.fromLTWH(w * 0.83, h * 0.67, w * 0.16, h * 0.16),
+    ];
+
+    for (final b in blocks) {
+      canvas.drawRRect(
+        RRect.fromRectAndRadius(b, const Radius.circular(3)),
+        blockPaint,
+      );
+    }
+
+    // Luces de ventanas (puntitos amarillos/cyan dispersos)
+    final lightPaint = Paint()..style = PaintingStyle.fill;
+    final lightPositions = [
+      (0.20, 0.05, 0xFFFFD166),
+      (0.25, 0.08, 0xFF0D9488),
+      (0.42, 0.04, 0xFFFFD166),
+      (0.48, 0.10, 0xFF34D399),
+      (0.64, 0.06, 0xFFFFD166),
+      (0.70, 0.03, 0xFF0D9488),
+      (0.18, 0.26, 0xFF34D399),
+      (0.22, 0.30, 0xFFFFD166),
+      (0.40, 0.25, 0xFFFFD166),
+      (0.45, 0.28, 0xFF0D9488),
+      (0.63, 0.27, 0xFF34D399),
+      (0.68, 0.24, 0xFFFFD166),
+      (0.85, 0.26, 0xFFFFD166),
+      (0.88, 0.30, 0xFF0D9488),
+      (0.20, 0.48, 0xFFFFD166),
+      (0.24, 0.52, 0xFF34D399),
+      (0.41, 0.46, 0xFF0D9488),
+      (0.44, 0.50, 0xFFFFD166),
+      (0.62, 0.47, 0xFFFFD166),
+      (0.67, 0.51, 0xFF34D399),
+      (0.84, 0.48, 0xFF0D9488),
+      (0.87, 0.52, 0xFFFFD166),
+      (0.19, 0.70, 0xFF34D399),
+      (0.23, 0.74, 0xFFFFD166),
+      (0.40, 0.69, 0xFFFFD166),
+      (0.46, 0.72, 0xFF0D9488),
+      (0.63, 0.71, 0xFF34D399),
+      (0.69, 0.68, 0xFFFFD166),
+      (0.85, 0.70, 0xFFFFD166),
+      (0.89, 0.73, 0xFF0D9488),
+    ];
+
+    for (final (lx, ly, color) in lightPositions) {
+      lightPaint.color = Color(color).withValues(alpha: 0.7);
+      canvas.drawCircle(Offset(w * lx, h * ly), 2.0, lightPaint);
+    }
+
+    // Halo verde central (zona de búsqueda)
+    final haloPaint = Paint()
+      ..shader =
+          RadialGradient(
+            colors: [
+              const Color(0xFF0D9488).withValues(alpha: 0.18),
+              const Color(0xFF0D9488).withValues(alpha: 0.06),
+              Colors.transparent,
+            ],
+            stops: const [0.0, 0.5, 1.0],
+          ).createShader(
+            Rect.fromCircle(center: Offset(w / 2, h / 2), radius: w * 0.45),
+          )
+      ..style = PaintingStyle.fill;
+    canvas.drawCircle(Offset(w / 2, h / 2), w * 0.45, haloPaint);
+
+    // Anillo punteado de radio
+    final ringPaint = Paint()
+      ..color = const Color(0xFF0D9488).withValues(alpha: 0.25)
+      ..strokeWidth = 1.0
+      ..style = PaintingStyle.stroke;
+    canvas.drawCircle(Offset(w / 2, h / 2), w * 0.30, ringPaint);
+    canvas.drawCircle(Offset(w / 2, h / 2), w * 0.44, ringPaint);
+  }
+
+  @override
+  bool shouldRepaint(_NightCityMapPainter _) => false;
+}
+
+// ── Pin de usuario en el mapa ─────────────────────────────────
+
+class _MapPin extends StatefulWidget {
+  final double left; // fracción 0..1 del ancho
+  final double top; // fracción 0..1 del alto
+  final String label;
+  final int delay; // ms de delay para la animación de entrada
+
+  const _MapPin({
+    required this.left,
+    required this.top,
+    required this.label,
+    required this.delay,
+  });
+
+  @override
+  State<_MapPin> createState() => _MapPinState();
+}
+
+class _MapPinState extends State<_MapPin> with SingleTickerProviderStateMixin {
+  late AnimationController _ctrl;
+  late Animation<double> _fade;
+  late Animation<double> _scale;
+
+  @override
+  void initState() {
+    super.initState();
+    _ctrl = AnimationController(
+      vsync: this,
+      duration: const Duration(milliseconds: 500),
+    );
+    _fade = CurvedAnimation(parent: _ctrl, curve: Curves.easeOut);
+    _scale = Tween(
+      begin: 0.4,
+      end: 1.0,
+    ).animate(CurvedAnimation(parent: _ctrl, curve: Curves.elasticOut));
+
+    Future.delayed(Duration(milliseconds: widget.delay), () {
+      if (mounted) _ctrl.forward();
+    });
+  }
+
+  @override
+  void dispose() {
+    _ctrl.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return LayoutBuilder(
+      builder: (ctx, constraints) {
+        final px = constraints.maxWidth * widget.left;
+        final py = constraints.maxHeight * widget.top;
+        return Positioned(
+          left: px - 36,
+          top: py - 36,
+          child: FadeTransition(
+            opacity: _fade,
+            child: ScaleTransition(
+              scale: _scale,
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Container(
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 7,
+                      vertical: 4,
+                    ),
+                    decoration: BoxDecoration(
+                      color: const Color(0xFF0D2926).withValues(alpha: 0.92),
+                      borderRadius: BorderRadius.circular(10),
+                      border: Border.all(
+                        color: const Color(0xFF0D9488).withValues(alpha: 0.6),
+                      ),
+                    ),
+                    child: Text(
+                      widget.label,
+                      style: const TextStyle(
+                        color: Color(0xFF34D399),
+                        fontSize: 9,
+                        fontWeight: FontWeight.w600,
+                      ),
+                    ),
+                  ),
+                  const SizedBox(height: 2),
+                  Container(
+                    width: 8,
+                    height: 8,
+                    decoration: const BoxDecoration(
+                      color: Color(0xFF0D9488),
+                      shape: BoxShape.circle,
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ),
+        );
+      },
+    );
+  }
+}
+
+// ── Pin central animado (tu ubicación) ────────────────────────
+
+class _CenterLocationPin extends StatefulWidget {
+  final bool loading;
+  final bool detected;
+  final bool denied;
+
+  const _CenterLocationPin({
+    required this.loading,
+    required this.detected,
+    required this.denied,
+  });
+
+  @override
+  State<_CenterLocationPin> createState() => _CenterLocationPinState();
+}
+
+class _CenterLocationPinState extends State<_CenterLocationPin>
+    with SingleTickerProviderStateMixin {
+  late AnimationController _ctrl;
+
+  @override
+  void initState() {
+    super.initState();
+    _ctrl = AnimationController(
+      vsync: this,
+      duration: const Duration(milliseconds: 1500),
+    )..repeat(reverse: true);
+  }
+
+  @override
+  void dispose() {
+    _ctrl.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return AnimatedBuilder(
+      animation: _ctrl,
+      builder: (_, __) {
+        final pulse = 1.0 + _ctrl.value * 0.15;
+        return Stack(
+          alignment: Alignment.center,
+          children: [
+            // Onda exterior
+            if (!widget.denied)
+              Container(
+                width: 72 * pulse,
+                height: 72 * pulse,
+                decoration: BoxDecoration(
+                  shape: BoxShape.circle,
+                  color: const Color(
+                    0xFF0D9488,
+                  ).withValues(alpha: 0.12 * (1 - _ctrl.value)),
+                ),
+              ),
+            // Círculo base
+            Container(
+              width: 52,
+              height: 52,
+              decoration: BoxDecoration(
+                shape: BoxShape.circle,
+                color: widget.denied
+                    ? const Color(0xFF3A1E1E)
+                    : const Color(0xFF0D9488).withValues(alpha: 0.25),
+                border: Border.all(
+                  color: widget.denied
+                      ? const Color(0xFFEF4444)
+                      : const Color(0xFF0D9488),
+                  width: 2,
+                ),
+              ),
+              child: Center(
+                child: widget.loading
+                    ? const SizedBox(
+                        width: 22,
+                        height: 22,
+                        child: CircularProgressIndicator(
+                          strokeWidth: 2.5,
+                          color: Color(0xFF0D9488),
+                        ),
+                      )
+                    : Icon(
+                        widget.denied
+                            ? Icons.location_off_rounded
+                            : widget.detected
+                            ? Icons.my_location_rounded
+                            : Icons.location_on_rounded,
+                        color: widget.denied
+                            ? const Color(0xFFEF4444)
+                            : Colors.white,
+                        size: 26,
+                      ),
+              ),
+            ),
+          ],
+        );
+      },
+    );
+  }
+}
+
 class GeoLocationIcon extends StatefulWidget {
   final bool active;
   const GeoLocationIcon({super.key, required this.active});
@@ -2307,7 +2788,6 @@ class _GeoLocationIconState extends State<GeoLocationIcon>
   void didUpdateWidget(GeoLocationIcon old) {
     super.didUpdateWidget(old);
     if (widget.active && !old.active) {
-      // Giro rápido que desacelera
       _ctrl.forward(from: 0).then((_) {
         if (mounted) setState(() => _angle = 0);
       });
@@ -2355,7 +2835,6 @@ class _GeoPinPainter extends CustomPainter {
       ..color = pinCol.withValues(alpha: 0.18)
       ..style = PaintingStyle.fill;
 
-    // Pin más grande — escala ~2.5x respecto al original
     final path = Path()
       ..moveTo(cx, cy - 34)
       ..cubicTo(cx - 20, cy - 34, cx - 20, cy - 16, cx - 20, cy - 10)
@@ -2366,13 +2845,9 @@ class _GeoPinPainter extends CustomPainter {
 
     canvas.drawPath(path, fillPaint);
     canvas.drawPath(path, paint);
-
-    // Círculo interior
     canvas.drawCircle(Offset(cx, cy - 12), 9, paint);
-
     canvas.restore();
 
-    // Punto verde de señal (fijo)
     canvas.drawCircle(
       Offset(cx + 28, cy - 28),
       8,
