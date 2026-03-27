@@ -145,9 +145,6 @@ class _ShareSheetContentState extends State<_ShareSheetContent> {
                               height: 64,
                               decoration: BoxDecoration(
                                 shape: BoxShape.circle,
-                                color: isSel
-                                    ? const Color(0xFF0D9488)
-                                    : const Color(0xFF1A3A36),
                                 border: Border.all(
                                   color: isSel
                                       ? const Color(0xFF0D9488)
@@ -155,23 +152,68 @@ class _ShareSheetContentState extends State<_ShareSheetContent> {
                                   width: 2,
                                 ),
                               ),
-                              child: Center(
+                              child: ClipOval(
                                 child: isSel
-                                    ? const Icon(
-                                        Icons.check,
-                                        color: Colors.white,
-                                        size: 26,
+                                    ? ColorFiltered(
+                                        colorFilter: ColorFilter.mode(
+                                          const Color(
+                                            0xFF0D9488,
+                                          ).withOpacity(0.75),
+                                          BlendMode.srcOver,
+                                        ),
+                                        child: Image.network(
+                                          c.avatarUrl,
+                                          width: 64,
+                                          height: 64,
+                                          fit: BoxFit.cover,
+                                          errorBuilder: (_, __, ___) =>
+                                              Container(
+                                                color: const Color(0xFF1A3A36),
+                                                child: Center(
+                                                  child: Text(
+                                                    c.initials,
+                                                    style: const TextStyle(
+                                                      color: Color(0xFF99E6E0),
+                                                      fontSize: 20,
+                                                      fontWeight:
+                                                          FontWeight.w600,
+                                                    ),
+                                                  ),
+                                                ),
+                                              ),
+                                        ),
                                       )
-                                    : Text(
-                                        c.initials,
-                                        style: const TextStyle(
-                                          color: Color(0xFF99E6E0),
-                                          fontSize: 20,
-                                          fontWeight: FontWeight.w600,
+                                    : Image.network(
+                                        c.avatarUrl,
+                                        width: 64,
+                                        height: 64,
+                                        fit: BoxFit.cover,
+                                        errorBuilder: (_, __, ___) => Container(
+                                          color: const Color(0xFF1A3A36),
+                                          child: Center(
+                                            child: Text(
+                                              c.initials,
+                                              style: const TextStyle(
+                                                color: Color(0xFF99E6E0),
+                                                fontSize: 20,
+                                                fontWeight: FontWeight.w600,
+                                              ),
+                                            ),
+                                          ),
                                         ),
                                       ),
                               ),
                             ),
+                            if (isSel)
+                              const Positioned.fill(
+                                child: Center(
+                                  child: Icon(
+                                    Icons.check_circle,
+                                    color: Colors.white,
+                                    size: 28,
+                                  ),
+                                ),
+                              ),
                           ],
                         ),
                         const SizedBox(height: 6),
@@ -201,9 +243,9 @@ class _ShareSheetContentState extends State<_ShareSheetContent> {
             child: Container(
               height: 42,
               decoration: BoxDecoration(
-                color: const Color(0xFF1A3A36),
+                color: Colors.transparent,
                 borderRadius: BorderRadius.circular(12),
-                border: Border.all(color: const Color(0xFF2D5550)),
+                border: Border.all(color: const Color(0xFF4DC9C2), width: 1.5),
               ),
               child: Row(
                 children: [
@@ -211,7 +253,7 @@ class _ShareSheetContentState extends State<_ShareSheetContent> {
                   Icon(
                     PhosphorIcons.magnifyingGlass(),
                     size: 17,
-                    color: const Color(0xFF4D9E98),
+                    color: const Color(0xFF4DC9C2),
                   ),
                   const SizedBox(width: 8),
                   Expanded(
@@ -276,7 +318,7 @@ class _ShareSheetContentState extends State<_ShareSheetContent> {
           // ── Divider ───────────────────────────────────────────────────────
           Container(height: 1, color: const Color(0xFF1A3A36)),
 
-          // ── Fila de acciones rápidas (estilo Instagram) ───────────────────
+          // ── Fila de acciones rápidas ──────────────────────────────────────
           SizedBox(
             height: 116,
             child: ListView(
@@ -380,27 +422,19 @@ class _QuickAction extends StatelessWidget {
   }
 }
 
-// ── Ícono WhatsApp (SVG path inline) ─────────────────────────────────────────
+// ── Ícono WhatsApp (imagen real desde assets) ─────────────────────────────────
 class _WhatsAppIcon extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
-    return const Icon(Icons.chat, color: Colors.white, size: 26);
+    return Image.asset('assets/icons/whatsapp.png', width: 32, height: 32);
   }
 }
 
-// ── Ícono Facebook ────────────────────────────────────────────────────────────
+// ── Ícono Facebook (imagen real desde assets) ─────────────────────────────────
 class _FacebookIcon extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
-    return const Text(
-      'f',
-      style: TextStyle(
-        color: Colors.white,
-        fontSize: 28,
-        fontWeight: FontWeight.w700,
-        height: 1,
-      ),
-    );
+    return Image.asset('assets/icons/facebook.png', width: 32, height: 32);
   }
 }
 
@@ -408,8 +442,13 @@ class _FacebookIcon extends StatelessWidget {
 class _MockContact {
   final String id;
   final String name;
+  final String avatarUrl;
 
-  const _MockContact({required this.id, required this.name});
+  const _MockContact({
+    required this.id,
+    required this.name,
+    required this.avatarUrl,
+  });
 
   String get firstName => name.split(' ').first;
 
@@ -421,13 +460,45 @@ class _MockContact {
   }
 
   static List<_MockContact> samples() => [
-    _MockContact(id: '1', name: 'Ana García'),
-    _MockContact(id: '2', name: 'Luis Martínez'),
-    _MockContact(id: '3', name: 'Carla Ruiz'),
-    _MockContact(id: '4', name: 'Pedro López'),
-    _MockContact(id: '5', name: 'Sofía Torres'),
-    _MockContact(id: '6', name: 'Mateo Silva'),
-    _MockContact(id: '7', name: 'Valentina Paz'),
-    _MockContact(id: '8', name: 'Diego Vera'),
+    _MockContact(
+      id: '1',
+      name: 'Ana García',
+      avatarUrl: 'https://randomuser.me/api/portraits/women/44.jpg',
+    ),
+    _MockContact(
+      id: '2',
+      name: 'Luis Martínez',
+      avatarUrl: 'https://randomuser.me/api/portraits/men/32.jpg',
+    ),
+    _MockContact(
+      id: '3',
+      name: 'Carla Ruiz',
+      avatarUrl: 'https://randomuser.me/api/portraits/women/68.jpg',
+    ),
+    _MockContact(
+      id: '4',
+      name: 'Pedro López',
+      avatarUrl: 'https://randomuser.me/api/portraits/men/75.jpg',
+    ),
+    _MockContact(
+      id: '5',
+      name: 'Sofía Torres',
+      avatarUrl: 'https://randomuser.me/api/portraits/women/90.jpg',
+    ),
+    _MockContact(
+      id: '6',
+      name: 'Mateo Silva',
+      avatarUrl: 'https://randomuser.me/api/portraits/men/12.jpg',
+    ),
+    _MockContact(
+      id: '7',
+      name: 'Valentina Paz',
+      avatarUrl: 'https://randomuser.me/api/portraits/women/21.jpg',
+    ),
+    _MockContact(
+      id: '8',
+      name: 'Diego Vera',
+      avatarUrl: 'https://randomuser.me/api/portraits/men/55.jpg',
+    ),
   ];
 }

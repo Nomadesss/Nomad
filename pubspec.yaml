@@ -81,6 +81,8 @@ flutter:
     - assets/icons/apple.png
     - assets/icons/phone.png
     - assets/logo/
+    - assets/icons/whatsapp.png
+    - assets/icons/facebook.png
 
   # An image asset can refer to one or more resolution-specific "variants", see
   # https://flutter.dev/to/resolution-aware-images

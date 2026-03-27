@@ -2,7 +2,8 @@ import 'package:flutter/material.dart';
 import 'package:phosphor_flutter/phosphor_flutter.dart';
 import 'like_button.dart';
 import 'save_button.dart';
-import 'share_sheet.dart'; // ← nuevo import
+import 'share_sheet.dart';
+import 'post_options_sheet.dart';
 import 'comments_screen.dart';
 import 'user_profile_trigger.dart';
 import 'user_profile_card.dart';
@@ -101,7 +102,24 @@ class _PostCardState extends State<PostCard> {
                   ),
                 ),
                 const Spacer(),
-                const Icon(Icons.more_horiz, size: 22),
+
+                // ── 3 puntitos → abre PostOptionsSheet ───────────────────
+                GestureDetector(
+                  onTap: () => PostOptionsSheet.show(
+                    context,
+                    postId: widget.postId,
+                    username: widget.username,
+                  ),
+                  behavior: HitTestBehavior.opaque,
+                  child: Padding(
+                    padding: const EdgeInsets.all(4),
+                    child: Icon(
+                      Icons.more_horiz,
+                      size: 22,
+                      color: const Color(0xFF134E4A),
+                    ),
+                  ),
+                ),
               ],
             ),
           ),
@@ -163,7 +181,6 @@ class _PostCardState extends State<PostCard> {
             padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
             child: Row(
               children: [
-                // Like conectado a Firestore
                 LikeButton(
                   postId: widget.postId,
                   postAuthorId: widget.postAuthorId,
@@ -171,7 +188,6 @@ class _PostCardState extends State<PostCard> {
 
                 const SizedBox(width: 18),
 
-                // Comentarios con conteo real desde Firestore
                 StreamBuilder<int>(
                   stream: SocialService.commentsCountStream(widget.postId),
                   builder: (context, snap) {
@@ -210,7 +226,6 @@ class _PostCardState extends State<PostCard> {
 
                 const SizedBox(width: 18),
 
-                // ── Compartir → abre ShareSheet ───────────────────────────
                 GestureDetector(
                   onTap: () => ShareSheet.show(
                     context,
@@ -230,7 +245,6 @@ class _PostCardState extends State<PostCard> {
 
                 const Spacer(),
 
-                // Guardar conectado a Firestore
                 SaveButton(postId: widget.postId),
               ],
             ),

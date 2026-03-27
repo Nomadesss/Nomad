@@ -14,11 +14,46 @@ class StoriesBar extends StatelessWidget {
   Widget build(BuildContext context) {
     final List<Map<String, dynamic>> stories = [
       {"name": "Mi historia", "isCreate": true},
-      {"name": "Carlos", "viewed": false},
-      {"name": "Sofía", "viewed": true},
-      {"name": "Lucas", "viewed": false},
-      {"name": "Valentina", "viewed": true},
-      {"name": "Andrés", "viewed": false},
+      {
+        "name": "Ana",
+        "viewed": false,
+        "avatarUrl": "https://randomuser.me/api/portraits/women/44.jpg",
+      },
+      {
+        "name": "Luis",
+        "viewed": false,
+        "avatarUrl": "https://randomuser.me/api/portraits/men/32.jpg",
+      },
+      {
+        "name": "Carla",
+        "viewed": true,
+        "avatarUrl": "https://randomuser.me/api/portraits/women/68.jpg",
+      },
+      {
+        "name": "Pedro",
+        "viewed": false,
+        "avatarUrl": "https://randomuser.me/api/portraits/men/75.jpg",
+      },
+      {
+        "name": "Sofía",
+        "viewed": true,
+        "avatarUrl": "https://randomuser.me/api/portraits/women/90.jpg",
+      },
+      {
+        "name": "Mateo",
+        "viewed": false,
+        "avatarUrl": "https://randomuser.me/api/portraits/men/12.jpg",
+      },
+      {
+        "name": "Valentina",
+        "viewed": true,
+        "avatarUrl": "https://randomuser.me/api/portraits/women/21.jpg",
+      },
+      {
+        "name": "Diego",
+        "viewed": false,
+        "avatarUrl": "https://randomuser.me/api/portraits/men/55.jpg",
+      },
     ];
 
     stories.sort((a, b) {
@@ -45,6 +80,7 @@ class StoriesBar extends StatelessWidget {
             name: story["name"] as String,
             isCreate: (story["isCreate"] as bool?) ?? false,
             viewed: (story["viewed"] as bool?) ?? false,
+            avatarUrl: story["avatarUrl"] as String?,
           );
         },
       ),
@@ -139,11 +175,13 @@ class _StoryBubble extends StatefulWidget {
   final String name;
   final bool isCreate;
   final bool viewed;
+  final String? avatarUrl;
 
   const _StoryBubble({
     required this.name,
     this.isCreate = false,
     this.viewed = false,
+    this.avatarUrl,
   });
 
   @override
@@ -219,6 +257,23 @@ class _StoryBubbleState extends State<_StoryBubble>
                                     color: Color(0xFF0D9488),
                                   ),
                                 )
+                              : widget.avatarUrl != null
+                              ? Image.network(
+                                  widget.avatarUrl!,
+                                  width: 58,
+                                  height: 58,
+                                  fit: BoxFit.cover,
+                                  errorBuilder: (_, __, ___) => Container(
+                                    color: const Color(0xFFE6FAF8),
+                                    child: Icon(
+                                      Icons.person,
+                                      size: 28,
+                                      color: widget.viewed
+                                          ? Colors.grey
+                                          : const Color(0xFF0D9488),
+                                    ),
+                                  ),
+                                )
                               : Container(
                                   color: const Color(0xFFE6FAF8),
                                   child: Icon(
@@ -261,19 +316,11 @@ class _StoryBubbleState extends State<_StoryBubble>
     // TODO: si no es isCreate, abrir el viewer de la historia
   }
 
-  // ── Bottom sheet — Glass teal oscuro ──────────────────────────────────────
-  //
-  // Diseño: panel traslúcido sobre fondo oscuro teal (#0F2E29).
-  // Cada opción tiene su propio tinte de color + tag identificador.
-  // isScrollControlled: true para que el sheet se ajuste al contenido
-  // sin forzar altura fija.
-
   void _openCreateMenu(BuildContext context) {
     showModalBottomSheet(
       context: context,
       isScrollControlled: true,
       backgroundColor: Colors.transparent,
-      // Fondo oscuro detrás del sheet — refuerza la atmósfera teal.
       barrierColor: const Color(0xFF0A2420).withOpacity(0.72),
       shape: const RoundedRectangleBorder(
         borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
@@ -331,7 +378,6 @@ class _CreateMenuSheetState extends State<_CreateMenuSheet>
       color: Color(0xFF14B8A6),
       tag: "24h",
     ),
-
     _CreateOption(
       icon: Icons.grid_view_rounded,
       title: "Nueva publicación",
@@ -339,7 +385,6 @@ class _CreateMenuSheetState extends State<_CreateMenuSheet>
       color: Color(0xFFF59E0B),
       tag: "Feed",
     ),
-
     _CreateOption(
       icon: Icons.event_rounded,
       title: "Crear evento",
@@ -347,7 +392,6 @@ class _CreateMenuSheetState extends State<_CreateMenuSheet>
       color: Color(0xFF3B82F6),
       tag: "Evento",
     ),
-
     _CreateOption(
       icon: Icons.campaign_rounded,
       title: "Mensaje a la comunidad",
@@ -374,41 +418,30 @@ class _CreateMenuSheetState extends State<_CreateMenuSheet>
   Widget build(BuildContext context) {
     return SlideTransition(
       position: _slide,
-
       child: FadeTransition(
         opacity: _fade,
-
         child: ClipRRect(
           borderRadius: const BorderRadius.vertical(top: Radius.circular(30)),
-
           child: BackdropFilter(
             filter: ImageFilter.blur(sigmaX: 22, sigmaY: 22),
-
             child: Container(
               padding: const EdgeInsets.fromLTRB(22, 14, 22, 26),
-
               decoration: BoxDecoration(
                 gradient: LinearGradient(
                   begin: Alignment.topCenter,
                   end: Alignment.bottomCenter,
-
                   colors: [
                     const Color(0xFF0B1F1B).withOpacity(.96),
                     const Color(0xFF071513).withOpacity(.98),
                   ],
                 ),
-
                 border: Border.all(color: Colors.white.withOpacity(.07)),
               ),
-
               child: SafeArea(
                 top: false,
-
                 child: Column(
                   mainAxisSize: MainAxisSize.min,
-
                   crossAxisAlignment: CrossAxisAlignment.start,
-
                   children: [
                     Center(
                       child: Container(
@@ -421,47 +454,36 @@ class _CreateMenuSheetState extends State<_CreateMenuSheet>
                         ),
                       ),
                     ),
-
                     Container(
                       height: 1,
                       margin: const EdgeInsets.only(bottom: 14),
-
                       decoration: BoxDecoration(
                         gradient: LinearGradient(
                           colors: [
                             Colors.transparent,
-
                             Colors.white.withOpacity(.08),
-
                             Colors.transparent,
                           ],
                         ),
                       ),
                     ),
-
                     Text(
                       "Crear",
-
                       style: TextStyle(
                         fontSize: 22,
                         fontWeight: FontWeight.w700,
                         letterSpacing: -0.3,
-
                         color: Colors.white.withOpacity(.92),
                       ),
                     ),
-
                     const SizedBox(height: 22),
-
                     ...List.generate(
                       options.length,
-
                       (i) => _CreateTile(
                         data: options[i],
                         onTap: () => navigate(context, i),
                       ),
                     ),
-
                     const SizedBox(height: 6),
                   ],
                 ),
@@ -509,77 +531,55 @@ class _CreateTileState extends State<_CreateTile> {
 
     return GestureDetector(
       onTapDown: (_) => setState(() => pressed = true),
-
       onTapUp: (_) {
         setState(() => pressed = false);
         widget.onTap();
       },
-
       onTapCancel: () => setState(() => pressed = false),
-
       child: AnimatedContainer(
         duration: const Duration(milliseconds: 120),
-
         margin: const EdgeInsets.only(bottom: 14),
-
         padding: const EdgeInsets.all(14),
-
         decoration: BoxDecoration(
           borderRadius: BorderRadius.circular(20),
-
           color: pressed ? d.color.withOpacity(.20) : d.color.withOpacity(.11),
-
           border: Border.all(color: Colors.white.withOpacity(.08)),
-
           boxShadow: [
             BoxShadow(
               color: d.color.withOpacity(.08),
-
               blurRadius: 14,
               offset: const Offset(0, 6),
             ),
           ],
         ),
-
         child: Row(
           children: [
             Container(
               width: 48,
               height: 48,
-
               decoration: BoxDecoration(
                 color: d.color.withOpacity(.18),
-
                 borderRadius: BorderRadius.circular(16),
               ),
-
               child: Icon(d.icon, color: d.color, size: 24),
             ),
-
             const SizedBox(width: 14),
-
             Expanded(
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
-
                 children: [
                   Text(
                     d.title,
-
                     style: const TextStyle(
                       fontSize: 15.5,
                       fontWeight: FontWeight.w600,
                       letterSpacing: -.2,
-
                       color: Colors.white,
                     ),
                   ),
-
                   const SizedBox(height: 4),
-
                   Text(
                     d.subtitle,
-
                     style: TextStyle(
                       fontSize: 12.5,
                       color: Colors.white.withOpacity(.55),
@@ -588,164 +588,22 @@ class _CreateTileState extends State<_CreateTile> {
                 ],
               ),
             ),
-
             Container(
               padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
-
               decoration: BoxDecoration(
                 color: d.color.withOpacity(.18),
-
                 borderRadius: BorderRadius.circular(10),
               ),
-
               child: Text(
                 d.tag,
-
                 style: TextStyle(
                   fontSize: 11,
                   fontWeight: FontWeight.w600,
-
                   color: d.color,
                 ),
               ),
             ),
           ],
-        ),
-      ),
-    );
-  }
-}
-
-// ── Datos de cada opción ──────────────────────────────────────────────────────
-
-class _OpcionData {
-  final String emoji;
-  final String titulo;
-  final String subtitulo;
-  final Color tintColor;
-  final Color tagColor;
-  final Color tagBg;
-  final String tagTexto;
-
-  const _OpcionData({
-    required this.emoji,
-    required this.titulo,
-    required this.subtitulo,
-    required this.tintColor,
-    required this.tagColor,
-    required this.tagBg,
-    required this.tagTexto,
-  });
-}
-
-// ── Fila individual con glass y tinte ────────────────────────────────────────
-
-class _GlassOpcion extends StatefulWidget {
-  final _OpcionData data;
-  final VoidCallback onTap;
-
-  const _GlassOpcion({required this.data, required this.onTap});
-
-  @override
-  State<_GlassOpcion> createState() => _GlassOpcionState();
-}
-
-class _GlassOpcionState extends State<_GlassOpcion> {
-  bool _pressed = false;
-
-  @override
-  Widget build(BuildContext context) {
-    return GestureDetector(
-      onTapDown: (_) => setState(() => _pressed = true),
-      onTapUp: (_) {
-        setState(() => _pressed = false);
-        widget.onTap();
-      },
-      onTapCancel: () => setState(() => _pressed = false),
-      child: AnimatedScale(
-        scale: _pressed ? 0.97 : 1.0,
-        duration: const Duration(milliseconds: 110),
-        child: AnimatedContainer(
-          duration: const Duration(milliseconds: 110),
-          margin: const EdgeInsets.only(bottom: 8),
-          padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
-          decoration: BoxDecoration(
-            // Tinte individual de color sobre fondo glass.
-            color: _pressed
-                ? widget.data.tintColor.withOpacity(0.18)
-                : widget.data.tintColor.withOpacity(0.10),
-            borderRadius: BorderRadius.circular(16),
-            border: Border.all(
-              color: _pressed
-                  ? Colors.white.withOpacity(0.20)
-                  : Colors.white.withOpacity(0.08),
-              width: 0.5,
-            ),
-          ),
-          child: Row(
-            children: [
-              // Ícono con fondo tintado
-              Container(
-                width: 40,
-                height: 40,
-                decoration: BoxDecoration(
-                  color: widget.data.tintColor.withOpacity(0.20),
-                  borderRadius: BorderRadius.circular(12),
-                ),
-                child: Center(
-                  child: Text(
-                    widget.data.emoji,
-                    style: const TextStyle(fontSize: 18),
-                  ),
-                ),
-              ),
-              const SizedBox(width: 14),
-
-              // Texto
-              Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(
-                      widget.data.titulo,
-                      style: TextStyle(
-                        fontSize: 14,
-                        fontWeight: FontWeight.w600,
-                        color: Colors.white.withOpacity(0.90),
-                      ),
-                    ),
-                    const SizedBox(height: 2),
-                    Text(
-                      widget.data.subtitulo,
-                      style: TextStyle(
-                        fontSize: 11,
-                        color: Colors.white.withOpacity(0.45),
-                      ),
-                    ),
-                  ],
-                ),
-              ),
-
-              const SizedBox(width: 10),
-
-              // Tag de categoría
-              Container(
-                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-                decoration: BoxDecoration(
-                  color: widget.data.tagBg,
-                  borderRadius: BorderRadius.circular(8),
-                ),
-                child: Text(
-                  widget.data.tagTexto,
-                  style: TextStyle(
-                    fontSize: 9,
-                    fontWeight: FontWeight.w600,
-                    color: widget.data.tagColor,
-                  ),
-                ),
-              ),
-            ],
-          ),
         ),
       ),
     );
