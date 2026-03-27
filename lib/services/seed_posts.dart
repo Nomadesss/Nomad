@@ -7,6 +7,22 @@ import 'package:firebase_auth/firebase_auth.dart';
 /// Y después de verlos en el feed, quitalo.
 
 class SeedPosts {
+  // ── Migrar posts existentes sin campo visibility ───────────────────────────
+  // Llamar una sola vez desde initState() junto a run(), luego quitar.
+  // Solo toca documentos que no tienen el campo — no sobreescribe nada.
+  static Future<void> migrate() async {
+    final db = FirebaseFirestore.instance;
+    final snap = await db.collection('posts').get();
+
+    int updated = 0;
+    for (final doc in snap.docs) {
+      if (doc.data().containsKey('visibility')) continue;
+      await doc.reference.update({'visibility': 'public'});
+      updated++;
+    }
+    print('✅ Migración: $updated posts actualizados con visibility=public');
+  }
+
   static Future<void> run() async {
     final user = FirebaseAuth.instance.currentUser;
     if (user == null) {
@@ -37,6 +53,7 @@ class SeedPosts {
         "city": normalizedCity,
         "countryFlag": flag,
         "bio": bio,
+        "visibility": "public",
         "images": [
           "https://images.unsplash.com/photo-1539037116277-4db20889f2d4?w=800&q=80",
         ],
@@ -51,6 +68,7 @@ class SeedPosts {
         "city": normalizedCity,
         "countryFlag": flag,
         "bio": bio,
+        "visibility": "public",
         "images": [
           "https://images.unsplash.com/photo-1529156069898-49953e39b3ac?w=800&q=80",
         ],
@@ -65,6 +83,7 @@ class SeedPosts {
         "city": normalizedCity,
         "countryFlag": flag,
         "bio": bio,
+        "visibility": "public",
         "images": [
           "https://images.unsplash.com/photo-1450101499163-c8848c66ca85?w=800&q=80",
         ],
@@ -79,6 +98,7 @@ class SeedPosts {
         "city": normalizedCity,
         "countryFlag": flag,
         "bio": bio,
+        "visibility": "public",
         "images": [
           "https://images.unsplash.com/photo-1544025162-d76694265947?w=800&q=80",
         ],
@@ -93,6 +113,7 @@ class SeedPosts {
         "city": normalizedCity,
         "countryFlag": flag,
         "bio": bio,
+        "visibility": "public",
         "images": [
           "https://images.unsplash.com/photo-1477959858617-67f85cf4f1df?w=800&q=80",
         ],
