@@ -6,6 +6,7 @@ import 'package:flutter/rendering.dart';
 import '../../services/seed_posts.dart';
 import '../../services/location_service.dart';
 import '../../services/feed_service.dart';
+import 'package:cloud_firestore/cloud_firestore.dart';
 
 import 'widgets/feed_header.dart';
 import 'widgets/stories_bar.dart';
@@ -24,6 +25,10 @@ class _FeedScreenState extends State<FeedScreen> {
   FeedResult _feedResult = FeedResult.empty;
   bool _isLoading = true;
   bool _isLoadingMore = false;
+
+  // IDs de usuarios que el usuario actual sigue (amigos).
+  // Se carga una vez al iniciar y se reutiliza en _loadMore.
+  List<String> _friendIds = [];
 
   final ScrollController _scrollController = ScrollController();
   bool _showBottomBar = true;
@@ -73,6 +78,24 @@ class _FeedScreenState extends State<FeedScreen> {
     }
   }
 
+  /// Carga la lista de IDs de usuarios seguidos por el usuario actual.
+  /// Retorna una lista vacía si falla — el feed funciona igual sin amigos.
+  Future<List<String>> _loadFriendIds(String userId) async {
+    try {
+      final snap = await FirebaseFirestore.instance
+          .collection('follows')
+          .where('followerId', isEqualTo: userId)
+          .get();
+      return snap.docs
+          .map((doc) => doc.data()['followingId'] as String? ?? '')
+          .where((id) => id.isNotEmpty)
+          .toList();
+    } catch (e) {
+      debugPrint('[FeedScreen] No se pudo obtener amigos: $e');
+      return [];
+    }
+  }
+
   Future<void> _loadFeed() async {
     final userId = FirebaseAuth.instance.currentUser?.uid;
     if (userId == null) {
@@ -81,10 +104,21 @@ class _FeedScreenState extends State<FeedScreen> {
     }
 
     try {
-      final locationData = await LocationService.collect();
+      // Cargamos ubicación y amigos en paralelo para no agregar latencia
+      final results = await Future.wait([
+        LocationService.collect(),
+        _loadFriendIds(userId),
+      ]);
+
+      final locationData = results[0] as LocationData;
+      final friendIds = results[1] as List<String>;
+
+      _friendIds = friendIds; // guardar para _loadMore
+
       final result = await FeedService.getFeed(
         locationData: locationData,
         userId: userId,
+        friendIds: friendIds,
       );
 
       if (mounted) {
@@ -114,6 +148,7 @@ class _FeedScreenState extends State<FeedScreen> {
       final more = await FeedService.getFeed(
         locationData: locationData,
         userId: userId,
+        friendIds: _friendIds,
         startAfterDoc: _feedResult.lastDoc,
       );
 
@@ -218,9 +253,6 @@ class _FeedScreenState extends State<FeedScreen> {
                   if (item is PostModel) {
                     if (item.docId.isEmpty) return const SizedBox.shrink();
                     return PostCard(
-                      // ✅ FIX: key única por post — Flutter no reutiliza
-                      // el State de PostCard (ni el de LikeButton) entre
-                      // distintos posts al hacer scroll.
                       key: ValueKey(item.docId),
                       postId: item.docId,
                       postAuthorId: item.authorId,
@@ -235,7 +267,7 @@ class _FeedScreenState extends State<FeedScreen> {
 
                   if (item is EventModel) {
                     return EventCard(
-                      key: ValueKey('event_${item.title}'),
+                      key: ValueKey('event_${item.docId}'),
                       title: item.title,
                       location: item.location ?? '',
                       date: item.date ?? '',
