@@ -1,6 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:phosphor_flutter/phosphor_flutter.dart';
 import 'like_button.dart';
+import 'save_button.dart';
+import 'share_sheet.dart'; // ← nuevo import
 import 'comments_screen.dart';
 import 'user_profile_trigger.dart';
 import 'user_profile_card.dart';
@@ -169,7 +171,7 @@ class _PostCardState extends State<PostCard> {
 
                 const SizedBox(width: 18),
 
-                // ✅ Comentario con conteo real desde Firestore
+                // Comentarios con conteo real desde Firestore
                 StreamBuilder<int>(
                   stream: SocialService.commentsCountStream(widget.postId),
                   builder: (context, snap) {
@@ -208,19 +210,28 @@ class _PostCardState extends State<PostCard> {
 
                 const SizedBox(width: 18),
 
-                Icon(
-                  PhosphorIcons.paperPlaneTilt(),
-                  size: 24,
-                  color: const Color(0xFF134E4A),
+                // ── Compartir → abre ShareSheet ───────────────────────────
+                GestureDetector(
+                  onTap: () => ShareSheet.show(
+                    context,
+                    postId: widget.postId,
+                    username: widget.username,
+                  ),
+                  behavior: HitTestBehavior.opaque,
+                  child: Padding(
+                    padding: const EdgeInsets.all(4),
+                    child: Icon(
+                      PhosphorIcons.paperPlaneTilt(),
+                      size: 24,
+                      color: const Color(0xFF134E4A),
+                    ),
+                  ),
                 ),
 
                 const Spacer(),
 
-                Icon(
-                  PhosphorIcons.bookmarkSimple(),
-                  size: 24,
-                  color: const Color(0xFF134E4A),
-                ),
+                // Guardar conectado a Firestore
+                SaveButton(postId: widget.postId),
               ],
             ),
           ),

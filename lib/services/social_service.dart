@@ -393,6 +393,59 @@ class SocialService {
   }
 
   // ══════════════════════════════════════════════════════════════════════════
+  // GUARDADOS  (users/{uid}/saved_posts/{postId})
+  // ══════════════════════════════════════════════════════════════════════════
+
+  /// Alterna el estado guardado de un post para el usuario actual.
+  static Future<void> toggleSave(String postId) async {
+    final me = _requireMe();
+    final ref = _db
+        .collection('users')
+        .doc(me)
+        .collection('saved_posts')
+        .doc(postId);
+
+    final snap = await ref.get();
+    if (snap.exists) {
+      await ref.delete();
+    } else {
+      await ref.set({
+        'postId': postId,
+        'savedAt': FieldValue.serverTimestamp(),
+      });
+    }
+  }
+
+  /// Stream reactivo: emite `true` si el post está guardado por el usuario actual.
+  static Stream<bool> savedStream(String postId) {
+    final uid = _auth.currentUser?.uid;
+    if (uid == null) return Stream.value(false);
+
+    return _db
+        .collection('users')
+        .doc(uid)
+        .collection('saved_posts')
+        .doc(postId)
+        .snapshots()
+        .map((snap) => snap.exists);
+  }
+
+  /// Stream con la lista de IDs de posts guardados, ordenados del más reciente.
+  /// Útil para construir una pantalla "Guardados".
+  static Stream<List<String>> savedPostIdsStream() {
+    final uid = _auth.currentUser?.uid;
+    if (uid == null) return Stream.value([]);
+
+    return _db
+        .collection('users')
+        .doc(uid)
+        .collection('saved_posts')
+        .orderBy('savedAt', descending: true)
+        .snapshots()
+        .map((snap) => snap.docs.map((d) => d.id).toList());
+  }
+
+  // ══════════════════════════════════════════════════════════════════════════
   // COMENTARIOS
   // ══════════════════════════════════════════════════════════════════════════
 
@@ -449,7 +502,7 @@ class SocialService {
         );
   }
 
-  // ✅ NUEVO: Stream del contador de comentarios en tiempo real.
+  /// Stream del contador de comentarios en tiempo real.
   static Stream<int> commentsCountStream(String postId) {
     return _db
         .collection('posts')
