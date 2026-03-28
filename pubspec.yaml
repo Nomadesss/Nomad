@@ -83,6 +83,8 @@ flutter:
     - assets/logo/
     - assets/icons/whatsapp.png
     - assets/icons/facebook.png
+    - assets/images/fingerprint_bg.png
+    - assets/images/flags_bg.png
 
   # An image asset can refer to one or more resolution-specific "variants", see
   # https://flutter.dev/to/resolution-aware-images

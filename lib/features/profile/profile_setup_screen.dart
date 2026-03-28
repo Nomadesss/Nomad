@@ -469,6 +469,18 @@ class _ProfileSetupScreenState extends State<ProfileSetupScreen>
       resizeToAvoidBottomInset: true,
       body: Stack(
         children: [
+          // ── Fondo animado (crossfade entre steps) ──────────────
+          Positioned.fill(
+            child: AnimatedSwitcher(
+              duration: const Duration(milliseconds: 500),
+              child: step == 0
+                  ? const _FingerprintBgWidget(key: ValueKey('fp'))
+                  : step == 1
+                  ? const _FlagsBgWidget(key: ValueKey('flags'))
+                  : const SizedBox.shrink(key: ValueKey('none')),
+            ),
+          ),
+
           SafeArea(
             child: FadeTransition(
               opacity: _fadeIn,
@@ -484,23 +496,17 @@ class _ProfileSetupScreenState extends State<ProfileSetupScreen>
                       child: Stack(
                         alignment: Alignment.center,
                         children: [
-                          Positioned.fill(
+                          const Positioned.fill(
                             child: IgnorePointer(
-                              child: Hero(
-                                tag: "logo",
-                                child: Material(
-                                  color: Colors.transparent,
-                                  child: const Align(
-                                    alignment: Alignment.center,
-                                    child: Text(
-                                      "Nomad",
-                                      style: TextStyle(
-                                        fontSize: 34,
-                                        fontWeight: FontWeight.bold,
-                                        color: Colors.white,
-                                        letterSpacing: -0.5,
-                                      ),
-                                    ),
+                              child: Align(
+                                alignment: Alignment.center,
+                                child: Text(
+                                  "Nomad",
+                                  style: TextStyle(
+                                    fontSize: 34,
+                                    fontWeight: FontWeight.bold,
+                                    color: Colors.white,
+                                    letterSpacing: -0.5,
                                   ),
                                 ),
                               ),
@@ -1622,56 +1628,43 @@ class _GlowBorderPainter extends CustomPainter {
     final cy = size.height / 2;
     final radius = (size.width / 2) - 2;
 
-    // Fondo del anillo (siempre visible, tenue)
+    // Anillo base tenue
     canvas.drawCircle(
       Offset(cx, cy),
       radius,
       Paint()
-        ..color = const Color(0xFF0D9488).withValues(alpha: 0.15)
+        ..color = const Color(0xFF0D9488).withValues(alpha: 0.18)
         ..style = PaintingStyle.stroke
-        ..strokeWidth = 3.0,
+        ..strokeWidth = 2.5,
     );
 
-    // Arco brillante giratorio
-    final sweepAngle = selected ? 2 * pi : pi * 0.65;
+    // Arco giratorio — color sólido, sin SweepGradient
+    final sweepAngle = selected ? 2 * pi : pi * 0.70;
     final startAngle = progress * 2 * pi - pi / 2;
+    final arcColor = selected
+        ? const Color(0xFF34D399)
+        : const Color(0xFF0D9488).withValues(alpha: 0.85);
 
-    final gradient = SweepGradient(
-      startAngle: startAngle,
-      endAngle: startAngle + sweepAngle,
-      colors: selected
-          ? [
-              const Color(0xFF0D9488),
-              const Color(0xFF34D399),
-              const Color(0xFF0D9488),
-            ]
-          : [
-              Colors.transparent,
-              const Color(0xFF0D9488).withValues(alpha: 0.8),
-              const Color(0xFF34D399),
-              Colors.transparent,
-            ],
+    canvas.drawArc(
+      Rect.fromCircle(center: Offset(cx, cy), radius: radius),
+      startAngle,
+      sweepAngle,
+      false,
+      Paint()
+        ..color = arcColor
+        ..style = PaintingStyle.stroke
+        ..strokeWidth = selected ? 3.5 : 2.5
+        ..strokeCap = StrokeCap.round,
     );
 
-    final rect = Rect.fromCircle(center: Offset(cx, cy), radius: radius);
-    final paint = Paint()
-      ..shader = gradient.createShader(rect)
-      ..style = PaintingStyle.stroke
-      ..strokeWidth = selected ? 3.5 : 2.5
-      ..strokeCap = StrokeCap.round;
-
-    canvas.drawArc(rect, startAngle, sweepAngle, false, paint);
-
-    // Punto brillante en la punta del arco
+    // Punto brillante en la punta
     final tipX = cx + radius * cos(startAngle + sweepAngle);
     final tipY = cy + radius * sin(startAngle + sweepAngle);
     canvas.drawCircle(
       Offset(tipX, tipY),
       selected ? 4.5 : 3.0,
       Paint()
-        ..color = const Color(
-          0xFF34D399,
-        ).withValues(alpha: selected ? 1.0 : 0.85)
+        ..color = const Color(0xFF34D399)
         ..style = PaintingStyle.fill,
     );
   }
@@ -2875,4 +2868,352 @@ class _GeoPinPainter extends CustomPainter {
   @override
   bool shouldRepaint(_GeoPinPainter old) =>
       old.angle != angle || old.active != active;
+}
+
+// ── Fondo huella digital animado ─────────────────────────────
+
+class _FingerprintBgWidget extends StatefulWidget {
+  const _FingerprintBgWidget({super.key});
+
+  @override
+  State<_FingerprintBgWidget> createState() => _FingerprintBgWidgetState();
+}
+
+class _FingerprintBgWidgetState extends State<_FingerprintBgWidget>
+    with SingleTickerProviderStateMixin {
+  late AnimationController _ctrl;
+
+  @override
+  void initState() {
+    super.initState();
+    _ctrl = AnimationController(
+      vsync: this,
+      duration: const Duration(seconds: 6),
+    )..repeat();
+  }
+
+  @override
+  void dispose() {
+    _ctrl.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Stack(
+      fit: StackFit.expand,
+      children: [
+        // ── Imagen de fondo con opacidad ──────────────────────
+        Opacity(
+          opacity: 0.72,
+          child: Image.asset(
+            'assets/images/fingerprint_bg.png',
+            fit: BoxFit.cover,
+            width: double.infinity,
+            height: double.infinity,
+          ),
+        ),
+
+        // ── Overlay oscuro para legibilidad ───────────────────
+        DecoratedBox(
+          decoration: BoxDecoration(
+            gradient: LinearGradient(
+              begin: Alignment.topCenter,
+              end: Alignment.bottomCenter,
+              colors: [
+                const Color(0xFF0F0F14).withValues(alpha: 0.55),
+                const Color(0xFF0F0F14).withValues(alpha: 0.20),
+                const Color(0xFF0F0F14).withValues(alpha: 0.55),
+              ],
+              stops: const [0.0, 0.5, 1.0],
+            ),
+          ),
+        ),
+
+        // ── Degradado superior — protege título y campo ──────
+        Positioned(
+          top: 0,
+          left: 0,
+          right: 0,
+          child: LayoutBuilder(
+            builder: (ctx, constraints) => SizedBox(
+              height: MediaQuery.of(ctx).size.height * 0.46,
+              child: DecoratedBox(
+                decoration: BoxDecoration(
+                  gradient: LinearGradient(
+                    begin: Alignment.topCenter,
+                    end: Alignment.bottomCenter,
+                    colors: [
+                      const Color(0xFF0F0F14),
+                      const Color(0xFF0F0F14).withValues(alpha: 0.80),
+                      Colors.transparent,
+                    ],
+                    stops: const [0.0, 0.50, 1.0],
+                  ),
+                ),
+              ),
+            ),
+          ),
+        ),
+
+        // ── Degradado inferior — protege botón ────────────────
+        Positioned(
+          bottom: 0,
+          left: 0,
+          right: 0,
+          child: LayoutBuilder(
+            builder: (ctx, constraints) => SizedBox(
+              height: MediaQuery.of(ctx).size.height * 0.14,
+              child: const DecoratedBox(
+                decoration: BoxDecoration(
+                  gradient: LinearGradient(
+                    begin: Alignment.bottomCenter,
+                    end: Alignment.topCenter,
+                    colors: [Color(0xFF0F0F14), Colors.transparent],
+                  ),
+                ),
+              ),
+            ),
+          ),
+        ),
+
+        // ── Destellos animados ────────────────────────────────
+        AnimatedBuilder(
+          animation: _ctrl,
+          builder: (_, __) =>
+              CustomPaint(painter: _FingerprintGlowPainter(_ctrl.value)),
+        ),
+      ],
+    );
+  }
+}
+
+// ── Destellos animados sobre la imagen ───────────────────────
+
+// ── Destellos animados sobre la imagen ───────────────────────
+
+class _FingerprintGlowPainter extends CustomPainter {
+  final double t;
+  const _FingerprintGlowPainter(this.t);
+
+  @override
+  void paint(Canvas canvas, Size size) {
+    final w = size.width;
+    final h = size.height;
+
+    // Posiciones de destellos coincidiendo con centros de huellas
+    final glowSpots = [
+      (x: 0.12, y: 0.08, phase: 0.00, r: 16.0),
+      (x: 0.55, y: 0.05, phase: 0.15, r: 12.0),
+      (x: 0.82, y: 0.12, phase: 0.30, r: 14.0),
+      (x: 0.08, y: 0.28, phase: 0.45, r: 11.0),
+      (x: 0.30, y: 0.22, phase: 0.10, r: 18.0),
+      (x: 0.72, y: 0.20, phase: 0.55, r: 20.0),
+      (x: 0.50, y: 0.42, phase: 0.20, r: 24.0),
+      (x: 0.88, y: 0.38, phase: 0.65, r: 12.0),
+      (x: 0.15, y: 0.52, phase: 0.35, r: 14.0),
+      (x: 0.62, y: 0.58, phase: 0.75, r: 10.0),
+      (x: 0.38, y: 0.68, phase: 0.40, r: 15.0),
+      (x: 0.80, y: 0.65, phase: 0.85, r: 17.0),
+      (x: 0.10, y: 0.75, phase: 0.50, r: 13.0),
+      (x: 0.55, y: 0.80, phase: 0.60, r: 15.0),
+      (x: 0.25, y: 0.88, phase: 0.25, r: 19.0),
+      (x: 0.70, y: 0.90, phase: 0.90, r: 12.0),
+      (x: 0.90, y: 0.82, phase: 0.70, r: 14.0),
+    ];
+
+    for (final spot in glowSpots) {
+      final phase = (t + spot.phase) % 1.0;
+      final pulse = sin(phase * 2 * pi) * 0.5 + 0.5; // 0..1
+      final alpha = 0.10 + pulse * 0.25;
+      final radius = spot.r * (0.85 + pulse * 0.30);
+      final cx = w * spot.x;
+      final cy = h * spot.y;
+
+      // Halo exterior — usando capas sin MaskFilter para evitar artefactos
+      for (final (hR, hA) in [
+        (radius * 3.0, alpha * 0.08),
+        (radius * 2.0, alpha * 0.15),
+        (radius * 1.2, alpha * 0.25),
+      ]) {
+        canvas.drawCircle(
+          Offset(cx, cy),
+          hR,
+          Paint()
+            ..color = const Color(0xFF0D9488).withValues(alpha: hA)
+            ..style = PaintingStyle.fill,
+        );
+      }
+
+      // Punto central brillante
+      canvas.drawCircle(
+        Offset(cx, cy),
+        radius * 0.40,
+        Paint()
+          ..color = const Color(
+            0xFF34D399,
+          ).withValues(alpha: alpha * 1.5 > 1.0 ? 1.0 : alpha * 1.5)
+          ..style = PaintingStyle.fill,
+      );
+    }
+
+    // Sin gradients en el painter — se manejan como widgets en _FingerprintBgWidget
+  }
+
+  @override
+  bool shouldRepaint(_FingerprintGlowPainter old) => old.t != t;
+}
+
+// ── Fondo banderas animado ────────────────────────────────────
+
+// ── Fondo banderas ────────────────────────────────────────────
+
+class _FlagsBgWidget extends StatefulWidget {
+  const _FlagsBgWidget({super.key});
+
+  @override
+  State<_FlagsBgWidget> createState() => _FlagsBgWidgetState();
+}
+
+class _FlagsBgWidgetState extends State<_FlagsBgWidget>
+    with SingleTickerProviderStateMixin {
+  late AnimationController _ctrl;
+
+  @override
+  void initState() {
+    super.initState();
+    _ctrl = AnimationController(
+      vsync: this,
+      duration: const Duration(seconds: 6),
+    )..repeat();
+  }
+
+  @override
+  void dispose() {
+    _ctrl.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final h = MediaQuery.of(context).size.height;
+    final w = MediaQuery.of(context).size.width;
+
+    return Stack(
+      fit: StackFit.expand,
+      children: [
+        // 1. Imagen de fondo
+        Image.asset(
+          'assets/images/flags_bg.png',
+          fit: BoxFit.cover,
+          width: w,
+          height: h,
+          opacity: const AlwaysStoppedAnimation(0.65),
+        ),
+
+        // 2. Tinte oscuro fuerte para bajar el celeste y unificar con la paleta
+        Container(color: const Color(0xFF0A0F1A).withValues(alpha: 0.60)),
+
+        // 3. Degradado superior — legibilidad del header
+        Positioned(
+          top: 0,
+          left: 0,
+          right: 0,
+          height: h * 0.50,
+          child: DecoratedBox(
+            decoration: BoxDecoration(
+              gradient: LinearGradient(
+                begin: Alignment.topCenter,
+                end: Alignment.bottomCenter,
+                colors: [
+                  const Color(0xFF0F0F14).withValues(alpha: 0.75),
+                  const Color(0xFF0F0F14).withValues(alpha: 0.30),
+                  Colors.transparent,
+                ],
+                stops: const [0.0, 0.45, 1.0],
+              ),
+            ),
+          ),
+        ),
+
+        // 4. Degradado solo en la zona del botón (bottom 15%)
+        Positioned(
+          bottom: 0,
+          left: 0,
+          right: 0,
+          height: h * 0.15,
+          child: DecoratedBox(
+            decoration: BoxDecoration(
+              gradient: LinearGradient(
+                begin: Alignment.bottomCenter,
+                end: Alignment.topCenter,
+                colors: [const Color(0xFF0F0F14), Colors.transparent],
+              ),
+            ),
+          ),
+        ),
+
+        // 5. Destellos animados
+        AnimatedBuilder(
+          animation: _ctrl,
+          builder: (_, __) =>
+              CustomPaint(painter: _FlagsBgOverlayPainter(_ctrl.value)),
+        ),
+      ],
+    );
+  }
+}
+
+class _FlagsBgOverlayPainter extends CustomPainter {
+  final double t;
+  const _FlagsBgOverlayPainter(this.t);
+
+  @override
+  void paint(Canvas canvas, Size size) {
+    final w = size.width;
+    final h = size.height;
+
+    // Destellos suaves — sin gradients complejos
+    final spots = [
+      (x: 0.22, y: 0.52, phase: 0.00),
+      (x: 0.72, y: 0.45, phase: 0.30),
+      (x: 0.15, y: 0.68, phase: 0.55),
+      (x: 0.60, y: 0.72, phase: 0.20),
+      (x: 0.38, y: 0.82, phase: 0.70),
+      (x: 0.82, y: 0.78, phase: 0.45),
+      (x: 0.50, y: 0.92, phase: 0.15),
+    ];
+
+    for (final s in spots) {
+      final pulse = (sin(((t + s.phase) % 1.0) * 2 * pi) * 0.5 + 0.5);
+      final a = 0.05 + pulse * 0.10;
+      final cx = w * s.x;
+      final cy = h * s.y;
+
+      canvas.drawCircle(
+        Offset(cx, cy),
+        32,
+        Paint()
+          ..color = const Color(0xFF0D9488).withValues(alpha: a * 0.4)
+          ..style = PaintingStyle.fill,
+      );
+      canvas.drawCircle(
+        Offset(cx, cy),
+        16,
+        Paint()
+          ..color = const Color(0xFF0D9488).withValues(alpha: a * 0.7)
+          ..style = PaintingStyle.fill,
+      );
+      canvas.drawCircle(
+        Offset(cx, cy),
+        6,
+        Paint()
+          ..color = const Color(0xFF34D399).withValues(alpha: a * 1.0)
+          ..style = PaintingStyle.fill,
+      );
+    }
+  }
+
+  @override
+  bool shouldRepaint(_FlagsBgOverlayPainter old) => old.t != t;
 }
