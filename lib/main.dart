@@ -6,7 +6,6 @@ import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:flutter_localizations/flutter_localizations.dart';
 import 'app_theme.dart';
 import 'package:flutter/services.dart';
-//import 'core/theme/app_theme.dart';
 import 'features/auth/login_screen.dart';
 import 'features/auth/registration_screen.dart';
 import 'features/auth/terms_acceptance_screen.dart';
@@ -16,6 +15,8 @@ import 'features/feed/feed_screen.dart';
 import 'features/profile/perfil_screen.dart';
 import 'features/profile/profile_setup_screen.dart';
 import 'services/biometric_service.dart';
+import 'features/map/map_screen.dart';
+import 'features/search/search_screen.dart';
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
@@ -39,9 +40,11 @@ class NomadApp extends StatelessWidget {
       routes: {
         '/login': (context) => const LoginScreen(),
         '/terms': (context) => const TermsAcceptanceScreen(),
-        '/perfil': (context) => const PantallaPerfil(),
+        '/profile': (context) => const PerfilPropio(),
         '/feed': (context) => const FeedScreen(),
         '/registro': (context) => const RegistrationScreen(),
+        '/map': (context) => const MapScreen(),
+        '/search': (context) => const SearchScreen(),
       },
     );
   }

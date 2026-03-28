@@ -304,7 +304,7 @@ class _FeedScreenState extends State<FeedScreen> {
         duration: const Duration(milliseconds: 300),
         curve: Curves.easeInOut,
         offset: _showBottomBar ? Offset.zero : const Offset(0, 1),
-        child: const BottomNav(),
+        child: const BottomNav(currentIndex: 0),
       ),
     );
   }

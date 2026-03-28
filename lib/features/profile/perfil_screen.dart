@@ -1,197 +1,1828 @@
+import 'dart:ui' show ImageFilter;
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:firebase_auth/firebase_auth.dart';
+import 'package:cloud_firestore/cloud_firestore.dart';
 
-class PantallaPerfil extends StatelessWidget {
-  const PantallaPerfil({super.key});
+// Ajustá esta ruta relativa según tu estructura de carpetas.
+// Si perfil_screen.dart está en lib/features/profile/
+// y bottom_nav.dart en lib/features/feed/widgets/
+import '../feed/widgets/bottom_nav.dart';
+
+// ─────────────────────────────────────────────────────────────────────────────
+// perfil_screen.dart  –  Nomad App
+// Pantalla de perfil propio, estilo Instagram, orientada a migrantes.
+// ─────────────────────────────────────────────────────────────────────────────
+
+// Paleta
+const _teal = Color(0xFF0D9488);
+const _tealLight = Color(0xFF5EEAD4);
+const _tealDark = Color(0xFF134E4A);
+const _tealBg = Color(0xFFF0FAF9);
+const _bgMain = Color(0xFFF8FFFE);
+
+class PerfilPropio extends StatefulWidget {
+  const PerfilPropio({super.key});
+
+  @override
+  State<PerfilPropio> createState() => _PerfilPropioState();
+}
+
+class _PerfilPropioState extends State<PerfilPropio>
+    with SingleTickerProviderStateMixin {
+  late TabController _tabController;
+  int _tabIndex = 0;
+
+  // Datos de ejemplo – en producción vienen de Firestore
+  final List<Map<String, String>> _lugaresVividos = [
+    {
+      'ciudad': 'Buenos Aires',
+      'pais': 'Argentina',
+      'emoji': '🇦🇷',
+      'años': '1995–2018',
+    },
+    {
+      'ciudad': 'Barcelona',
+      'pais': 'España',
+      'emoji': '🇪🇸',
+      'años': '2018–2021',
+    },
+    {
+      'ciudad': 'Ciudad de México',
+      'pais': 'México',
+      'emoji': '🇲🇽',
+      'años': '2021–hoy',
+    },
+  ];
+
+  final List<Map<String, dynamic>> _historias = [
+    {
+      'label': 'Mi llegada',
+      'color': 0xFF0D9488,
+      'icon': Icons.flight_land_rounded,
+    },
+    {
+      'label': 'Trabajo',
+      'color': 0xFF0891B2,
+      'icon': Icons.work_outline_rounded,
+    },
+    {
+      'label': 'Amigos',
+      'color': 0xFF7C3AED,
+      'icon': Icons.people_outline_rounded,
+    },
+    {'label': 'Comida', 'color': 0xFFD97706, 'icon': Icons.restaurant_outlined},
+    {
+      'label': 'Tips',
+      'color': 0xFF059669,
+      'icon': Icons.lightbulb_outline_rounded,
+    },
+  ];
+
+  @override
+  void initState() {
+    super.initState();
+    _tabController = TabController(length: 4, vsync: this)
+      ..addListener(() => setState(() => _tabIndex = _tabController.index));
+  }
+
+  @override
+  void dispose() {
+    _tabController.dispose();
+    super.dispose();
+  }
 
   @override
   Widget build(BuildContext context) {
     final user = FirebaseAuth.instance.currentUser;
-
-    /// nombre fallback
-    final String nombreUsuario =
+    final String nombre =
         user?.displayName ??
-        (user?.email != null ? user!.email!.split('@')[0] : "Usuario");
+        (user?.email != null ? user!.email!.split('@')[0] : 'Usuario');
+    final String username = nombre.toLowerCase().replaceAll(' ', '_');
 
     return Scaffold(
-      backgroundColor: const Color(0xFFF5F5F7),
-      body: Stack(
-        children: [
-          /// HEADER IMAGE
-          Container(
-            height: MediaQuery.of(context).size.height * 0.40,
-            decoration: const BoxDecoration(
-              image: DecorationImage(
-                image: NetworkImage(
-                  'https://images.unsplash.com/photo-1542314831-068cd1dbfeeb',
-                ),
-                fit: BoxFit.cover,
-              ),
-            ),
-            child: Container(
-              decoration: BoxDecoration(
-                gradient: LinearGradient(
-                  begin: Alignment.bottomCenter,
-                  end: Alignment.topCenter,
-                  colors: [Colors.black.withOpacity(0.85), Colors.transparent],
-                ),
-              ),
-            ),
+      backgroundColor: _bgMain,
+      body: NestedScrollView(
+        headerSliverBuilder: (context, innerBoxIsScrolled) => [
+          _buildSliverHeader(
+            context,
+            user,
+            nombre,
+            username,
+            innerBoxIsScrolled,
           ),
+        ],
+        body: Column(
+          children: [
+            _buildTabBar(),
+            Expanded(
+              child: TabBarView(
+                controller: _tabController,
+                children: [
+                  _TabPublicaciones(),
+                  _TabEventos(),
+                  _TabMensajes(),
+                  _TabActividad(),
+                ],
+              ),
+            ),
+          ],
+        ),
+      ),
+      bottomNavigationBar: const BottomNav(currentIndex: 3),
+    );
+  }
 
-          /// CONTENT
-          SingleChildScrollView(
-            child: Column(
-              children: [
-                const SizedBox(height: 60),
+  // ── Sliver App Bar con toda la info del perfil ────────────────────────────
 
-                /// TOP ICONS
-                Padding(
-                  padding: const EdgeInsets.symmetric(horizontal: 20),
-                  child: Row(
-                    mainAxisAlignment: MainAxisAlignment.end,
-                    children: [
-                      const Icon(Icons.favorite_border, color: Colors.white),
-                      const SizedBox(width: 20),
-                      IconButton(
-                        icon: const Icon(Icons.logout, color: Colors.white),
-                        onPressed: () async {
-                          await FirebaseAuth.instance.signOut();
-                          Navigator.pushReplacementNamed(context, '/');
-                        },
-                      ),
-                    ],
-                  ),
-                ),
+  Widget _buildSliverHeader(
+    BuildContext context,
+    User? user,
+    String nombre,
+    String username,
+    bool innerBoxIsScrolled,
+  ) {
+    return SliverAppBar(
+      expandedHeight: 520,
+      pinned: true,
+      backgroundColor: Colors.white,
+      surfaceTintColor: Colors.transparent,
+      systemOverlayStyle: const SystemUiOverlayStyle(
+        statusBarBrightness: Brightness.dark,
+        statusBarIconBrightness: Brightness.light,
+      ),
+      leading: const SizedBox.shrink(),
+      actions: [
+        IconButton(
+          icon: const Icon(Icons.menu_rounded, color: _tealDark),
+          onPressed: () => _showConfiguracion(context),
+        ),
+      ],
+      flexibleSpace: FlexibleSpaceBar(
+        collapseMode: CollapseMode.pin,
+        background: _ProfileHeader(
+          user: user,
+          nombre: nombre,
+          username: username,
+          historias: _historias,
+          lugaresVividos: _lugaresVividos,
+          onEditarPerfil: () => _showEditarPerfil(context),
+          onFoto: () => _showFotoOptions(context, user),
+        ),
+      ),
+    );
+  }
 
-                /// PROFILE PHOTO (HERO)
-                Hero(
-                  tag: "profile-photo",
-                  child: CircleAvatar(
-                    radius: 55,
-                    backgroundColor: Colors.white,
-                    child: CircleAvatar(
-                      radius: 52,
-                      backgroundImage: user?.photoURL != null
-                          ? NetworkImage(user!.photoURL!)
-                          : null,
-                      child: user?.photoURL == null
-                          ? Text(
-                              nombreUsuario.isNotEmpty
-                                  ? nombreUsuario.substring(0, 1).toUpperCase()
-                                  : '?',
-                              style: const TextStyle(
-                                fontSize: 30,
-                                fontWeight: FontWeight.bold,
-                              ),
-                            )
-                          : null,
+  // ── Tab bar ───────────────────────────────────────────────────────────────
+
+  Widget _buildTabBar() {
+    final tabs = [
+      (Icons.grid_on_rounded, 'Posts'),
+      (Icons.event_outlined, 'Eventos'),
+      (Icons.campaign_outlined, 'Mensajes'),
+      (Icons.timeline_rounded, 'Actividad'),
+    ];
+
+    return Container(
+      color: Colors.white,
+      child: Row(
+        children: List.generate(tabs.length, (i) {
+          final selected = _tabIndex == i;
+          return Expanded(
+            child: GestureDetector(
+              onTap: () {
+                HapticFeedback.selectionClick();
+                _tabController.animateTo(i);
+              },
+              behavior: HitTestBehavior.opaque,
+              child: AnimatedContainer(
+                duration: const Duration(milliseconds: 200),
+                padding: const EdgeInsets.symmetric(vertical: 12),
+                decoration: BoxDecoration(
+                  border: Border(
+                    bottom: BorderSide(
+                      color: selected ? _teal : Colors.transparent,
+                      width: 2.5,
                     ),
                   ),
+                ),
+                child: Icon(
+                  tabs[i].$1,
+                  size: 22,
+                  color: selected ? _teal : const Color(0xFFB0C4C3),
+                ),
+              ),
+            ),
+          );
+        }),
+      ),
+    );
+  }
+
+  // ── Modales ───────────────────────────────────────────────────────────────
+
+  void _showEditarPerfil(BuildContext context) {
+    showModalBottomSheet(
+      context: context,
+      isScrollControlled: true,
+      backgroundColor: Colors.transparent,
+      builder: (_) => const _EditarPerfilSheet(),
+    );
+  }
+
+  void _showFotoOptions(BuildContext context, User? user) {
+    showModalBottomSheet(
+      context: context,
+      backgroundColor: Colors.transparent,
+      builder: (_) => _FotoOptionsSheet(user: user),
+    );
+  }
+
+  void _showConfiguracion(BuildContext context) {
+    showModalBottomSheet(
+      context: context,
+      isScrollControlled: true,
+      backgroundColor: Colors.transparent,
+      builder: (_) => const _ConfiguracionSheet(),
+    );
+  }
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Header del perfil
+// ─────────────────────────────────────────────────────────────────────────────
+
+class _ProfileHeader extends StatelessWidget {
+  final User? user;
+  final String nombre;
+  final String username;
+  final List<Map<String, dynamic>> historias;
+  final List<Map<String, String>> lugaresVividos;
+  final VoidCallback onEditarPerfil;
+  final VoidCallback onFoto;
+
+  const _ProfileHeader({
+    required this.user,
+    required this.nombre,
+    required this.username,
+    required this.historias,
+    required this.lugaresVividos,
+    required this.onEditarPerfil,
+    required this.onFoto,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return SingleChildScrollView(
+      physics: const NeverScrollableScrollPhysics(),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          // Cover + Avatar
+          _buildCoverAndAvatar(context),
+          // Info
+          Padding(
+            padding: const EdgeInsets.fromLTRB(20, 12, 20, 0),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                // Nombre + botón editar
+                Row(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text(
+                            nombre,
+                            style: const TextStyle(
+                              fontSize: 22,
+                              fontWeight: FontWeight.w800,
+                              color: _tealDark,
+                              letterSpacing: -0.3,
+                            ),
+                          ),
+                          Text(
+                            '@$username',
+                            style: const TextStyle(
+                              fontSize: 13,
+                              color: _teal,
+                              fontWeight: FontWeight.w500,
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                    const SizedBox(width: 12),
+                    _EditButton(label: 'Editar perfil', onTap: onEditarPerfil),
+                  ],
                 ),
 
                 const SizedBox(height: 10),
 
-                /// USER NAME (HERO)
-                Hero(
-                  tag: "profile-name",
-                  child: Material(
-                    color: Colors.transparent,
-                    child: Text(
-                      nombreUsuario,
-                      style: const TextStyle(
-                        color: Colors.white,
-                        fontSize: 28,
-                        fontWeight: FontWeight.bold,
-                      ),
-                    ),
+                // Bio
+                const Text(
+                  'Argentino viviendo el sueño nómada 🌍  |  Conectando con migrantes del mundo',
+                  style: TextStyle(
+                    fontSize: 13.5,
+                    color: Color(0xFF4B7B78),
+                    height: 1.5,
                   ),
                 ),
 
-                Text(
-                  user?.email ?? "",
-                  style: const TextStyle(color: Colors.white70, fontSize: 14),
+                const SizedBox(height: 14),
+
+                // Stats
+                _buildStats(),
+
+                const SizedBox(height: 18),
+
+                // Lugares vividos
+                _buildLugaresVividos(),
+
+                const SizedBox(height: 18),
+              ],
+            ),
+          ),
+
+          // Historias + destacadas
+          _buildHistorias(),
+
+          const SizedBox(height: 8),
+
+          // Divisor
+          Container(height: 0.5, color: const Color(0xFFE2F0EF)),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildCoverAndAvatar(BuildContext context) {
+    return SizedBox(
+      height: 160,
+      child: Stack(
+        clipBehavior: Clip.none,
+        children: [
+          // Cover image
+          Positioned.fill(
+            child: Image.network(
+              'https://images.unsplash.com/photo-1477959858617-67f85cf4f1df?w=800&q=70',
+              fit: BoxFit.cover,
+              errorBuilder: (_, __, ___) => Container(
+                decoration: const BoxDecoration(
+                  gradient: LinearGradient(
+                    colors: [Color(0xFF0D9488), Color(0xFF134E4A)],
+                  ),
                 ),
+              ),
+            ),
+          ),
+          // Overlay
+          Positioned.fill(
+            child: Container(
+              decoration: BoxDecoration(
+                gradient: LinearGradient(
+                  begin: Alignment.topCenter,
+                  end: Alignment.bottomCenter,
+                  colors: [Colors.transparent, Colors.black.withOpacity(0.35)],
+                ),
+              ),
+            ),
+          ),
+          // Avatar
+          Positioned(
+            bottom: -42,
+            left: 20,
+            child: GestureDetector(
+              onTap: onFoto,
+              child: Stack(
+                children: [
+                  Container(
+                    padding: const EdgeInsets.all(3),
+                    decoration: BoxDecoration(
+                      shape: BoxShape.circle,
+                      gradient: const LinearGradient(
+                        colors: [_teal, _tealLight],
+                        begin: Alignment.topLeft,
+                        end: Alignment.bottomRight,
+                      ),
+                    ),
+                    child: CircleAvatar(
+                      radius: 44,
+                      backgroundColor: Colors.white,
+                      child: CircleAvatar(
+                        radius: 41,
+                        backgroundColor: const Color(0xFFCCFBF1),
+                        backgroundImage: user?.photoURL != null
+                            ? NetworkImage(user!.photoURL!)
+                            : null,
+                        child: user?.photoURL == null
+                            ? Text(
+                                (user?.displayName?.isNotEmpty == true
+                                        ? user!.displayName!
+                                        : (user?.email ?? 'U'))
+                                    .substring(0, 1)
+                                    .toUpperCase(),
+                                style: const TextStyle(
+                                  fontSize: 32,
+                                  fontWeight: FontWeight.bold,
+                                  color: _teal,
+                                ),
+                              )
+                            : null,
+                      ),
+                    ),
+                  ),
+                  Positioned(
+                    bottom: 2,
+                    right: 2,
+                    child: Container(
+                      width: 24,
+                      height: 24,
+                      decoration: const BoxDecoration(
+                        color: _teal,
+                        shape: BoxShape.circle,
+                      ),
+                      child: const Icon(
+                        Icons.add_rounded,
+                        color: Colors.white,
+                        size: 16,
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ),
+          // Editar cover
+          Positioned(
+            bottom: 10,
+            right: 14,
+            child: Container(
+              padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
+              decoration: BoxDecoration(
+                color: Colors.black.withOpacity(0.4),
+                borderRadius: BorderRadius.circular(20),
+              ),
+              child: const Row(
+                children: [
+                  Icon(
+                    Icons.camera_alt_outlined,
+                    color: Colors.white,
+                    size: 14,
+                  ),
+                  SizedBox(width: 4),
+                  Text(
+                    'Editar portada',
+                    style: TextStyle(color: Colors.white, fontSize: 11),
+                  ),
+                ],
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
 
-                const SizedBox(height: 30),
+  Widget _buildStats() {
+    return Row(
+      children: [
+        _StatBubble(value: '42', label: 'Posts'),
+        const SizedBox(width: 24),
+        _StatBubble(value: '1.2k', label: 'Seguidores'),
+        const SizedBox(width: 24),
+        _StatBubble(value: '380', label: 'Siguiendo'),
+        const SizedBox(width: 24),
+        _StatBubble(value: '3', label: 'Países'),
+      ],
+    );
+  }
 
-                /// OPTION GROUP 1
-                _buildOptionGroup([
-                  _buildOptionItem(Icons.location_on_outlined, "Mi Dirección"),
-                  _buildOptionItem(Icons.person_outline, "Cuenta"),
-                ]),
+  Widget _buildLugaresVividos() {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        const Row(
+          children: [
+            Icon(Icons.flight_rounded, size: 14, color: _teal),
+            SizedBox(width: 6),
+            Text(
+              'Mi ruta migrante',
+              style: TextStyle(
+                fontSize: 12,
+                fontWeight: FontWeight.w700,
+                color: _teal,
+                letterSpacing: 0.5,
+              ),
+            ),
+          ],
+        ),
+        const SizedBox(height: 8),
+        SingleChildScrollView(
+          scrollDirection: Axis.horizontal,
+          child: Row(
+            children: [
+              // TODO: cargar desde Firestore
+              ...[
+                {
+                  'ciudad': 'Buenos Aires',
+                  'emoji': '🇦🇷',
+                  'años': '1995–2018',
+                },
+                {'ciudad': 'Barcelona', 'emoji': '🇪🇸', 'años': '2018–2021'},
+                {'ciudad': 'México DF', 'emoji': '🇲🇽', 'años': '2021–hoy'},
+              ].asMap().entries.map((e) {
+                final i = e.key;
+                final lugar = e.value;
+                return Row(
+                  children: [
+                    Container(
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 12,
+                        vertical: 7,
+                      ),
+                      decoration: BoxDecoration(
+                        color: _tealBg,
+                        borderRadius: BorderRadius.circular(20),
+                        border: Border.all(color: _tealLight.withOpacity(0.5)),
+                      ),
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text(
+                            '${lugar['emoji']} ${lugar['ciudad']}',
+                            style: const TextStyle(
+                              fontSize: 12,
+                              fontWeight: FontWeight.w700,
+                              color: _tealDark,
+                            ),
+                          ),
+                          Text(
+                            lugar['años']!,
+                            style: const TextStyle(fontSize: 10, color: _teal),
+                          ),
+                        ],
+                      ),
+                    ),
+                    if (i < 2)
+                      const Padding(
+                        padding: EdgeInsets.symmetric(horizontal: 6),
+                        child: Icon(
+                          Icons.arrow_forward_rounded,
+                          size: 14,
+                          color: _tealLight,
+                        ),
+                      ),
+                  ],
+                );
+              }),
+              const SizedBox(width: 8),
+              GestureDetector(
+                onTap: () {}, // Abre editor de lugares
+                child: Container(
+                  width: 34,
+                  height: 34,
+                  decoration: BoxDecoration(
+                    shape: BoxShape.circle,
+                    border: Border.all(color: _tealLight),
+                    color: _tealBg,
+                  ),
+                  child: const Icon(Icons.add_rounded, size: 18, color: _teal),
+                ),
+              ),
+            ],
+          ),
+        ),
+      ],
+    );
+  }
 
-                const SizedBox(height: 20),
+  Widget _buildHistorias() {
+    return SizedBox(
+      height: 90,
+      child: ListView(
+        scrollDirection: Axis.horizontal,
+        padding: const EdgeInsets.symmetric(horizontal: 16),
+        children: [
+          // Nueva historia
+          _HistoriaItem(
+            label: 'Nueva',
+            isNew: true,
+            color: _teal.value,
+            icon: Icons.add_rounded,
+            onTap: () {},
+          ),
+          // Historias destacadas
+          ...[
+            {
+              'label': 'Mi llegada',
+              'color': 0xFF0D9488,
+              'icon': Icons.flight_land_rounded,
+            },
+            {
+              'label': 'Trabajo',
+              'color': 0xFF0891B2,
+              'icon': Icons.work_outline_rounded,
+            },
+            {
+              'label': 'Amigos',
+              'color': 0xFF7C3AED,
+              'icon': Icons.people_outline_rounded,
+            },
+            {
+              'label': 'Comida',
+              'color': 0xFFD97706,
+              'icon': Icons.restaurant_outlined,
+            },
+            {
+              'label': 'Tips',
+              'color': 0xFF059669,
+              'icon': Icons.lightbulb_outline_rounded,
+            },
+          ].map(
+            (h) => _HistoriaItem(
+              label: h['label'] as String,
+              color: h['color'] as int,
+              icon: h['icon'] as IconData,
+              onTap: () {},
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
 
-                /// OPTION GROUP 2
-                _buildOptionGroup([
-                  _buildOptionItem(Icons.notifications_none, "Notificaciones"),
-                  _buildOptionItem(Icons.devices_outlined, "Dispositivos"),
-                  _buildOptionItem(Icons.vpn_key_outlined, "Contraseñas"),
-                  _buildOptionItem(Icons.language, "Idioma"),
-                ]),
+// ─────────────────────────────────────────────────────────────────────────────
+// Tabs de contenido
+// ─────────────────────────────────────────────────────────────────────────────
 
-                const SizedBox(height: 50),
+class _TabPublicaciones extends StatelessWidget {
+  @override
+  Widget build(BuildContext context) {
+    return GridView.builder(
+      padding: const EdgeInsets.all(2),
+      gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
+        crossAxisCount: 3,
+        crossAxisSpacing: 2,
+        mainAxisSpacing: 2,
+      ),
+      itemCount: 15,
+      itemBuilder: (context, i) {
+        final colors = [
+          0xFF0D9488,
+          0xFF0891B2,
+          0xFF7C3AED,
+          0xFF059669,
+          0xFFD97706,
+        ];
+        return Container(
+          color: Color(
+            colors[i % colors.length],
+          ).withOpacity(0.15 + (i % 4) * 0.1),
+          child: Center(
+            child: Icon(
+              [
+                Icons.image_outlined,
+                Icons.videocam_outlined,
+                Icons.mic_outlined,
+              ][i % 3],
+              color: Color(colors[i % colors.length]),
+              size: 28,
+            ),
+          ),
+        );
+      },
+    );
+  }
+}
+
+class _TabEventos extends StatelessWidget {
+  @override
+  Widget build(BuildContext context) {
+    final eventos = [
+      {
+        'titulo': 'Encuentro de migrantes latinoamericanos',
+        'fecha': '15 Abr 2025',
+        'lugar': 'Ciudad de México',
+        'emoji': '🎉',
+        'asistentes': 34,
+      },
+      {
+        'titulo': 'Taller: Cómo abrir cuenta bancaria en el extranjero',
+        'fecha': '22 Abr 2025',
+        'lugar': 'Online',
+        'emoji': '💳',
+        'asistentes': 120,
+      },
+      {
+        'titulo': 'Cena de integración – comunidad Nomad',
+        'fecha': '1 May 2025',
+        'lugar': 'Barcelona',
+        'emoji': '🍽️',
+        'asistentes': 18,
+      },
+    ];
+
+    return ListView(
+      padding: const EdgeInsets.all(16),
+      children: [
+        _ActionChip(
+          icon: Icons.add_rounded,
+          label: 'Crear evento',
+          onTap: () {},
+        ),
+        const SizedBox(height: 16),
+        ...eventos.map((e) => _EventCard(evento: e)),
+      ],
+    );
+  }
+}
+
+class _TabMensajes extends StatelessWidget {
+  @override
+  Widget build(BuildContext context) {
+    final mensajes = [
+      {
+        'texto':
+            '¿Cómo tramitar el NIE en España sin morir en el intento? Acá va mi guía completa 🇪🇸',
+        'fecha': 'hace 2 días',
+        'likes': 87,
+        'emoji': '📋',
+      },
+      {
+        'texto':
+            'El primer mes en un país nuevo es el más difícil, pero también el más transformador. ¿Lo sentiste así? 💬',
+        'fecha': 'hace 1 semana',
+        'likes': 213,
+        'emoji': '✈️',
+      },
+      {
+        'texto':
+            'Buscando compañía para explorar el Zócalo este domingo. ¡Nomads bienvenidos! 🗺️',
+        'fecha': 'hace 2 semanas',
+        'likes': 45,
+        'emoji': '🗺️',
+      },
+    ];
+
+    return ListView(
+      padding: const EdgeInsets.all(16),
+      children: [
+        _ActionChip(
+          icon: Icons.campaign_outlined,
+          label: 'Nuevo mensaje a la comunidad',
+          onTap: () {},
+        ),
+        const SizedBox(height: 16),
+        ...mensajes.map((m) => _MensajeCard(mensaje: m)),
+      ],
+    );
+  }
+}
+
+class _TabActividad extends StatelessWidget {
+  @override
+  Widget build(BuildContext context) {
+    final actividades = [
+      {
+        'texto': 'Carlos M. comenzó a seguirte',
+        'tiempo': 'hace 5 min',
+        'icon': Icons.person_add_outlined,
+        'color': 0xFF0D9488,
+      },
+      {
+        'texto': 'Tu post recibió 12 nuevos likes',
+        'tiempo': 'hace 1h',
+        'icon': Icons.favorite_outline_rounded,
+        'color': 0xFFE11D48,
+      },
+      {
+        'texto': 'Lucía comentó en tu evento',
+        'tiempo': 'hace 3h',
+        'icon': Icons.comment_outlined,
+        'color': 0xFF0891B2,
+      },
+      {
+        'texto': 'Tu historia fue vista por 84 personas',
+        'tiempo': 'hace 6h',
+        'icon': Icons.remove_red_eye_outlined,
+        'color': 0xFF7C3AED,
+      },
+      {
+        'texto': 'Nomad te mencionó en un post',
+        'tiempo': 'ayer',
+        'icon': Icons.alternate_email_rounded,
+        'color': 0xFFD97706,
+      },
+    ];
+
+    return ListView(
+      padding: const EdgeInsets.all(16),
+      children: actividades.map((a) {
+        return Container(
+          margin: const EdgeInsets.only(bottom: 10),
+          padding: const EdgeInsets.all(14),
+          decoration: BoxDecoration(
+            color: Colors.white,
+            borderRadius: BorderRadius.circular(14),
+            boxShadow: [
+              BoxShadow(
+                color: Colors.black.withOpacity(0.04),
+                blurRadius: 8,
+                offset: const Offset(0, 2),
+              ),
+            ],
+          ),
+          child: Row(
+            children: [
+              Container(
+                width: 40,
+                height: 40,
+                decoration: BoxDecoration(
+                  color: Color(a['color'] as int).withOpacity(0.12),
+                  shape: BoxShape.circle,
+                ),
+                child: Icon(
+                  a['icon'] as IconData,
+                  color: Color(a['color'] as int),
+                  size: 20,
+                ),
+              ),
+              const SizedBox(width: 12),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      a['texto'] as String,
+                      style: const TextStyle(
+                        fontSize: 13.5,
+                        color: _tealDark,
+                        fontWeight: FontWeight.w500,
+                      ),
+                    ),
+                    const SizedBox(height: 2),
+                    Text(
+                      a['tiempo'] as String,
+                      style: const TextStyle(
+                        fontSize: 11,
+                        color: Color(0xFF94A3B8),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ],
+          ),
+        );
+      }).toList(),
+    );
+  }
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Widgets reutilizables
+// ─────────────────────────────────────────────────────────────────────────────
+
+class _StatBubble extends StatelessWidget {
+  final String value;
+  final String label;
+  const _StatBubble({required this.value, required this.label});
+
+  @override
+  Widget build(BuildContext context) {
+    return Column(
+      children: [
+        Text(
+          value,
+          style: const TextStyle(
+            fontSize: 18,
+            fontWeight: FontWeight.w800,
+            color: _tealDark,
+            letterSpacing: -0.5,
+          ),
+        ),
+        Text(
+          label,
+          style: const TextStyle(fontSize: 11, color: Color(0xFF94A3B8)),
+        ),
+      ],
+    );
+  }
+}
+
+class _EditButton extends StatelessWidget {
+  final String label;
+  final VoidCallback onTap;
+  const _EditButton({required this.label, required this.onTap});
+
+  @override
+  Widget build(BuildContext context) {
+    return GestureDetector(
+      onTap: onTap,
+      child: Container(
+        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+        decoration: BoxDecoration(
+          color: _tealBg,
+          borderRadius: BorderRadius.circular(20),
+          border: Border.all(color: _tealLight),
+        ),
+        child: const Text(
+          'Editar perfil',
+          style: TextStyle(
+            fontSize: 12,
+            fontWeight: FontWeight.w600,
+            color: _teal,
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+class _HistoriaItem extends StatelessWidget {
+  final String label;
+  final int color;
+  final IconData icon;
+  final VoidCallback onTap;
+  final bool isNew;
+
+  const _HistoriaItem({
+    required this.label,
+    required this.color,
+    required this.icon,
+    required this.onTap,
+    this.isNew = false,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return GestureDetector(
+      onTap: onTap,
+      child: Container(
+        margin: const EdgeInsets.only(right: 14),
+        child: Column(
+          children: [
+            Container(
+              width: 58,
+              height: 58,
+              decoration: BoxDecoration(
+                shape: BoxShape.circle,
+                gradient: isNew
+                    ? null
+                    : LinearGradient(
+                        colors: [Color(color), Color(color).withOpacity(0.6)],
+                        begin: Alignment.topLeft,
+                        end: Alignment.bottomRight,
+                      ),
+                color: isNew ? _tealBg : null,
+                border: Border.all(
+                  color: isNew ? _tealLight : Color(color).withOpacity(0.3),
+                  width: isNew ? 1.5 : 2.5,
+                ),
+              ),
+              child: Icon(icon, color: isNew ? _teal : Colors.white, size: 26),
+            ),
+            const SizedBox(height: 5),
+            Text(
+              label,
+              style: const TextStyle(
+                fontSize: 10,
+                color: _tealDark,
+                fontWeight: FontWeight.w500,
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+class _ActionChip extends StatelessWidget {
+  final IconData icon;
+  final String label;
+  final VoidCallback onTap;
+  const _ActionChip({
+    required this.icon,
+    required this.label,
+    required this.onTap,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return GestureDetector(
+      onTap: onTap,
+      child: Container(
+        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+        decoration: BoxDecoration(
+          color: _teal,
+          borderRadius: BorderRadius.circular(14),
+        ),
+        child: Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Icon(icon, color: Colors.white, size: 18),
+            const SizedBox(width: 8),
+            Text(
+              label,
+              style: const TextStyle(
+                color: Colors.white,
+                fontWeight: FontWeight.w600,
+                fontSize: 14,
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+class _EventCard extends StatelessWidget {
+  final Map<String, dynamic> evento;
+  const _EventCard({required this.evento});
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      margin: const EdgeInsets.only(bottom: 12),
+      padding: const EdgeInsets.all(14),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(16),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withOpacity(0.05),
+            blurRadius: 10,
+            offset: const Offset(0, 3),
+          ),
+        ],
+      ),
+      child: Row(
+        children: [
+          Container(
+            width: 50,
+            height: 50,
+            decoration: BoxDecoration(
+              color: _tealBg,
+              borderRadius: BorderRadius.circular(12),
+            ),
+            child: Center(
+              child: Text(
+                evento['emoji'] as String,
+                style: const TextStyle(fontSize: 24),
+              ),
+            ),
+          ),
+          const SizedBox(width: 12),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  evento['titulo'] as String,
+                  style: const TextStyle(
+                    fontSize: 13,
+                    fontWeight: FontWeight.w700,
+                    color: _tealDark,
+                  ),
+                  maxLines: 2,
+                  overflow: TextOverflow.ellipsis,
+                ),
+                const SizedBox(height: 4),
+                Row(
+                  children: [
+                    const Icon(
+                      Icons.calendar_today_outlined,
+                      size: 11,
+                      color: _teal,
+                    ),
+                    const SizedBox(width: 3),
+                    Text(
+                      evento['fecha'] as String,
+                      style: const TextStyle(fontSize: 11, color: _teal),
+                    ),
+                    const SizedBox(width: 10),
+                    const Icon(
+                      Icons.location_on_outlined,
+                      size: 11,
+                      color: Color(0xFF94A3B8),
+                    ),
+                    const SizedBox(width: 3),
+                    Text(
+                      evento['lugar'] as String,
+                      style: const TextStyle(
+                        fontSize: 11,
+                        color: Color(0xFF94A3B8),
+                      ),
+                    ),
+                  ],
+                ),
+                const SizedBox(height: 3),
+                Text(
+                  '${evento['asistentes']} asistentes',
+                  style: const TextStyle(
+                    fontSize: 11,
+                    color: Color(0xFF94A3B8),
+                  ),
+                ),
               ],
             ),
           ),
         ],
       ),
-
-      /// BOTTOM NAV
-      bottomNavigationBar: BottomNavigationBar(
-        selectedItemColor: Colors.black,
-        unselectedItemColor: Colors.grey,
-        currentIndex: 3,
-        items: const [
-          BottomNavigationBarItem(icon: Icon(Icons.flash_on), label: 'Shop'),
-          BottomNavigationBarItem(
-            icon: Icon(Icons.explore_outlined),
-            label: 'Explore',
-          ),
-          BottomNavigationBarItem(
-            icon: Icon(Icons.bookmark_border),
-            label: 'Brands',
-          ),
-          BottomNavigationBarItem(icon: Icon(Icons.person), label: 'Profile'),
-        ],
-      ),
     );
   }
+}
 
-  /// OPTION GROUP
-  Widget _buildOptionGroup(List<Widget> items) {
+class _MensajeCard extends StatelessWidget {
+  final Map<String, dynamic> mensaje;
+  const _MensajeCard({required this.mensaje});
+
+  @override
+  Widget build(BuildContext context) {
     return Container(
-      margin: const EdgeInsets.symmetric(horizontal: 20),
+      margin: const EdgeInsets.only(bottom: 12),
+      padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(
         color: Colors.white,
-        borderRadius: BorderRadius.circular(20),
+        borderRadius: BorderRadius.circular(16),
         boxShadow: [
           BoxShadow(
             color: Colors.black.withOpacity(0.05),
             blurRadius: 10,
-            offset: const Offset(0, 5),
+            offset: const Offset(0, 3),
           ),
         ],
       ),
-      child: Column(children: items),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              Text(
+                mensaje['emoji'] as String,
+                style: const TextStyle(fontSize: 20),
+              ),
+              const Spacer(),
+              Text(
+                mensaje['fecha'] as String,
+                style: const TextStyle(fontSize: 11, color: Color(0xFF94A3B8)),
+              ),
+            ],
+          ),
+          const SizedBox(height: 8),
+          Text(
+            mensaje['texto'] as String,
+            style: const TextStyle(
+              fontSize: 13.5,
+              color: _tealDark,
+              height: 1.5,
+            ),
+          ),
+          const SizedBox(height: 10),
+          Row(
+            children: [
+              const Icon(
+                Icons.favorite_outline_rounded,
+                size: 16,
+                color: Color(0xFF94A3B8),
+              ),
+              const SizedBox(width: 4),
+              Text(
+                '${mensaje['likes']}',
+                style: const TextStyle(fontSize: 12, color: Color(0xFF94A3B8)),
+              ),
+              const SizedBox(width: 16),
+              const Icon(
+                Icons.comment_outlined,
+                size: 16,
+                color: Color(0xFF94A3B8),
+              ),
+              const SizedBox(width: 4),
+              const Text(
+                'Ver comentarios',
+                style: TextStyle(fontSize: 12, color: Color(0xFF94A3B8)),
+              ),
+            ],
+          ),
+        ],
+      ),
     );
   }
+}
 
-  /// OPTION ITEM
-  Widget _buildOptionItem(IconData icon, String title) {
+// ─────────────────────────────────────────────────────────────────────────────
+// Sheets (modales)
+// ─────────────────────────────────────────────────────────────────────────────
+
+class _EditarPerfilSheet extends StatelessWidget {
+  const _EditarPerfilSheet();
+
+  @override
+  Widget build(BuildContext context) {
+    return DraggableScrollableSheet(
+      initialChildSize: 0.92,
+      maxChildSize: 0.95,
+      minChildSize: 0.5,
+      builder: (_, controller) => Container(
+        decoration: const BoxDecoration(
+          color: Colors.white,
+          borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
+        ),
+        child: Column(
+          children: [
+            const SizedBox(height: 12),
+            Container(
+              width: 40,
+              height: 4,
+              decoration: BoxDecoration(
+                color: const Color(0xFFE2E8F0),
+                borderRadius: BorderRadius.circular(2),
+              ),
+            ),
+            const SizedBox(height: 16),
+            const Text(
+              'Editar perfil',
+              style: TextStyle(
+                fontSize: 18,
+                fontWeight: FontWeight.w800,
+                color: _tealDark,
+              ),
+            ),
+            const Divider(height: 24),
+            Expanded(
+              child: ListView(
+                controller: controller,
+                padding: const EdgeInsets.symmetric(horizontal: 24),
+                children: [
+                  _SectionLabel('Información personal'),
+                  _InputField(label: 'Nombre completo', hint: 'Tu nombre'),
+                  _InputField(label: 'Username', hint: '@usuario', prefix: '@'),
+                  _InputField(
+                    label: 'Bio',
+                    hint: 'Cuéntale al mundo quién sos...',
+                    maxLines: 3,
+                  ),
+                  _InputField(label: 'Sitio web', hint: 'https://'),
+                  const SizedBox(height: 8),
+                  _SectionLabel('Tu ruta migrante'),
+                  const Text(
+                    'Contá los lugares donde viviste. Esto ayuda a conectarte con personas con recorridos similares.',
+                    style: TextStyle(
+                      fontSize: 12.5,
+                      color: Color(0xFF64748B),
+                      height: 1.5,
+                    ),
+                  ),
+                  const SizedBox(height: 12),
+                  // Lugares
+                  ...[
+                    {
+                      'ciudad': 'Buenos Aires',
+                      'emoji': '🇦🇷',
+                      'años': '1995–2018',
+                    },
+                    {
+                      'ciudad': 'Barcelona',
+                      'emoji': '🇪🇸',
+                      'años': '2018–2021',
+                    },
+                    {
+                      'ciudad': 'México DF',
+                      'emoji': '🇲🇽',
+                      'años': '2021–hoy',
+                    },
+                  ].map(
+                    (l) => Container(
+                      margin: const EdgeInsets.only(bottom: 8),
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 14,
+                        vertical: 12,
+                      ),
+                      decoration: BoxDecoration(
+                        color: _tealBg,
+                        borderRadius: BorderRadius.circular(12),
+                        border: Border.all(color: _tealLight.withOpacity(0.5)),
+                      ),
+                      child: Row(
+                        children: [
+                          Text(
+                            l['emoji']!,
+                            style: const TextStyle(fontSize: 20),
+                          ),
+                          const SizedBox(width: 10),
+                          Expanded(
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                Text(
+                                  l['ciudad']!,
+                                  style: const TextStyle(
+                                    fontWeight: FontWeight.w700,
+                                    color: _tealDark,
+                                    fontSize: 14,
+                                  ),
+                                ),
+                                Text(
+                                  l['años']!,
+                                  style: const TextStyle(
+                                    fontSize: 12,
+                                    color: _teal,
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ),
+                          const Icon(
+                            Icons.drag_handle_rounded,
+                            color: Color(0xFFCBD5E1),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ),
+                  GestureDetector(
+                    onTap: () {},
+                    child: Container(
+                      margin: const EdgeInsets.only(bottom: 8),
+                      padding: const EdgeInsets.symmetric(vertical: 12),
+                      decoration: BoxDecoration(
+                        borderRadius: BorderRadius.circular(12),
+                        border: Border.all(color: _tealLight, width: 1.5),
+                      ),
+                      child: const Row(
+                        mainAxisAlignment: MainAxisAlignment.center,
+                        children: [
+                          Icon(Icons.add_rounded, color: _teal, size: 18),
+                          SizedBox(width: 6),
+                          Text(
+                            'Agregar lugar',
+                            style: TextStyle(
+                              color: _teal,
+                              fontWeight: FontWeight.w600,
+                              fontSize: 13,
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ),
+                  const SizedBox(height: 8),
+                  _SectionLabel('Privacidad'),
+                  _SwitchTile(
+                    label: 'Cuenta privada',
+                    subtitle: 'Solo seguidores aprobados ven tu contenido',
+                    value: false,
+                    onChanged: (_) {},
+                  ),
+                  _SwitchTile(
+                    label: 'Mostrar mi ruta en el mapa',
+                    subtitle: 'Visible para la comunidad Nomad',
+                    value: true,
+                    onChanged: (_) {},
+                  ),
+                  const SizedBox(height: 24),
+                  ElevatedButton(
+                    onPressed: () => Navigator.pop(context),
+                    style: ElevatedButton.styleFrom(
+                      backgroundColor: _teal,
+                      foregroundColor: Colors.white,
+                      minimumSize: const Size(double.infinity, 50),
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(14),
+                      ),
+                      elevation: 0,
+                    ),
+                    child: const Text(
+                      'Guardar cambios',
+                      style: TextStyle(
+                        fontWeight: FontWeight.w700,
+                        fontSize: 15,
+                      ),
+                    ),
+                  ),
+                  const SizedBox(height: 32),
+                ],
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+class _FotoOptionsSheet extends StatelessWidget {
+  final User? user;
+  const _FotoOptionsSheet({this.user});
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      padding: const EdgeInsets.fromLTRB(20, 16, 20, 32),
+      decoration: const BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
+      ),
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Container(
+            width: 40,
+            height: 4,
+            decoration: BoxDecoration(
+              color: const Color(0xFFE2E8F0),
+              borderRadius: BorderRadius.circular(2),
+            ),
+          ),
+          const SizedBox(height: 20),
+          if (user?.photoURL != null)
+            Padding(
+              padding: const EdgeInsets.only(bottom: 16),
+              child: CircleAvatar(
+                radius: 50,
+                backgroundImage: NetworkImage(user!.photoURL!),
+              ),
+            ),
+          _OptionTile(
+            icon: Icons.camera_alt_rounded,
+            label: 'Tomar foto',
+            onTap: () => Navigator.pop(context),
+          ),
+          _OptionTile(
+            icon: Icons.photo_library_rounded,
+            label: 'Elegir de galería',
+            onTap: () => Navigator.pop(context),
+          ),
+          if (user?.photoURL != null)
+            _OptionTile(
+              icon: Icons.delete_outline_rounded,
+              label: 'Eliminar foto actual',
+              color: Colors.red,
+              onTap: () => Navigator.pop(context),
+            ),
+        ],
+      ),
+    );
+  }
+}
+
+class _ConfiguracionSheet extends StatelessWidget {
+  const _ConfiguracionSheet();
+
+  @override
+  Widget build(BuildContext context) {
+    return DraggableScrollableSheet(
+      initialChildSize: 0.75,
+      maxChildSize: 0.95,
+      minChildSize: 0.4,
+      builder: (_, controller) => Container(
+        decoration: const BoxDecoration(
+          color: Colors.white,
+          borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
+        ),
+        child: Column(
+          children: [
+            const SizedBox(height: 12),
+            Container(
+              width: 40,
+              height: 4,
+              decoration: BoxDecoration(
+                color: const Color(0xFFE2E8F0),
+                borderRadius: BorderRadius.circular(2),
+              ),
+            ),
+            const SizedBox(height: 16),
+            const Text(
+              'Configuración',
+              style: TextStyle(
+                fontSize: 18,
+                fontWeight: FontWeight.w800,
+                color: _tealDark,
+              ),
+            ),
+            const Divider(height: 24),
+            Expanded(
+              child: ListView(
+                controller: controller,
+                children: [
+                  _SettingGroup('Cuenta', [
+                    _SettingItem(
+                      Icons.notifications_outlined,
+                      'Notificaciones',
+                      onTap: () {},
+                    ),
+                    _SettingItem(
+                      Icons.vpn_key_outlined,
+                      'Contraseña',
+                      onTap: () {},
+                    ),
+                    _SettingItem(
+                      Icons.language_outlined,
+                      'Idioma',
+                      onTap: () {},
+                    ),
+                    _SettingItem(
+                      Icons.devices_outlined,
+                      'Dispositivos activos',
+                      onTap: () {},
+                    ),
+                  ]),
+                  _SettingGroup('Privacidad', [
+                    _SettingItem(
+                      Icons.lock_outline_rounded,
+                      'Privacidad de la cuenta',
+                      onTap: () {},
+                    ),
+                    _SettingItem(
+                      Icons.block_outlined,
+                      'Usuarios bloqueados',
+                      onTap: () {},
+                    ),
+                  ]),
+                  _SettingGroup('Soporte', [
+                    _SettingItem(
+                      Icons.help_outline_rounded,
+                      'Centro de ayuda',
+                      onTap: () {},
+                    ),
+                    _SettingItem(
+                      Icons.info_outline_rounded,
+                      'Acerca de Nomad',
+                      onTap: () {},
+                    ),
+                  ]),
+                  const SizedBox(height: 8),
+                  Padding(
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 20,
+                      vertical: 8,
+                    ),
+                    child: TextButton.icon(
+                      onPressed: () async {
+                        await FirebaseAuth.instance.signOut();
+                        Navigator.of(
+                          context,
+                        ).pushNamedAndRemoveUntil('/', (_) => false);
+                      },
+                      icon: const Icon(Icons.logout_rounded, color: Colors.red),
+                      label: const Text(
+                        'Cerrar sesión',
+                        style: TextStyle(
+                          color: Colors.red,
+                          fontWeight: FontWeight.w600,
+                        ),
+                      ),
+                    ),
+                  ),
+                  const SizedBox(height: 24),
+                ],
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Helpers de UI
+// ─────────────────────────────────────────────────────────────────────────────
+
+class _SectionLabel extends StatelessWidget {
+  final String text;
+  const _SectionLabel(this.text);
+
+  @override
+  Widget build(BuildContext context) {
+    return Padding(
+      padding: const EdgeInsets.only(top: 16, bottom: 10),
+      child: Text(
+        text,
+        style: const TextStyle(
+          fontSize: 13,
+          fontWeight: FontWeight.w700,
+          color: _teal,
+          letterSpacing: 0.5,
+        ),
+      ),
+    );
+  }
+}
+
+class _InputField extends StatelessWidget {
+  final String label;
+  final String hint;
+  final String? prefix;
+  final int maxLines;
+  const _InputField({
+    required this.label,
+    required this.hint,
+    this.prefix,
+    this.maxLines = 1,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 14),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text(
+            label,
+            style: const TextStyle(
+              fontSize: 12,
+              fontWeight: FontWeight.w600,
+              color: _teal,
+            ),
+          ),
+          const SizedBox(height: 6),
+          TextField(
+            maxLines: maxLines,
+            decoration: InputDecoration(
+              hintText: hint,
+              prefixText: prefix,
+              hintStyle: const TextStyle(
+                color: Color(0xFFCBD5E1),
+                fontSize: 14,
+              ),
+              filled: true,
+              fillColor: _tealBg,
+              contentPadding: const EdgeInsets.symmetric(
+                horizontal: 14,
+                vertical: 12,
+              ),
+              border: OutlineInputBorder(
+                borderRadius: BorderRadius.circular(12),
+                borderSide: BorderSide.none,
+              ),
+              focusedBorder: OutlineInputBorder(
+                borderRadius: BorderRadius.circular(12),
+                borderSide: const BorderSide(color: _teal, width: 1.5),
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _SwitchTile extends StatefulWidget {
+  final String label;
+  final String subtitle;
+  final bool value;
+  final ValueChanged<bool> onChanged;
+  const _SwitchTile({
+    required this.label,
+    required this.subtitle,
+    required this.value,
+    required this.onChanged,
+  });
+
+  @override
+  State<_SwitchTile> createState() => _SwitchTileState();
+}
+
+class _SwitchTileState extends State<_SwitchTile> {
+  late bool _val;
+
+  @override
+  void initState() {
+    super.initState();
+    _val = widget.value;
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 10),
+      child: Row(
+        children: [
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  widget.label,
+                  style: const TextStyle(
+                    fontSize: 14,
+                    fontWeight: FontWeight.w600,
+                    color: _tealDark,
+                  ),
+                ),
+                Text(
+                  widget.subtitle,
+                  style: const TextStyle(
+                    fontSize: 12,
+                    color: Color(0xFF94A3B8),
+                  ),
+                ),
+              ],
+            ),
+          ),
+          Switch(
+            value: _val,
+            onChanged: (v) {
+              setState(() => _val = v);
+              widget.onChanged(v);
+            },
+            activeColor: _teal,
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _OptionTile extends StatelessWidget {
+  final IconData icon;
+  final String label;
+  final Color color;
+  final VoidCallback onTap;
+  const _OptionTile({
+    required this.icon,
+    required this.label,
+    required this.onTap,
+    this.color = _teal,
+  });
+
+  @override
+  Widget build(BuildContext context) {
     return ListTile(
-      leading: Icon(icon, color: Colors.black87),
+      leading: Icon(icon, color: color),
       title: Text(
-        title,
-        style: const TextStyle(fontSize: 16, fontWeight: FontWeight.w500),
+        label,
+        style: TextStyle(
+          fontSize: 15,
+          fontWeight: FontWeight.w500,
+          color: color == Colors.red ? Colors.red : _tealDark,
+        ),
+      ),
+      onTap: onTap,
+    );
+  }
+}
+
+class _SettingGroup extends StatelessWidget {
+  final String title;
+  final List<Widget> items;
+  const _SettingGroup(this.title, this.items);
+
+  @override
+  Widget build(BuildContext context) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Padding(
+          padding: const EdgeInsets.fromLTRB(20, 16, 20, 4),
+          child: Text(
+            title,
+            style: const TextStyle(
+              fontSize: 12,
+              fontWeight: FontWeight.w700,
+              color: _teal,
+              letterSpacing: 0.5,
+            ),
+          ),
+        ),
+        ...items,
+      ],
+    );
+  }
+}
+
+class _SettingItem extends StatelessWidget {
+  final IconData icon;
+  final String label;
+  final VoidCallback onTap;
+  const _SettingItem(this.icon, this.label, {required this.onTap});
+
+  @override
+  Widget build(BuildContext context) {
+    return ListTile(
+      leading: Icon(icon, color: _tealDark, size: 22),
+      title: Text(
+        label,
+        style: const TextStyle(
+          fontSize: 14,
+          fontWeight: FontWeight.w500,
+          color: _tealDark,
+        ),
       ),
       trailing: const Icon(
-        Icons.arrow_forward_ios,
-        size: 16,
-        color: Colors.grey,
+        Icons.arrow_forward_ios_rounded,
+        size: 14,
+        color: Color(0xFFCBD5E1),
       ),
-      onTap: () {},
+      onTap: onTap,
     );
   }
 }
