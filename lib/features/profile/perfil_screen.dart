@@ -4,10 +4,8 @@ import 'package:flutter/services.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 
-// Ajustá esta ruta relativa según tu estructura de carpetas.
-// Si perfil_screen.dart está en lib/features/profile/
-// y bottom_nav.dart en lib/features/feed/widgets/
 import '../feed/widgets/bottom_nav.dart';
+import 'edit_profile_screen.dart';
 
 // ─────────────────────────────────────────────────────────────────────────────
 // perfil_screen.dart  –  Nomad App
@@ -168,6 +166,8 @@ class _PerfilPropioState extends State<PerfilPropio>
           lugaresVividos: _lugaresVividos,
           onEditarPerfil: () => _showEditarPerfil(context),
           onFoto: () => _showFotoOptions(context, user),
+          // MODIFICACIÓN: Pasamos la función para editar portada
+          onEditarPortada: () => _showPortadaOptions(context),
         ),
       ),
     );
@@ -222,11 +222,9 @@ class _PerfilPropioState extends State<PerfilPropio>
   // ── Modales ───────────────────────────────────────────────────────────────
 
   void _showEditarPerfil(BuildContext context) {
-    showModalBottomSheet(
-      context: context,
-      isScrollControlled: true,
-      backgroundColor: Colors.transparent,
-      builder: (_) => const _EditarPerfilSheet(),
+    Navigator.push(
+      context,
+      MaterialPageRoute(builder: (context) => const EditProfileScreen()),
     );
   }
 
@@ -235,6 +233,15 @@ class _PerfilPropioState extends State<PerfilPropio>
       context: context,
       backgroundColor: Colors.transparent,
       builder: (_) => _FotoOptionsSheet(user: user),
+    );
+  }
+
+  // MODIFICACIÓN: Nueva función para mostrar las opciones de portada
+  void _showPortadaOptions(BuildContext context) {
+    showModalBottomSheet(
+      context: context,
+      backgroundColor: Colors.transparent,
+      builder: (_) => const _PortadaOptionsSheet(),
     );
   }
 
@@ -260,6 +267,8 @@ class _ProfileHeader extends StatelessWidget {
   final List<Map<String, String>> lugaresVividos;
   final VoidCallback onEditarPerfil;
   final VoidCallback onFoto;
+  // MODIFICACIÓN: Añadida devolución de llamada para editar portada
+  final VoidCallback onEditarPortada;
 
   const _ProfileHeader({
     required this.user,
@@ -269,6 +278,8 @@ class _ProfileHeader extends StatelessWidget {
     required this.lugaresVividos,
     required this.onEditarPerfil,
     required this.onFoto,
+    // MODIFICACIÓN: Requerida en el constructor
+    required this.onEditarPortada,
   });
 
   @override
@@ -279,10 +290,11 @@ class _ProfileHeader extends StatelessWidget {
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           // Cover + Avatar
-          _buildCoverAndAvatar(context),
+          _buildCoverAndAvatar(context, onEditarPortada),
           // Info
+          // MODIFICACIÓN: Aumentado el margen superior de 12 a 60 para evitar superposición con el avatar
           Padding(
-            padding: const EdgeInsets.fromLTRB(20, 12, 20, 0),
+            padding: const EdgeInsets.fromLTRB(20, 10, 20, 0),
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
@@ -358,55 +370,105 @@ class _ProfileHeader extends StatelessWidget {
     );
   }
 
-  Widget _buildCoverAndAvatar(BuildContext context) {
-    return SizedBox(
-      height: 160,
+  // MODIFICACIÓN: Acepta onEditarPortada como argumento
+  Widget _buildCoverAndAvatar(
+    BuildContext context,
+    VoidCallback onEditarPortada,
+  ) {
+    return Container(
+      // Definimos una altura fija para el contenedor padre para evitar el error de 'infinite height'
+      height: 210,
+      width: double.infinity,
       child: Stack(
         clipBehavior: Clip.none,
         children: [
-          // Cover image
-          Positioned.fill(
-            child: Image.network(
-              'https://images.unsplash.com/photo-1477959858617-67f85cf4f1df?w=800&q=70',
-              fit: BoxFit.cover,
-              errorBuilder: (_, __, ___) => Container(
-                decoration: const BoxDecoration(
-                  gradient: LinearGradient(
-                    colors: [Color(0xFF0D9488), Color(0xFF134E4A)],
+          // 1. PORTADA (Este es el hijo "no posicionado" que da la base del tamaño)
+          Container(
+            height: 160,
+            width: double.infinity,
+            decoration: const BoxDecoration(
+              gradient: LinearGradient(colors: [_teal, _tealDark]),
+            ),
+            child: Stack(
+              children: [
+                Positioned.fill(
+                  child: Image.network(
+                    'https://images.unsplash.com/photo-1477959858617-67f85cf4f1df?w=800&q=70',
+                    fit: BoxFit.cover,
+                    errorBuilder: (_, __, ___) => const SizedBox.shrink(),
+                  ),
+                ),
+                // Gradiente oscuro para que resalte el botón de editar
+                Positioned.fill(
+                  child: Container(
+                    decoration: BoxDecoration(
+                      gradient: LinearGradient(
+                        begin: Alignment.topCenter,
+                        end: Alignment.bottomCenter,
+                        colors: [
+                          Colors.transparent,
+                          Colors.black.withOpacity(0.3),
+                        ],
+                      ),
+                    ),
+                  ),
+                ),
+              ],
+            ),
+          ),
+
+          // 2. BOTÓN EDITAR PORTADA
+          Positioned(
+            top: 120,
+            right: 14,
+            child: Material(
+              color: Colors.transparent,
+              child: InkWell(
+                onTap: onEditarPortada,
+                borderRadius: BorderRadius.circular(20),
+                child: Container(
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 10,
+                    vertical: 6,
+                  ),
+                  decoration: BoxDecoration(
+                    color: Colors.black.withOpacity(0.5),
+                    borderRadius: BorderRadius.circular(20),
+                  ),
+                  child: const Row(
+                    children: [
+                      Icon(
+                        Icons.camera_alt_outlined,
+                        color: Colors.white,
+                        size: 14,
+                      ),
+                      SizedBox(width: 4),
+                      Text(
+                        'Editar portada',
+                        style: TextStyle(color: Colors.white, fontSize: 11),
+                      ),
+                    ],
                   ),
                 ),
               ),
             ),
           ),
-          // Overlay
-          Positioned.fill(
-            child: Container(
-              decoration: BoxDecoration(
-                gradient: LinearGradient(
-                  begin: Alignment.topCenter,
-                  end: Alignment.bottomCenter,
-                  colors: [Colors.transparent, Colors.black.withOpacity(0.35)],
-                ),
-              ),
-            ),
-          ),
-          // Avatar
+
+          // 3. AVATAR Y BOTÓN "+"
           Positioned(
-            bottom: -42,
+            top: 115,
             left: 20,
-            child: GestureDetector(
-              onTap: onFoto,
-              child: Stack(
-                children: [
-                  Container(
+            child: Stack(
+              clipBehavior: Clip.none,
+              children: [
+                // Círculo de la foto
+                GestureDetector(
+                  onTap: onFoto,
+                  child: Container(
                     padding: const EdgeInsets.all(3),
-                    decoration: BoxDecoration(
+                    decoration: const BoxDecoration(
                       shape: BoxShape.circle,
-                      gradient: const LinearGradient(
-                        colors: [_teal, _tealLight],
-                        begin: Alignment.topLeft,
-                        end: Alignment.bottomRight,
-                      ),
+                      gradient: LinearGradient(colors: [_teal, _tealLight]),
                     ),
                     child: CircleAvatar(
                       radius: 44,
@@ -434,51 +496,40 @@ class _ProfileHeader extends StatelessWidget {
                       ),
                     ),
                   ),
-                  Positioned(
-                    bottom: 2,
-                    right: 2,
-                    child: Container(
-                      width: 24,
-                      height: 24,
-                      decoration: const BoxDecoration(
-                        color: _teal,
-                        shape: BoxShape.circle,
-                      ),
-                      child: const Icon(
-                        Icons.add_rounded,
-                        color: Colors.white,
-                        size: 16,
+                ),
+
+                // BOTÓN "+" (Corregido con Material e InkWell para asegurar el click)
+                Positioned(
+                  bottom: 2,
+                  right: 2,
+                  child: Material(
+                    color: _teal,
+                    shape: const CircleBorder(),
+                    elevation: 4,
+                    clipBehavior: Clip
+                        .antiAlias, // Asegura que el efecto splash sea circular
+                    child: InkWell(
+                      onTap: () {
+                        debugPrint("Botón + presionado");
+                        onFoto();
+                      },
+                      child: Container(
+                        width: 28,
+                        height: 28,
+                        decoration: BoxDecoration(
+                          shape: BoxShape.circle,
+                          border: Border.all(color: Colors.white, width: 2),
+                        ),
+                        child: const Icon(
+                          Icons.add_rounded,
+                          color: Colors.white,
+                          size: 18,
+                        ),
                       ),
                     ),
                   ),
-                ],
-              ),
-            ),
-          ),
-          // Editar cover
-          Positioned(
-            bottom: 10,
-            right: 14,
-            child: Container(
-              padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
-              decoration: BoxDecoration(
-                color: Colors.black.withOpacity(0.4),
-                borderRadius: BorderRadius.circular(20),
-              ),
-              child: const Row(
-                children: [
-                  Icon(
-                    Icons.camera_alt_outlined,
-                    color: Colors.white,
-                    size: 14,
-                  ),
-                  SizedBox(width: 4),
-                  Text(
-                    'Editar portada',
-                    style: TextStyle(color: Colors.white, fontSize: 11),
-                  ),
-                ],
-              ),
+                ),
+              ],
             ),
           ),
         ],
@@ -1466,6 +1517,55 @@ class _FotoOptionsSheet extends StatelessWidget {
               color: Colors.red,
               onTap: () => Navigator.pop(context),
             ),
+        ],
+      ),
+    );
+  }
+}
+
+// MODIFICACIÓN: Nuevo modal específico para las opciones de portada
+class _PortadaOptionsSheet extends StatelessWidget {
+  const _PortadaOptionsSheet();
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      padding: const EdgeInsets.fromLTRB(20, 16, 20, 32),
+      decoration: const BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
+      ),
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Container(
+            width: 40,
+            height: 4,
+            decoration: BoxDecoration(
+              color: const Color(0xFFE2E8F0),
+              borderRadius: BorderRadius.circular(2),
+            ),
+          ),
+          const SizedBox(height: 20),
+          const Text(
+            'Editar portada',
+            style: TextStyle(
+              fontSize: 16,
+              fontWeight: FontWeight.w700,
+              color: _tealDark,
+            ),
+          ),
+          const SizedBox(height: 12),
+          _OptionTile(
+            icon: Icons.camera_alt_rounded,
+            label: 'Tomar foto',
+            onTap: () => Navigator.pop(context),
+          ),
+          _OptionTile(
+            icon: Icons.photo_library_rounded,
+            label: 'Elegir de galería',
+            onTap: () => Navigator.pop(context),
+          ),
         ],
       ),
     );
