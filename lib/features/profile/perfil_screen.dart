@@ -31,27 +31,13 @@ class _PerfilPropioState extends State<PerfilPropio>
   late TabController _tabController;
   int _tabIndex = 0;
 
-  // Datos de ejemplo – en producción vienen de Firestore
-  final List<Map<String, String>> _lugaresVividos = [
-    {
-      'ciudad': 'Buenos Aires',
-      'pais': 'Argentina',
-      'emoji': '🇦🇷',
-      'años': '1995–2018',
-    },
-    {
-      'ciudad': 'Barcelona',
-      'pais': 'España',
-      'emoji': '🇪🇸',
-      'años': '2018–2021',
-    },
-    {
-      'ciudad': 'Ciudad de México',
-      'pais': 'México',
-      'emoji': '🇲🇽',
-      'años': '2021–hoy',
-    },
-  ];
+  // ── Datos desde Firestore ─────────────────────────────────────────────────
+  final _firestore = FirebaseFirestore.instance;
+  String _nombre = '';
+  String _username = '';
+  String _bio = '';
+  List<Map<String, String>> _lugaresVividos = [];
+  bool _datosLoaded = false;
 
   final List<Map<String, dynamic>> _historias = [
     {
@@ -82,6 +68,31 @@ class _PerfilPropioState extends State<PerfilPropio>
     super.initState();
     _tabController = TabController(length: 4, vsync: this)
       ..addListener(() => setState(() => _tabIndex = _tabController.index));
+    _cargarDatosUsuario();
+  }
+
+  Future<void> _cargarDatosUsuario() async {
+    final user = FirebaseAuth.instance.currentUser;
+    if (user == null) return;
+    final doc = await _firestore.collection('users').doc(user.uid).get();
+    if (!mounted) return;
+    final data = doc.data();
+    final ciudadesRaw = data?['ciudadesVividas'];
+    final List<Map<String, String>> ciudades = ciudadesRaw is List
+        ? ciudadesRaw.map((e) => Map<String, String>.from(e as Map)).toList()
+        : [];
+    setState(() {
+      _nombre =
+          data?['displayName'] ??
+          user.displayName ??
+          user.email?.split('@')[0] ??
+          'Usuario';
+      _username =
+          data?['username'] ?? _nombre.toLowerCase().replaceAll(' ', '_');
+      _bio = data?['bio'] ?? '';
+      _lugaresVividos = ciudades;
+      _datosLoaded = true;
+    });
   }
 
   @override
@@ -93,10 +104,13 @@ class _PerfilPropioState extends State<PerfilPropio>
   @override
   Widget build(BuildContext context) {
     final user = FirebaseAuth.instance.currentUser;
-    final String nombre =
-        user?.displayName ??
-        (user?.email != null ? user!.email!.split('@')[0] : 'Usuario');
-    final String username = nombre.toLowerCase().replaceAll(' ', '_');
+    // Usamos datos de Firestore si ya cargaron, sino fallback a FirebaseAuth
+    final String nombre = _datosLoaded
+        ? _nombre
+        : (user?.displayName ?? user?.email?.split('@')[0] ?? 'Usuario');
+    final String username = _datosLoaded
+        ? _username
+        : nombre.toLowerCase().replaceAll(' ', '_');
 
     return Scaffold(
       backgroundColor: _bgMain,
@@ -162,11 +176,11 @@ class _PerfilPropioState extends State<PerfilPropio>
           user: user,
           nombre: nombre,
           username: username,
+          bio: _bio,
           historias: _historias,
           lugaresVividos: _lugaresVividos,
           onEditarPerfil: () => _showEditarPerfil(context),
           onFoto: () => _showFotoOptions(context, user),
-          // MODIFICACIÓN: Pasamos la función para editar portada
           onEditarPortada: () => _showPortadaOptions(context),
         ),
       ),
@@ -225,7 +239,10 @@ class _PerfilPropioState extends State<PerfilPropio>
     Navigator.push(
       context,
       MaterialPageRoute(builder: (context) => const EditProfileScreen()),
-    );
+    ).then((_) {
+      // Recargar datos al volver de editar
+      _cargarDatosUsuario();
+    });
   }
 
   void _showFotoOptions(BuildContext context, User? user) {
@@ -263,36 +280,35 @@ class _ProfileHeader extends StatelessWidget {
   final User? user;
   final String nombre;
   final String username;
+  final String bio;
   final List<Map<String, dynamic>> historias;
   final List<Map<String, String>> lugaresVividos;
   final VoidCallback onEditarPerfil;
   final VoidCallback onFoto;
-  // MODIFICACIÓN: Añadida devolución de llamada para editar portada
   final VoidCallback onEditarPortada;
 
   const _ProfileHeader({
     required this.user,
     required this.nombre,
     required this.username,
+    required this.bio,
     required this.historias,
     required this.lugaresVividos,
     required this.onEditarPerfil,
     required this.onFoto,
-    // MODIFICACIÓN: Requerida en el constructor
     required this.onEditarPortada,
   });
 
   @override
   Widget build(BuildContext context) {
     return SingleChildScrollView(
-      physics: const NeverScrollableScrollPhysics(),
+      physics: const ClampingScrollPhysics(),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           // Cover + Avatar
           _buildCoverAndAvatar(context, onEditarPortada),
           // Info
-          // MODIFICACIÓN: Aumentado el margen superior de 12 a 60 para evitar superposición con el avatar
           Padding(
             padding: const EdgeInsets.fromLTRB(20, 10, 20, 0),
             child: Column(
@@ -333,22 +349,10 @@ class _ProfileHeader extends StatelessWidget {
 
                 const SizedBox(height: 10),
 
-                // Bio
-                const Text(
-                  'Argentino viviendo el sueño nómada 🌍  |  Conectando con migrantes del mundo',
-                  style: TextStyle(
-                    fontSize: 13.5,
-                    color: Color(0xFF4B7B78),
-                    height: 1.5,
-                  ),
-                ),
+                // Bio (dinámica desde Firestore)
+                if (bio.isNotEmpty) _BioExpandable(text: bio),
 
                 const SizedBox(height: 14),
-
-                // Stats
-                _buildStats(),
-
-                const SizedBox(height: 18),
 
                 // Lugares vividos
                 _buildLugaresVividos(),
@@ -382,7 +386,7 @@ class _ProfileHeader extends StatelessWidget {
       child: Stack(
         clipBehavior: Clip.none,
         children: [
-          // 1. PORTADA (Este es el hijo "no posicionado" que da la base del tamaño)
+          // 1. PORTADA
           Container(
             height: 160,
             width: double.infinity,
@@ -532,6 +536,21 @@ class _ProfileHeader extends StatelessWidget {
               ],
             ),
           ),
+
+          // 4. ESTADÍSTICAS - a la derecha del avatar, centradas verticalmente
+          Positioned(
+            top: 170,
+            left: 150, // avatar left(20) + diámetro aprox(90)
+            child: Row(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.center,
+              children: [
+                _StatBubble(value: '1.2k', label: 'Seguidores'),
+                const SizedBox(width: 20),
+                _StatBubble(value: '42', label: 'Publicaciones'),
+              ],
+            ),
+          ),
         ],
       ),
     );
@@ -575,63 +594,95 @@ class _ProfileHeader extends StatelessWidget {
           scrollDirection: Axis.horizontal,
           child: Row(
             children: [
-              // TODO: cargar desde Firestore
-              ...[
-                {
-                  'ciudad': 'Buenos Aires',
-                  'emoji': '🇦🇷',
-                  'años': '1995–2018',
-                },
-                {'ciudad': 'Barcelona', 'emoji': '🇪🇸', 'años': '2018–2021'},
-                {'ciudad': 'México DF', 'emoji': '🇲🇽', 'años': '2021–hoy'},
-              ].asMap().entries.map((e) {
-                final i = e.key;
-                final lugar = e.value;
-                return Row(
-                  children: [
-                    Container(
-                      padding: const EdgeInsets.symmetric(
-                        horizontal: 12,
-                        vertical: 7,
-                      ),
-                      decoration: BoxDecoration(
-                        color: _tealBg,
-                        borderRadius: BorderRadius.circular(20),
-                        border: Border.all(color: _tealLight.withOpacity(0.5)),
-                      ),
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          Text(
-                            '${lugar['emoji']} ${lugar['ciudad']}',
-                            style: const TextStyle(
-                              fontSize: 12,
-                              fontWeight: FontWeight.w700,
-                              color: _tealDark,
-                            ),
-                          ),
-                          Text(
-                            lugar['años']!,
-                            style: const TextStyle(fontSize: 10, color: _teal),
-                          ),
-                        ],
-                      ),
+              // Ciudades dinámicas desde Firestore
+              if (lugaresVividos.isEmpty)
+                GestureDetector(
+                  onTap: onEditarPerfil,
+                  child: Container(
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 14,
+                      vertical: 8,
                     ),
-                    if (i < 2)
-                      const Padding(
-                        padding: EdgeInsets.symmetric(horizontal: 6),
-                        child: Icon(
-                          Icons.arrow_forward_rounded,
+                    decoration: BoxDecoration(
+                      color: _tealBg,
+                      borderRadius: BorderRadius.circular(20),
+                      border: Border.all(color: _tealLight.withOpacity(0.5)),
+                    ),
+                    child: const Row(
+                      children: [
+                        Icon(
+                          Icons.add_location_alt_outlined,
                           size: 14,
-                          color: _tealLight,
+                          color: _teal,
+                        ),
+                        SizedBox(width: 6),
+                        Text(
+                          'Agregá tus ciudades',
+                          style: TextStyle(
+                            fontSize: 12,
+                            color: _teal,
+                            fontWeight: FontWeight.w600,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                )
+              else
+                ...lugaresVividos.asMap().entries.map((e) {
+                  final i = e.key;
+                  final lugar = e.value;
+                  return Row(
+                    children: [
+                      Container(
+                        padding: const EdgeInsets.symmetric(
+                          horizontal: 12,
+                          vertical: 7,
+                        ),
+                        decoration: BoxDecoration(
+                          color: _tealBg,
+                          borderRadius: BorderRadius.circular(20),
+                          border: Border.all(
+                            color: _tealLight.withOpacity(0.5),
+                          ),
+                        ),
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Text(
+                              '${lugar['emoji'] ?? '🌍'} ${lugar['ciudad']}',
+                              style: const TextStyle(
+                                fontSize: 12,
+                                fontWeight: FontWeight.w700,
+                                color: _tealDark,
+                              ),
+                            ),
+                            if ((lugar['años'] ?? '').isNotEmpty)
+                              Text(
+                                lugar['años']!,
+                                style: const TextStyle(
+                                  fontSize: 10,
+                                  color: _teal,
+                                ),
+                              ),
+                          ],
                         ),
                       ),
-                  ],
-                );
-              }),
+                      if (i < lugaresVividos.length - 1)
+                        const Padding(
+                          padding: EdgeInsets.symmetric(horizontal: 6),
+                          child: Icon(
+                            Icons.arrow_forward_rounded,
+                            size: 14,
+                            color: _tealLight,
+                          ),
+                        ),
+                    ],
+                  );
+                }),
               const SizedBox(width: 8),
               GestureDetector(
-                onTap: () {}, // Abre editor de lugares
+                onTap: onEditarPerfil,
                 child: Container(
                   width: 34,
                   height: 34,
@@ -702,6 +753,55 @@ class _ProfileHeader extends StatelessWidget {
           ),
         ],
       ),
+    );
+  }
+}
+
+class _BioExpandable extends StatefulWidget {
+  final String text;
+  const _BioExpandable({required this.text});
+
+  @override
+  State<_BioExpandable> createState() => _BioExpandableState();
+}
+
+class _BioExpandableState extends State<_BioExpandable> {
+  bool expanded = false;
+
+  @override
+  Widget build(BuildContext context) {
+    final style = const TextStyle(
+      fontSize: 13.5,
+      color: Color(0xFF4B7B78),
+      height: 1.5,
+    );
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Text(
+          widget.text,
+          style: style,
+          maxLines: expanded ? null : 3,
+          overflow: expanded ? TextOverflow.visible : TextOverflow.ellipsis,
+        ),
+
+        if (widget.text.length > 120)
+          GestureDetector(
+            onTap: () => setState(() => expanded = !expanded),
+            child: Padding(
+              padding: const EdgeInsets.only(top: 4),
+              child: Text(
+                expanded ? "ver menos" : "ver más",
+                style: const TextStyle(
+                  fontSize: 12,
+                  color: _teal,
+                  fontWeight: FontWeight.w600,
+                ),
+              ),
+            ),
+          ),
+      ],
     );
   }
 }

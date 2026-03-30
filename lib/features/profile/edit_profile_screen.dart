@@ -4,6 +4,7 @@ import 'package:flutter/services.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import '../../services/user_service.dart';
+import '../../services/location_service.dart';
 
 // ─── Paleta Nomad ─────────────────────────────────────────────────────────────
 const _teal = Color(0xFF0D9488);
@@ -38,6 +39,9 @@ class _EditProfileScreenState extends State<EditProfileScreen>
 
   // ── Ciudades vividas ─────────────────────────────────────────
   List<Map<String, String>> _ciudadesVividas = [];
+
+  // ── Foto de perfil ────────────────────────────────────────────
+  String? _photoURL;
 
   // ── Otros ────────────────────────────────────────────────────
   bool _esPrivada = false;
@@ -90,13 +94,14 @@ class _EditProfileScreenState extends State<EditProfileScreen>
           : [];
 
       setState(() {
-        _nombreController.text = data['displayName'] ?? '';
+        _nombreController.text = data['displayName'] ?? user.displayName ?? '';
         _userController.text = data['username'] ?? '';
         _usernameOriginal = data['username'] ?? '';
         _usernameAvailable = true;
         _bioController.text = data['bio'] ?? '';
         _ciudadesVividas = ciudades;
         _esPrivada = data['esPrivada'] ?? false;
+        _photoURL = user.photoURL ?? data['photoURL'];
         _isLoading = false;
       });
       _animController?.forward();
@@ -128,7 +133,6 @@ class _EditProfileScreenState extends State<EditProfileScreen>
 
     _debounceTimer = Timer(const Duration(milliseconds: 600), () async {
       final regex = RegExp(r'^[a-zA-Z0-9_]{6,15}$');
-
       if (!regex.hasMatch(username)) {
         if (!mounted) return;
         setState(() {
@@ -145,7 +149,6 @@ class _EditProfileScreenState extends State<EditProfileScreen>
           .get();
 
       if (!mounted) return;
-
       if (result.docs.isNotEmpty) {
         setState(() {
           _usernameError = 'Ese username ya está en uso';
@@ -184,7 +187,9 @@ class _EditProfileScreenState extends State<EditProfileScreen>
           'ciudadesVividas': _ciudadesVividas,
           'esPrivada': _esPrivada,
         });
-        if (mounted) Navigator.pop(context);
+        if (mounted) {
+          Navigator.pop(context, true); // devuelve true = hubo cambios
+        }
       }
     } catch (e) {
       if (mounted) {
@@ -295,6 +300,7 @@ class _EditProfileScreenState extends State<EditProfileScreen>
       flexibleSpace: FlexibleSpaceBar(
         collapseMode: CollapseMode.pin,
         background: _AppBarBackground(
+          photoURL: _photoURL,
           inicial: _nombreController.text.isNotEmpty
               ? _nombreController.text[0].toUpperCase()
               : '?',
@@ -328,12 +334,16 @@ class _EditProfileScreenState extends State<EditProfileScreen>
             checking: _checkingUsername,
             onChanged: _onUsernameChanged,
           ),
+          // Bio con texto centrado
           _StyledField(
             label: 'Bio',
             controller: _bioController,
             hint: 'Cuéntale al mundo quién eres…',
             icon: Icons.edit_note_rounded,
             maxLines: 3,
+            minLines: 3,
+            textAlign: TextAlign.center,
+            textAlignVertical: TextAlignVertical.center,
           ),
 
           const SizedBox(height: 24),
@@ -414,18 +424,20 @@ class _EditProfileScreenState extends State<EditProfileScreen>
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
-// AppBar background
+// AppBar background — muestra foto real si existe, inicial si no
 // ─────────────────────────────────────────────────────────────────────────────
 
 class _AppBarBackground extends StatelessWidget {
+  final String? photoURL;
   final String inicial;
-  const _AppBarBackground({required this.inicial});
+  const _AppBarBackground({required this.photoURL, required this.inicial});
 
   @override
   Widget build(BuildContext context) {
     return Stack(
       fit: StackFit.expand,
       children: [
+        // Gradiente de fondo
         Container(
           decoration: const BoxDecoration(
             gradient: LinearGradient(
@@ -435,6 +447,7 @@ class _AppBarBackground extends StatelessWidget {
             ),
           ),
         ),
+        // Círculos decorativos
         Positioned(
           top: -30,
           right: -20,
@@ -459,6 +472,7 @@ class _AppBarBackground extends StatelessWidget {
             ),
           ),
         ),
+        // Avatar centrado
         Align(
           alignment: Alignment.bottomCenter,
           child: Padding(
@@ -466,56 +480,35 @@ class _AppBarBackground extends StatelessWidget {
             child: Column(
               mainAxisSize: MainAxisSize.min,
               children: [
-                Stack(
-                  children: [
-                    Container(
-                      decoration: BoxDecoration(
-                        shape: BoxShape.circle,
-                        border: Border.all(color: Colors.white, width: 3),
-                        boxShadow: [
-                          BoxShadow(
-                            color: Colors.black.withOpacity(0.2),
-                            blurRadius: 12,
-                            offset: const Offset(0, 4),
-                          ),
-                        ],
+                Container(
+                  decoration: BoxDecoration(
+                    shape: BoxShape.circle,
+                    border: Border.all(color: Colors.white, width: 3),
+                    boxShadow: [
+                      BoxShadow(
+                        color: Colors.black.withOpacity(0.2),
+                        blurRadius: 12,
+                        offset: const Offset(0, 4),
                       ),
-                      child: CircleAvatar(
-                        radius: 40,
-                        backgroundColor: _tealLight.withOpacity(0.3),
-                        child: Text(
-                          inicial,
-                          style: const TextStyle(
-                            fontSize: 32,
-                            fontWeight: FontWeight.w700,
-                            color: Colors.white,
-                          ),
-                        ),
-                      ),
-                    ),
-                    Positioned(
-                      bottom: 0,
-                      right: 0,
-                      child: Container(
-                        padding: const EdgeInsets.all(6),
-                        decoration: BoxDecoration(
-                          color: Colors.white,
-                          shape: BoxShape.circle,
-                          boxShadow: [
-                            BoxShadow(
-                              color: Colors.black.withOpacity(0.15),
-                              blurRadius: 6,
+                    ],
+                  ),
+                  child: CircleAvatar(
+                    radius: 40,
+                    backgroundColor: _tealLight.withOpacity(0.3),
+                    backgroundImage: photoURL != null
+                        ? NetworkImage(photoURL!)
+                        : null,
+                    child: photoURL == null
+                        ? Text(
+                            inicial,
+                            style: const TextStyle(
+                              fontSize: 32,
+                              fontWeight: FontWeight.w700,
+                              color: Colors.white,
                             ),
-                          ],
-                        ),
-                        child: const Icon(
-                          Icons.camera_alt_rounded,
-                          size: 14,
-                          color: _teal,
-                        ),
-                      ),
-                    ),
-                  ],
+                          )
+                        : null,
+                  ),
                 ),
                 const SizedBox(height: 8),
                 Text(
@@ -726,7 +719,7 @@ class _CiudadesSection extends StatelessWidget {
             ),
             child: Row(
               children: [
-                Text(c['emoji'] ?? '🌍', style: const TextStyle(fontSize: 22)),
+                Text(c['emoji'] ?? '📍', style: const TextStyle(fontSize: 22)),
                 const SizedBox(width: 12),
                 Expanded(
                   child: Column(
@@ -805,7 +798,7 @@ class _CiudadesSection extends StatelessWidget {
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
-// Modal: gestionar ciudades vividas
+// Modal: gestionar ciudades vividas (con autocomplete)
 // ─────────────────────────────────────────────────────────────────────────────
 
 class _CiudadesModal extends StatefulWidget {
@@ -821,23 +814,18 @@ class _CiudadesModal extends StatefulWidget {
 class _CiudadesModalState extends State<_CiudadesModal> {
   late List<Map<String, String>> _ciudades;
   bool _mostrandoFormulario = false;
+  bool _buscando = false;
+  Timer? _searchDebounce;
+  Map<String, String>? _ciudadSeleccionada;
 
   final _ciudadCtrl = TextEditingController();
   final _paisCtrl = TextEditingController();
   final _anosCtrl = TextEditingController();
-  final _emojiCtrl = TextEditingController();
 
-  // Errores individuales por campo
   String? _errCiudad;
-  String? _errPais;
-  String? _errAnos;
+  String? _errAnos; // El de país ya no se usa como error individual
 
-  // Letras unicode + espacios + guion + punto (cubre acentos, ñ, etc.)
-  static final _letrasRegex = RegExp(r"^[\p{L}\s\-'\.]+", unicode: true);
-  // Período: 2020 | 2015-2020 | 2015–2020 | 2015-hoy
-  static final _periodRegex = RegExp(
-    r'^(19|20)\d{2}([-\u2013](19|20)\d{2}|[-\u2013]hoy)?$',
-  );
+  List<Map<String, String>> _sugGerencias = [];
 
   @override
   void initState() {
@@ -847,393 +835,325 @@ class _CiudadesModalState extends State<_CiudadesModal> {
 
   @override
   void dispose() {
+    _searchDebounce?.cancel();
     _ciudadCtrl.dispose();
     _paisCtrl.dispose();
     _anosCtrl.dispose();
-    _emojiCtrl.dispose();
     super.dispose();
   }
 
-  // ── Validadores por campo ─────────────────────────────────────────────────
-
-  String? _validarCiudad(String v) {
-    if (v.isEmpty) return 'Campo obligatorio';
-    if (v.length < 2) return 'Mínimo 2 caracteres';
-    if (v.length > 60) return 'Máximo 60 caracteres';
-    if (!_letrasRegex.hasMatch(v)) return 'Solo letras y espacios';
-    return null;
-  }
-
-  String? _validarPais(String v) {
-    if (v.isEmpty) return 'Campo obligatorio';
-    if (v.length < 2) return 'Mínimo 2 caracteres';
-    if (v.length > 60) return 'Máximo 60 caracteres';
-    if (!_letrasRegex.hasMatch(v)) return 'Solo letras y espacios';
-    return null;
-  }
-
-  String? _validarPeriodo(String v) {
-    if (v.isEmpty) return null; // opcional
-    if (!_periodRegex.hasMatch(v)) {
-      return 'Ej: 2015, 2015-2020 o 2015-hoy';
-    }
-    final parts = v.split(RegExp(r'[-\u2013]'));
-    if (parts.length == 2 && parts[1] != 'hoy') {
-      final inicio = int.tryParse(parts[0]);
-      final fin = int.tryParse(parts[1]);
-      if (inicio != null && fin != null && inicio > fin) {
-        return 'El inicio no puede ser mayor al fin';
+  void _onCiudadChanged(String v) {
+    _searchDebounce?.cancel();
+    setState(() {
+      _errCiudad = null;
+      if (v.trim().length < 3) {
+        _sugGerencias = [];
+        _buscando = false;
+        return;
       }
-    }
-    return null;
+    });
+
+    _searchDebounce = Timer(const Duration(milliseconds: 500), () async {
+      setState(() => _buscando = true);
+      try {
+        final resultados = await LocationService.searchCities(v);
+        if (mounted) {
+          setState(() {
+            _sugGerencias = resultados;
+            _buscando = false;
+          });
+        }
+      } catch (e) {
+        if (mounted) setState(() => _buscando = false);
+      }
+    });
   }
 
-  String _capitalizar(String s) => s
-      .split(' ')
-      .map((w) => w.isEmpty ? w : '\${w[0].toUpperCase()}\${w.substring(1)}')
-      .join(' ');
+  // Opcional: Si en un futuro agregas 'country_code' en tu location_service.dart,
+  // esta función volverá a mostrar banderas reales. Por ahora muestra 📍 o 🌍.
+  String _obtenerEmoji(String? code) {
+    if (code == null || code.length != 2) return '📍';
+    return code.toUpperCase().replaceAllMapped(
+      RegExp(r'[A-Z]'),
+      (m) => String.fromCharCode(m.group(0)!.codeUnitAt(0) + 127397),
+    );
+  }
 
   void _agregarCiudad() {
     final ciudad = _ciudadCtrl.text.trim();
     final pais = _paisCtrl.text.trim();
     final anos = _anosCtrl.text.trim();
 
-    final errC = _validarCiudad(ciudad);
-    final errP = _validarPais(pais);
-    final errA = _validarPeriodo(anos);
-
-    setState(() {
-      _errCiudad = errC;
-      _errPais = errP;
-      _errAnos = errA;
-    });
-
-    if (errC != null || errP != null || errA != null) return;
-
     setState(() {
       _ciudades.add({
-        'ciudad': _capitalizar(ciudad),
-        'pais': _capitalizar(pais),
+        'ciudad': ciudad,
+        'pais': pais,
         'años': anos,
-        'emoji': _emojiCtrl.text.trim().isEmpty ? '🌍' : _emojiCtrl.text.trim(),
+        'emoji': _obtenerEmoji(_ciudadSeleccionada?['pais_code']),
       });
       _ciudadCtrl.clear();
       _paisCtrl.clear();
       _anosCtrl.clear();
-      _emojiCtrl.clear();
       _mostrandoFormulario = false;
-      _errCiudad = null;
-      _errPais = null;
-      _errAnos = null;
+      _sugGerencias = [];
     });
-  }
-
-  void _eliminar(int index) {
-    HapticFeedback.lightImpact();
-    setState(() => _ciudades.removeAt(index));
   }
 
   @override
   Widget build(BuildContext context) {
-    final bottom = MediaQuery.of(context).viewInsets.bottom;
-
     return Container(
+      padding: EdgeInsets.only(
+        bottom: MediaQuery.of(context).viewInsets.bottom,
+      ),
       decoration: const BoxDecoration(
-        color: Colors.white,
+        color: _bgMain,
         borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
       ),
-      padding: EdgeInsets.fromLTRB(24, 0, 24, 24 + bottom),
       child: SingleChildScrollView(
+        padding: const EdgeInsets.all(20),
         child: Column(
           mainAxisSize: MainAxisSize.min,
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            // Handle
-            Center(
-              child: Container(
-                margin: const EdgeInsets.only(top: 12, bottom: 20),
-                width: 40,
-                height: 4,
-                decoration: BoxDecoration(
-                  color: Colors.grey.shade200,
-                  borderRadius: BorderRadius.circular(2),
-                ),
-              ),
-            ),
-
-            // Header
+            // Cabecera del modal
             Row(
+              mainAxisAlignment: MainAxisAlignment.spaceBetween,
               children: [
-                Container(
-                  padding: const EdgeInsets.all(8),
-                  decoration: BoxDecoration(
-                    color: _teal.withOpacity(0.1),
-                    borderRadius: BorderRadius.circular(10),
+                const Text(
+                  'Ciudades vividas',
+                  style: TextStyle(
+                    fontSize: 18,
+                    fontWeight: FontWeight.w700,
+                    color: _tealDark,
                   ),
-                  child: const Icon(Icons.map_outlined, size: 18, color: _teal),
                 ),
-                const SizedBox(width: 10),
-                const Expanded(
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
+                IconButton(
+                  onPressed: () => Navigator.pop(context),
+                  icon: const Icon(Icons.close_rounded, color: _tealDark),
+                ),
+              ],
+            ),
+            const SizedBox(height: 16),
+
+            // Lista de ciudades ya agregadas dentro del modal
+            if (_ciudades.isNotEmpty) ...[
+              ..._ciudades.asMap().entries.map((e) {
+                final index = e.key;
+                final c = e.value;
+                return Container(
+                  margin: const EdgeInsets.only(bottom: 8),
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 16,
+                    vertical: 12,
+                  ),
+                  decoration: BoxDecoration(
+                    color: Colors.white,
+                    borderRadius: BorderRadius.circular(14),
+                    border: Border.all(color: _teal.withOpacity(0.15)),
+                  ),
+                  child: Row(
                     children: [
                       Text(
-                        'Tu historia de viajes',
-                        style: TextStyle(
-                          fontSize: 16,
-                          fontWeight: FontWeight.w700,
-                          color: _tealDark,
+                        c['emoji'] ?? '📍',
+                        style: const TextStyle(fontSize: 22),
+                      ),
+                      const SizedBox(width: 12),
+                      Expanded(
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Text(
+                              '${c['ciudad']}, ${c['pais']}',
+                              style: const TextStyle(
+                                fontSize: 14,
+                                fontWeight: FontWeight.w600,
+                                color: _tealDark,
+                              ),
+                            ),
+                            if ((c['años'] ?? '').isNotEmpty)
+                              Text(
+                                c['años']!,
+                                style: const TextStyle(
+                                  fontSize: 12,
+                                  color: Color(0xFF94A3B8),
+                                ),
+                              ),
+                          ],
                         ),
                       ),
-                      Text(
-                        'Conectá con personas de los mismos lugares',
-                        style: TextStyle(
-                          fontSize: 11,
-                          color: Color(0xFF94A3B8),
+                      IconButton(
+                        onPressed: () {
+                          setState(() => _ciudades.removeAt(index));
+                          widget.onGuardar(_ciudades);
+                        },
+                        icon: const Icon(
+                          Icons.delete_outline_rounded,
+                          color: Colors.redAccent,
+                          size: 20,
                         ),
                       ),
                     ],
                   ),
-                ),
-                TextButton(
-                  onPressed: () {
-                    widget.onGuardar(_ciudades);
-                    Navigator.pop(context);
-                  },
-                  style: TextButton.styleFrom(foregroundColor: _teal),
-                  child: const Text(
-                    'Listo',
-                    style: TextStyle(fontWeight: FontWeight.w700),
-                  ),
-                ),
-              ],
-            ),
+                );
+              }).toList(),
+              const SizedBox(height: 16),
+            ],
 
-            const SizedBox(height: 16),
-
-            // Estado vacío
-            if (_ciudades.isEmpty && !_mostrandoFormulario)
-              Container(
+            // Botón para desplegar formulario o el formulario en sí
+            if (!_mostrandoFormulario)
+              SizedBox(
                 width: double.infinity,
-                padding: const EdgeInsets.symmetric(vertical: 24),
-                decoration: BoxDecoration(
-                  color: _tealBg,
-                  borderRadius: BorderRadius.circular(14),
-                ),
-                child: const Column(
-                  children: [
-                    Text('🌍', style: TextStyle(fontSize: 32)),
-                    SizedBox(height: 8),
-                    Text(
-                      'Todavía no agregaste ciudades',
-                      style: TextStyle(
-                        fontSize: 13,
-                        fontWeight: FontWeight.w500,
-                        color: _tealDark,
-                      ),
+                child: OutlinedButton.icon(
+                  onPressed: () => setState(() => _mostrandoFormulario = true),
+                  icon: const Icon(Icons.add_location_alt_outlined, size: 18),
+                  label: const Text('Añadir nueva ciudad'),
+                  style: OutlinedButton.styleFrom(
+                    foregroundColor: _teal,
+                    side: BorderSide(color: _teal.withOpacity(0.5)),
+                    padding: const EdgeInsets.symmetric(vertical: 14),
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(14),
                     ),
-                    SizedBox(height: 4),
-                    Text(
-                      'Compartí tu historia migratoria',
-                      style: TextStyle(fontSize: 12, color: Color(0xFF94A3B8)),
-                    ),
-                  ],
+                  ),
                 ),
               )
             else
-              // Lista
-              Column(
-                children: List.generate(
-                  _ciudades.length,
-                  (i) => Container(
-                    margin: const EdgeInsets.only(bottom: 8),
-                    padding: const EdgeInsets.symmetric(
-                      horizontal: 14,
-                      vertical: 10,
-                    ),
-                    decoration: BoxDecoration(
-                      color: Colors.white,
-                      borderRadius: BorderRadius.circular(12),
-                      border: Border.all(color: _teal.withOpacity(0.1)),
-                      boxShadow: [
-                        BoxShadow(
-                          color: _teal.withOpacity(0.04),
-                          blurRadius: 6,
-                          offset: const Offset(0, 2),
-                        ),
-                      ],
-                    ),
-                    child: Row(
-                      children: [
-                        Text(
-                          _ciudades[i]['emoji'] ?? '🌍',
-                          style: const TextStyle(fontSize: 20),
-                        ),
-                        const SizedBox(width: 10),
-                        Expanded(
-                          child: Column(
-                            crossAxisAlignment: CrossAxisAlignment.start,
-                            children: [
-                              Text(
-                                '${_ciudades[i]['ciudad']}, ${_ciudades[i]['pais']}',
-                                style: const TextStyle(
-                                  fontSize: 13,
-                                  fontWeight: FontWeight.w600,
-                                  color: _tealDark,
-                                ),
-                              ),
-                              if ((_ciudades[i]['años'] ?? '').isNotEmpty)
-                                Text(
-                                  _ciudades[i]['años']!,
-                                  style: const TextStyle(
-                                    fontSize: 11,
-                                    color: Color(0xFF94A3B8),
-                                  ),
-                                ),
-                            ],
-                          ),
-                        ),
-                        IconButton(
-                          icon: const Icon(
-                            Icons.delete_outline_rounded,
-                            color: Colors.redAccent,
-                            size: 20,
-                          ),
-                          onPressed: () => _eliminar(i),
-                          padding: EdgeInsets.zero,
-                          constraints: const BoxConstraints(),
-                        ),
-                      ],
-                    ),
-                  ),
-                ),
-              ),
-
-            // Formulario nueva ciudad
-            if (_mostrandoFormulario) ...[
-              const SizedBox(height: 16),
               Container(
                 padding: const EdgeInsets.all(16),
                 decoration: BoxDecoration(
                   color: _tealBg,
-                  borderRadius: BorderRadius.circular(14),
+                  borderRadius: BorderRadius.circular(16),
                   border: Border.all(color: _teal.withOpacity(0.2)),
                 ),
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     const Text(
-                      'Nueva ciudad',
+                      'Añadir ciudad',
                       style: TextStyle(
-                        fontSize: 13,
+                        fontSize: 14,
                         fontWeight: FontWeight.w700,
-                        color: _tealDark,
+                        color: _teal,
                       ),
                     ),
-                    const SizedBox(height: 12),
-                    // Emoji (sin validación)
-                    Row(
-                      children: [
-                        Expanded(
-                          child: _ModalField(
-                            ctrl: _emojiCtrl,
-                            hint: '🏙️',
-                            label: 'Emoji',
-                          ),
-                        ),
-                        const SizedBox(width: 8),
-                        Expanded(
-                          flex: 3,
-                          child: _ModalField(
-                            ctrl: _ciudadCtrl,
-                            hint: 'Ej: Buenos Aires',
-                            label: 'Ciudad *',
-                            error: _errCiudad,
-                            onChanged: (v) => setState(
-                              () => _errCiudad = _validarCiudad(v.trim()),
-                            ),
-                            formatters: [
-                              FilteringTextInputFormatter.allow(
-                                RegExp(r"[\p{L}\s\-'\.]", unicode: true),
-                              ),
-                              LengthLimitingTextInputFormatter(60),
-                            ],
-                          ),
-                        ),
-                      ],
+                    const SizedBox(height: 16),
+
+                    _AutocompleteField(
+                      ctrl: _ciudadCtrl,
+                      label: 'Ciudad *',
+                      hint: 'Busca cualquier ciudad...',
+                      error: _errCiudad,
+                      sugerencias: _sugGerencias
+                          .map((s) => "${s['ciudad']}, ${s['pais']}")
+                          .toList(),
+                      onChanged: _onCiudadChanged,
+                      onSugerencia: (sugerencia) {
+                        final seleccion = _sugGerencias.firstWhere(
+                          (s) => "${s['ciudad']}, ${s['pais']}" == sugerencia,
+                          orElse: () => {
+                            'ciudad': sugerencia,
+                            'pais': '',
+                            'pais_code': '',
+                          },
+                        );
+                        setState(() {
+                          _ciudadSeleccionada = seleccion;
+                          _ciudadCtrl.text = seleccion['ciudad'] ?? '';
+                          _paisCtrl.text = seleccion['pais'] ?? '';
+                          _sugGerencias = [];
+                          _buscando = false;
+                        });
+                        FocusScope.of(context).unfocus();
+                      },
                     ),
-                    const SizedBox(height: 8),
-                    Row(
-                      children: [
-                        Expanded(
-                          flex: 2,
-                          child: _ModalField(
-                            ctrl: _paisCtrl,
-                            hint: 'Ej: Argentina',
-                            label: 'País *',
-                            error: _errPais,
-                            onChanged: (v) => setState(
-                              () => _errPais = _validarPais(v.trim()),
-                            ),
-                            formatters: [
-                              FilteringTextInputFormatter.allow(
-                                RegExp(r"[\p{L}\s\-'\.]", unicode: true),
-                              ),
-                              LengthLimitingTextInputFormatter(60),
-                            ],
-                          ),
+                    if (_buscando)
+                      const Padding(
+                        padding: EdgeInsets.only(top: 8),
+                        child: LinearProgressIndicator(
+                          color: _teal,
+                          minHeight: 2,
                         ),
-                        const SizedBox(width: 8),
-                        Expanded(
-                          flex: 2,
-                          child: _ModalField(
-                            ctrl: _anosCtrl,
-                            hint: '2015–2020',
-                            label: 'Período',
-                            error: _errAnos,
-                            onChanged: (v) => setState(
-                              () => _errAnos = _validarPeriodo(v.trim()),
-                            ),
-                            formatters: [
-                              FilteringTextInputFormatter.allow(
-                                RegExp(r'[0-9\-–]'),
-                              ),
-                              LengthLimitingTextInputFormatter(9),
-                            ],
-                            keyboardType: TextInputType.number,
-                          ),
-                        ),
-                      ],
-                    ),
+                      ),
+
                     const SizedBox(height: 12),
+
+                    // Campo de País (Solo lectura, ya que se llena automáticamente)
+                    const Text(
+                      'País',
+                      style: TextStyle(
+                        fontSize: 11,
+                        fontWeight: FontWeight.w600,
+                        color: _teal,
+                      ),
+                    ),
+                    const SizedBox(height: 4),
+                    TextField(
+                      controller: _paisCtrl,
+                      readOnly: true,
+                      style: const TextStyle(fontSize: 13, color: _tealDark),
+                      decoration: InputDecoration(
+                        hintText: 'Se completa automáticamente',
+                        hintStyle: const TextStyle(
+                          color: Color(0xFFB0C4C3),
+                          fontSize: 13,
+                        ),
+                        filled: true,
+                        fillColor: Colors.white,
+                        isDense: true,
+                        contentPadding: const EdgeInsets.symmetric(
+                          horizontal: 12,
+                          vertical: 10,
+                        ),
+                        border: OutlineInputBorder(
+                          borderRadius: BorderRadius.circular(10),
+                          borderSide: BorderSide.none,
+                        ),
+                      ),
+                    ),
+
+                    const SizedBox(height: 12),
+
+                    _PeriodoField(
+                      ctrl: _anosCtrl,
+                      error: _errAnos,
+                      onChanged: (v) => setState(() => _errAnos = null),
+                    ),
+
+                    const SizedBox(height: 20),
+
                     Row(
                       children: [
                         Expanded(
-                          child: OutlinedButton(
-                            onPressed: () => setState(() {
-                              _mostrandoFormulario = false;
-                              _ciudadCtrl.clear();
-                              _paisCtrl.clear();
-                              _anosCtrl.clear();
-                              _emojiCtrl.clear();
-                              _errCiudad = null;
-                              _errPais = null;
-                              _errAnos = null;
-                            }),
-                            style: OutlinedButton.styleFrom(
-                              foregroundColor: _teal,
-                              side: const BorderSide(color: _teal),
-                              shape: RoundedRectangleBorder(
-                                borderRadius: BorderRadius.circular(10),
-                              ),
+                          child: TextButton(
+                            onPressed: () {
+                              setState(() {
+                                _mostrandoFormulario = false;
+                                _ciudadCtrl.clear();
+                                _paisCtrl.clear();
+                                _anosCtrl.clear();
+                                _errCiudad = null;
+                                _sugGerencias = [];
+                              });
+                            },
+                            style: TextButton.styleFrom(
+                              foregroundColor: const Color(0xFF94A3B8),
                             ),
                             child: const Text('Cancelar'),
                           ),
                         ),
-                        const SizedBox(width: 10),
+                        const SizedBox(width: 12),
                         Expanded(
                           child: ElevatedButton(
-                            onPressed: _agregarCiudad,
+                            onPressed: () {
+                              if (_ciudadCtrl.text.trim().isEmpty) {
+                                setState(
+                                  () => _errCiudad = 'La ciudad es requerida',
+                                );
+                                return;
+                              }
+                              _agregarCiudad();
+                              widget.onGuardar(_ciudades);
+                            },
                             style: ElevatedButton.styleFrom(
                               backgroundColor: _teal,
                               foregroundColor: Colors.white,
@@ -1242,7 +1162,7 @@ class _CiudadesModalState extends State<_CiudadesModal> {
                                 borderRadius: BorderRadius.circular(10),
                               ),
                             ),
-                            child: const Text('Agregar'),
+                            child: const Text('Guardar'),
                           ),
                         ),
                       ],
@@ -1250,27 +1170,6 @@ class _CiudadesModalState extends State<_CiudadesModal> {
                   ],
                 ),
               ),
-            ],
-
-            if (!_mostrandoFormulario) ...[
-              const SizedBox(height: 12),
-              SizedBox(
-                width: double.infinity,
-                child: OutlinedButton.icon(
-                  onPressed: () => setState(() => _mostrandoFormulario = true),
-                  icon: const Icon(Icons.add_rounded, size: 18),
-                  label: const Text('Agregar ciudad'),
-                  style: OutlinedButton.styleFrom(
-                    foregroundColor: _teal,
-                    side: const BorderSide(color: _teal),
-                    padding: const EdgeInsets.symmetric(vertical: 12),
-                    shape: RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(12),
-                    ),
-                  ),
-                ),
-              ),
-            ],
           ],
         ),
       ),
@@ -1278,23 +1177,27 @@ class _CiudadesModalState extends State<_CiudadesModal> {
   }
 }
 
-class _ModalField extends StatelessWidget {
-  final TextEditingController ctrl;
-  final String hint;
-  final String label;
-  final String? error;
-  final ValueChanged<String>? onChanged;
-  final List<TextInputFormatter>? formatters;
-  final TextInputType? keyboardType;
+// ─────────────────────────────────────────────────────────────────────────────
+// Campo con autocompletado predictivo
+// ─────────────────────────────────────────────────────────────────────────────
 
-  const _ModalField({
+class _AutocompleteField extends StatelessWidget {
+  final TextEditingController ctrl;
+  final String label;
+  final String hint;
+  final String? error;
+  final List<String> sugerencias;
+  final ValueChanged<String> onChanged;
+  final ValueChanged<String> onSugerencia;
+
+  const _AutocompleteField({
     required this.ctrl,
-    required this.hint,
     required this.label,
-    this.error,
-    this.onChanged,
-    this.formatters,
-    this.keyboardType,
+    required this.hint,
+    required this.error,
+    required this.sugerencias,
+    required this.onChanged,
+    required this.onSugerencia,
   });
 
   @override
@@ -1315,8 +1218,6 @@ class _ModalField extends StatelessWidget {
         TextField(
           controller: ctrl,
           onChanged: onChanged,
-          inputFormatters: formatters,
-          keyboardType: keyboardType,
           style: const TextStyle(fontSize: 13, color: _tealDark),
           decoration: InputDecoration(
             hintText: hint,
@@ -1353,6 +1254,210 @@ class _ModalField extends StatelessWidget {
             child: Text(
               error!,
               style: const TextStyle(fontSize: 10, color: Colors.redAccent),
+            ),
+          ),
+        // Lista de sugerencias
+        if (sugerencias.isNotEmpty)
+          Container(
+            margin: const EdgeInsets.only(top: 2),
+            decoration: BoxDecoration(
+              color: Colors.white,
+              borderRadius: BorderRadius.circular(10),
+              border: Border.all(color: _teal.withOpacity(0.2)),
+              boxShadow: [
+                BoxShadow(
+                  color: Colors.black.withOpacity(0.06),
+                  blurRadius: 8,
+                  offset: const Offset(0, 3),
+                ),
+              ],
+            ),
+            child: Column(
+              children: sugerencias.map((s) {
+                final isLast = s == sugerencias.last;
+                return InkWell(
+                  onTap: () => onSugerencia(s),
+                  borderRadius: BorderRadius.circular(10),
+                  child: Container(
+                    width: double.infinity,
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 12,
+                      vertical: 10,
+                    ),
+                    decoration: BoxDecoration(
+                      border: isLast
+                          ? null
+                          : Border(
+                              bottom: BorderSide(
+                                color: _teal.withOpacity(0.08),
+                                width: 1,
+                              ),
+                            ),
+                    ),
+                    child: Row(
+                      children: [
+                        Icon(
+                          Icons.location_on_outlined,
+                          size: 14,
+                          color: _teal.withOpacity(0.6),
+                        ),
+                        const SizedBox(width: 8),
+                        Text(
+                          s,
+                          style: const TextStyle(
+                            fontSize: 13,
+                            color: _tealDark,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                );
+              }).toList(),
+            ),
+          ),
+      ],
+    );
+  }
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Campo de período con lógica especial para "hoy"
+// ─────────────────────────────────────────────────────────────────────────────
+
+class _PeriodoField extends StatefulWidget {
+  final TextEditingController ctrl;
+  final String? error;
+  final ValueChanged<String> onChanged;
+
+  const _PeriodoField({
+    required this.ctrl,
+    required this.error,
+    required this.onChanged,
+  });
+
+  @override
+  State<_PeriodoField> createState() => _PeriodoFieldState();
+}
+
+class _PeriodoFieldState extends State<_PeriodoField> {
+  // Sugerencias rápidas basadas en lo que escribe el usuario
+  List<String> _sugerencias = [];
+
+  void _onChanged(String v) {
+    widget.onChanged(v);
+    // Cuando hay 4 dígitos, sugerir completar con "-hoy" y año actual
+    final anioActual = DateTime.now().year;
+    if (RegExp(r'^(19|20)\d{2}$').hasMatch(v.trim())) {
+      setState(() {
+        _sugerencias = ['$v-hoy', '$v-$anioActual'];
+      });
+    } else if (v.trim().isEmpty) {
+      setState(() => _sugerencias = []);
+    } else {
+      setState(() => _sugerencias = []);
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final hasError = widget.error != null;
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Text(
+          'Período',
+          style: TextStyle(
+            fontSize: 11,
+            fontWeight: FontWeight.w600,
+            color: hasError ? Colors.redAccent : _teal,
+          ),
+        ),
+        const SizedBox(height: 4),
+        TextField(
+          controller: widget.ctrl,
+          onChanged: _onChanged,
+          keyboardType: TextInputType.text,
+          inputFormatters: [
+            // Permite dígitos, guion y letras (para "hoy")
+            FilteringTextInputFormatter.allow(RegExp(r'[0-9\-–hoHOyY]')),
+            LengthLimitingTextInputFormatter(9),
+          ],
+          style: const TextStyle(fontSize: 13, color: _tealDark),
+          decoration: InputDecoration(
+            hintText: 'Ej: 2020 o 2015-hoy',
+            hintStyle: const TextStyle(color: Color(0xFFB0C4C3), fontSize: 13),
+            filled: true,
+            fillColor: Colors.white,
+            isDense: true,
+            contentPadding: const EdgeInsets.symmetric(
+              horizontal: 12,
+              vertical: 10,
+            ),
+            border: OutlineInputBorder(
+              borderRadius: BorderRadius.circular(10),
+              borderSide: BorderSide.none,
+            ),
+            enabledBorder: OutlineInputBorder(
+              borderRadius: BorderRadius.circular(10),
+              borderSide: hasError
+                  ? const BorderSide(color: Colors.redAccent, width: 1.2)
+                  : BorderSide.none,
+            ),
+            focusedBorder: OutlineInputBorder(
+              borderRadius: BorderRadius.circular(10),
+              borderSide: BorderSide(
+                color: hasError ? Colors.redAccent : _teal,
+                width: 1.5,
+              ),
+            ),
+          ),
+        ),
+        if (hasError)
+          Padding(
+            padding: const EdgeInsets.only(top: 3, left: 2),
+            child: Text(
+              widget.error!,
+              style: const TextStyle(fontSize: 10, color: Colors.redAccent),
+            ),
+          ),
+        // Sugerencias rápidas (chips)
+        if (_sugerencias.isNotEmpty)
+          Padding(
+            padding: const EdgeInsets.only(top: 6),
+            child: Wrap(
+              spacing: 6,
+              children: _sugerencias.map((s) {
+                return GestureDetector(
+                  onTap: () {
+                    widget.ctrl.text = s;
+                    widget.ctrl.selection = TextSelection.collapsed(
+                      offset: s.length,
+                    );
+                    widget.onChanged(s);
+                    setState(() => _sugerencias = []);
+                  },
+                  child: Container(
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 10,
+                      vertical: 5,
+                    ),
+                    decoration: BoxDecoration(
+                      color: _teal.withOpacity(0.1),
+                      borderRadius: BorderRadius.circular(20),
+                      border: Border.all(color: _teal.withOpacity(0.3)),
+                    ),
+                    child: Text(
+                      s,
+                      style: const TextStyle(
+                        fontSize: 12,
+                        color: _teal,
+                        fontWeight: FontWeight.w500,
+                      ),
+                    ),
+                  ),
+                );
+              }).toList(),
             ),
           ),
       ],
@@ -1414,6 +1519,9 @@ class _StyledField extends StatelessWidget {
   final IconData icon;
   final String? prefix;
   final int maxLines;
+  final int? minLines;
+  final TextAlign textAlign;
+  final TextAlignVertical textAlignVertical;
 
   const _StyledField({
     required this.label,
@@ -1422,6 +1530,9 @@ class _StyledField extends StatelessWidget {
     required this.icon,
     this.prefix,
     this.maxLines = 1,
+    this.minLines,
+    this.textAlign = TextAlign.start,
+    this.textAlignVertical = TextAlignVertical.center,
   });
 
   @override
@@ -1444,6 +1555,9 @@ class _StyledField extends StatelessWidget {
           TextField(
             controller: controller,
             maxLines: maxLines,
+            minLines: minLines ?? maxLines,
+            textAlign: textAlign,
+            textAlignVertical: textAlignVertical,
             style: const TextStyle(
               fontSize: 15,
               color: _tealDark,
