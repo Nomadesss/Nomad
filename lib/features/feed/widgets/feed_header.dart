@@ -1,12 +1,47 @@
 import 'package:flutter/material.dart';
 import 'package:phosphor_flutter/phosphor_flutter.dart';
+import 'package:firebase_auth/firebase_auth.dart';
+import 'package:cloud_firestore/cloud_firestore.dart';
+
 import '../../community/community_hub_screen.dart';
+import '../../notifications/notifications_screen.dart';
+import '../../chat/chat_list_screen.dart';
 
 class FeedHeader extends StatelessWidget {
   const FeedHeader({super.key});
 
+  // ── Stream: notificaciones no leídas del usuario actual ───────────────────
+  Stream<int> _unreadNotificationsStream(String userId) {
+    return FirebaseFirestore.instance
+        .collection('notifications')
+        .where('recipientId', isEqualTo: userId)
+        .where('read', isEqualTo: false)
+        .snapshots()
+        .map((snap) => snap.docs.length);
+  }
+
+  // ── Stream: chats con mensajes no leídos ──────────────────────────────────
+  Stream<int> _unreadChatsStream(String userId) {
+    return FirebaseFirestore.instance
+        .collection('chats')
+        .where('participantIds', arrayContains: userId)
+        .snapshots()
+        .map((snap) {
+          int count = 0;
+          for (final doc in snap.docs) {
+            final unreadMap =
+                doc.data()['unreadCount'] as Map<String, dynamic>? ?? {};
+            final myUnread = (unreadMap[userId] as num?)?.toInt() ?? 0;
+            if (myUnread > 0) count++;
+          }
+          return count;
+        });
+  }
+
   @override
   Widget build(BuildContext context) {
+    final userId = FirebaseAuth.instance.currentUser?.uid;
+
     return Container(
       height: 64,
       padding: const EdgeInsets.symmetric(horizontal: 14),
@@ -16,61 +51,76 @@ class FeedHeader extends StatelessWidget {
       ),
       child: Row(
         children: [
-          // IZQUIERDA
+          // ── IZQUIERDA ────────────────────────────────────────────────────
           Expanded(
             child: Row(
               children: [
                 _HeaderIcon(icon: PhosphorIcons.heart(), onTap: () {}),
                 const SizedBox(width: 6),
-                _HeaderIcon(icon: PhosphorIcons.handHeart(), onTap: () => Navigator.push(
-                  context,
-                  MaterialPageRoute(builder: (_) => const CommunityHubScreen()),
-                )),
+                _HeaderIcon(
+                  icon: PhosphorIcons.handHeart(),
+                  onTap: () => Navigator.push(
+                    context,
+                    MaterialPageRoute(
+                      builder: (_) => const CommunityHubScreen(),
+                    ),
+                  ),
+                ),
               ],
             ),
           ),
 
-          // LOGO ANIMADO
+          // ── LOGO ANIMADO ─────────────────────────────────────────────────
           const Expanded(child: Center(child: _NomadAnimatedLogo())),
 
-          // DERECHA
+          // ── DERECHA ──────────────────────────────────────────────────────
           Expanded(
             child: Row(
               mainAxisAlignment: MainAxisAlignment.end,
               children: [
-                Stack(
-                  clipBehavior: Clip.none,
-                  children: [
-                    _HeaderIcon(icon: PhosphorIcons.bell(), onTap: () {}),
-                    Positioned(
-                      right: 2,
-                      top: 2,
-                      child: Container(
-                        padding: const EdgeInsets.all(3),
-                        decoration: const BoxDecoration(
-                          color: Color(0xFFFF3B30),
-                          shape: BoxShape.circle,
-                        ),
-                        constraints: const BoxConstraints(
-                          minWidth: 16,
-                          minHeight: 16,
-                        ),
-                        child: const Center(
-                          child: Text(
-                            "3",
-                            style: TextStyle(
-                              color: Colors.white,
-                              fontSize: 9,
-                              fontWeight: FontWeight.bold,
-                            ),
+                // Campanita con badge dinámico
+                if (userId != null)
+                  StreamBuilder<int>(
+                    stream: _unreadNotificationsStream(userId),
+                    builder: (context, snapshot) {
+                      final count = snapshot.data ?? 0;
+                      return _BadgeIcon(
+                        icon: PhosphorIcons.bell(),
+                        count: count,
+                        onTap: () => Navigator.push(
+                          context,
+                          MaterialPageRoute(
+                            builder: (_) => const NotificationsScreen(),
                           ),
                         ),
-                      ),
-                    ),
-                  ],
-                ),
+                      );
+                    },
+                  )
+                else
+                  _HeaderIcon(icon: PhosphorIcons.bell(), onTap: () {}),
+
                 const SizedBox(width: 6),
-                _HeaderIcon(icon: PhosphorIcons.chatCircle(), onTap: () {}),
+
+                // Chat con badge dinámico
+                if (userId != null)
+                  StreamBuilder<int>(
+                    stream: _unreadChatsStream(userId),
+                    builder: (context, snapshot) {
+                      final count = snapshot.data ?? 0;
+                      return _BadgeIcon(
+                        icon: PhosphorIcons.chatCircle(),
+                        count: count,
+                        onTap: () => Navigator.push(
+                          context,
+                          MaterialPageRoute(
+                            builder: (_) => const ChatListScreen(),
+                          ),
+                        ),
+                      );
+                    },
+                  )
+                else
+                  _HeaderIcon(icon: PhosphorIcons.chatCircle(), onTap: () {}),
               ],
             ),
           ),
@@ -80,7 +130,59 @@ class FeedHeader extends StatelessWidget {
   }
 }
 
-// ── Logo animado ──────────────────────────────────────────────
+// ─────────────────────────────────────────────────────────────────────────────
+// Widget: ícono con badge numérico reutilizable
+// ─────────────────────────────────────────────────────────────────────────────
+class _BadgeIcon extends StatelessWidget {
+  const _BadgeIcon({
+    required this.icon,
+    required this.count,
+    required this.onTap,
+  });
+
+  final IconData icon;
+  final int count;
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    return Stack(
+      clipBehavior: Clip.none,
+      children: [
+        _HeaderIcon(icon: icon, onTap: onTap),
+        if (count > 0)
+          Positioned(
+            right: 2,
+            top: 2,
+            child: IgnorePointer(
+              child: Container(
+                padding: const EdgeInsets.all(3),
+                decoration: const BoxDecoration(
+                  color: Color(0xFFFF3B30),
+                  shape: BoxShape.circle,
+                ),
+                constraints: const BoxConstraints(minWidth: 16, minHeight: 16),
+                child: Center(
+                  child: Text(
+                    count > 99 ? '99+' : '$count',
+                    style: const TextStyle(
+                      color: Colors.white,
+                      fontSize: 9,
+                      fontWeight: FontWeight.bold,
+                    ),
+                  ),
+                ),
+              ),
+            ),
+          ),
+      ],
+    );
+  }
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Logo animado — sin cambios
+// ─────────────────────────────────────────────────────────────────────────────
 
 class _NomadAnimatedLogo extends StatefulWidget {
   const _NomadAnimatedLogo();
@@ -93,12 +195,9 @@ class _NomadAnimatedLogoState extends State<_NomadAnimatedLogo>
     with SingleTickerProviderStateMixin {
   late AnimationController _ctrl;
 
-  // Duración de un ciclo completo: aparece + pausa + desaparece + pausa
   static const _cycleDuration = Duration(seconds: 8);
-
-  // Cada letra tiene su propio offset de delay
   static const _letters = ['N', 'o', 'm', 'a', 'd'];
-  static const _letterDelay = 0.08; // fracción del ciclo entre letras
+  static const _letterDelay = 0.08;
 
   @override
   void initState() {
@@ -137,8 +236,8 @@ class _NomadAnimatedLogoState extends State<_NomadAnimatedLogo>
 
 class _AnimatedLetter extends StatelessWidget {
   final String letter;
-  final double progress; // 0.0 → 1.0 del ciclo completo
-  final double delay; // fracción de delay dentro del ciclo
+  final double progress;
+  final double delay;
 
   const _AnimatedLetter({
     required this.letter,
@@ -148,39 +247,26 @@ class _AnimatedLetter extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    // Ventanas del ciclo (fracciones de 0–1):
-    // 0.00–0.05 : pausa inicial
-    // 0.05–0.30 : aparece (entrada desde abajo)
-    // 0.30–0.65 : visible quieto
-    // 0.65–0.85 : desaparece (sale hacia arriba)
-    // 0.85–1.00 : pausa antes del siguiente ciclo
-
-    // Ajusta el progreso con el delay de la letra
     final p = ((progress - delay) % 1.0 + 1.0) % 1.0;
 
     double opacity;
     double translateY;
 
     if (p < 0.05) {
-      // Pausa inicial
       opacity = 0.0;
       translateY = 10.0;
     } else if (p < 0.25) {
-      // Entrada
       final t = _easeOut((p - 0.05) / 0.20);
       opacity = t;
       translateY = 10.0 * (1 - t);
     } else if (p < 0.65) {
-      // Visible
       opacity = 1.0;
       translateY = 0.0;
     } else if (p < 0.82) {
-      // Salida hacia arriba
       final t = _easeIn((p - 0.65) / 0.17);
       opacity = 1.0 - t;
       translateY = -10.0 * t;
     } else {
-      // Pausa final
       opacity = 0.0;
       translateY = -10.0;
     }
@@ -207,7 +293,9 @@ class _AnimatedLetter extends StatelessWidget {
   double _easeIn(double t) => t * t;
 }
 
-// ── Ícono del header ──────────────────────────────────────────
+// ─────────────────────────────────────────────────────────────────────────────
+// Ícono base del header — sin cambios
+// ─────────────────────────────────────────────────────────────────────────────
 
 class _HeaderIcon extends StatelessWidget {
   final IconData icon;

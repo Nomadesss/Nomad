@@ -349,7 +349,7 @@ class _ShareSheetContentState extends State<_ShareSheetContent> {
                 _QuickAction(
                   customIcon: _FacebookIcon(),
                   label: 'Facebook',
-                  color: const Color(0xFF1877F2),
+                  color: const Color.fromARGB(255, 43, 73, 109),
                   onTap: () => Navigator.pop(context),
                 ),
                 const SizedBox(width: 20),
