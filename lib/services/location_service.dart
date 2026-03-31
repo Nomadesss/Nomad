@@ -38,9 +38,9 @@ class LocationData {
   final double? lat;
   final double? lng;
   final double? accuracy;
-  final String? city;          // ciudad por GPS + geocoding
-  final String? country;       // país por GPS + geocoding
-  final String? countryCode;   // código ISO por GPS (ej: 'UY')
+  final String? city; // ciudad por GPS + geocoding
+  final String? country; // país por GPS + geocoding
+  final String? countryCode; // código ISO por GPS (ej: 'UY')
   final bool gpsGranted;
 
   // ── IP ─────────────────────────────────────────────────────────────────────
@@ -48,7 +48,7 @@ class LocationData {
   final String? ipCountry;
   final String? ipCountryCode; // código ISO por IP (ej: 'ES')
   final String? ipCity;
-  final String? ipOrg;         // ISP u organización de la IP
+  final String? ipOrg; // ISP u organización de la IP
   final bool ipResolved;
 
   // ── Timezone ───────────────────────────────────────────────────────────────
@@ -102,31 +102,28 @@ class LocationData {
 
   Map<String, dynamic> toMap() => {
     'gps': {
-      'lat':         lat,
-      'lng':         lng,
-      'accuracy':    accuracy,
-      'city':        city,
-      'country':     country,
+      'lat': lat,
+      'lng': lng,
+      'accuracy': accuracy,
+      'city': city,
+      'country': country,
       'countryCode': countryCode,
-      'granted':     gpsGranted,
+      'granted': gpsGranted,
     },
     'ip': {
-      'address':     ipAddress,
-      'country':     ipCountry,
+      'address': ipAddress,
+      'country': ipCountry,
       'countryCode': ipCountryCode,
-      'city':        ipCity,
-      'org':         ipOrg,
-      'resolved':    ipResolved,
+      'city': ipCity,
+      'org': ipOrg,
+      'resolved': ipResolved,
     },
-    'timezone': {
-      'name':          timezone,
-      'offsetMinutes': timezoneOffsetMinutes,
-    },
+    'timezone': {'name': timezone, 'offsetMinutes': timezoneOffsetMinutes},
     // Campos promovidos al nivel raíz para facilitar queries en Firestore.
     // FeedService filtra por 'city' directamente sin navegar en el objeto.
-    'cityEffective':        cityEffective?.trim().toLowerCase(),
+    'cityEffective': cityEffective?.trim().toLowerCase(),
     'countryCodeEffective': countryCodeEffective,
-    'capturedAt':           DateTime.now().millisecondsSinceEpoch,
+    'capturedAt': DateTime.now().millisecondsSinceEpoch,
   };
 
   @override
@@ -140,16 +137,18 @@ class LocationData {
 // ─────────────────────────────────────────────────────────────────────────────
 
 class LocationService {
-
   // ── GPS ────────────────────────────────────────────────────────────────────
 
-  static Future<({
-    Position? position,
-    String?   city,
-    String?   country,
-    String?   countryCode,
-    bool      granted,
-  })> getGPS() async {
+  static Future<
+    ({
+      Position? position,
+      String? city,
+      String? country,
+      String? countryCode,
+      bool granted,
+    })
+  >
+  getGPS() async {
     try {
       var permission = await Geolocator.checkPermission();
 
@@ -160,22 +159,22 @@ class LocationService {
       if (permission == LocationPermission.denied ||
           permission == LocationPermission.deniedForever) {
         return (
-          position:    null,
-          city:        null,
-          country:     null,
+          position: null,
+          city: null,
+          country: null,
           countryCode: null,
-          granted:     false,
+          granted: false,
         );
       }
 
       final serviceEnabled = await Geolocator.isLocationServiceEnabled();
       if (!serviceEnabled) {
         return (
-          position:    null,
-          city:        null,
-          country:     null,
+          position: null,
+          city: null,
+          country: null,
           countryCode: null,
-          granted:     false,
+          granted: false,
         );
       }
 
@@ -191,9 +190,9 @@ class LocationService {
           pos.longitude,
         );
         if (placemarks.isNotEmpty) {
-          final p    = placemarks.first;
-          city        = p.locality ?? p.subAdministrativeArea;
-          country     = p.country;
+          final p = placemarks.first;
+          city = p.locality ?? p.subAdministrativeArea;
+          country = p.country;
           countryCode = p.isoCountryCode;
         }
       } catch (_) {
@@ -202,19 +201,19 @@ class LocationService {
       }
 
       return (
-        position:    pos,
-        city:        city,
-        country:     country,
+        position: pos,
+        city: city,
+        country: country,
         countryCode: countryCode,
-        granted:     true,
+        granted: true,
       );
     } catch (_) {
       return (
-        position:    null,
-        city:        null,
-        country:     null,
+        position: null,
+        city: null,
+        country: null,
         countryCode: null,
-        granted:     false,
+        granted: false,
       );
     }
   }
@@ -231,14 +230,17 @@ class LocationService {
   // Si el token está vacío, usa el plan gratuito (sin autenticación).
   // Si el token está configurado, lo incluye en el header Authorization.
 
-  static Future<({
-    String? ip,
-    String? country,
-    String? countryCode,
-    String? city,
-    String? org,
-    bool    resolved,
-  })> getIPInfo() async {
+  static Future<
+    ({
+      String? ip,
+      String? country,
+      String? countryCode,
+      String? city,
+      String? org,
+      bool resolved,
+    })
+  >
+  getIPInfo() async {
     // Intentar primero con ipinfo.io (HTTPS, gratuito).
     final ipinfoResult = await _getFromIpinfo();
     if (ipinfoResult.resolved) return ipinfoResult;
@@ -253,14 +255,17 @@ class LocationService {
     return await _getFromIpApi();
   }
 
-  static Future<({
-    String? ip,
-    String? country,
-    String? countryCode,
-    String? city,
-    String? org,
-    bool    resolved,
-  })> _getFromIpinfo() async {
+  static Future<
+    ({
+      String? ip,
+      String? country,
+      String? countryCode,
+      String? city,
+      String? org,
+      bool resolved,
+    })
+  >
+  _getFromIpinfo() async {
     try {
       final headers = <String, String>{};
       if (_kIpInfoToken.isNotEmpty) {
@@ -268,10 +273,7 @@ class LocationService {
       }
 
       final response = await http
-          .get(
-            Uri.parse('https://ipinfo.io/json'),
-            headers: headers,
-          )
+          .get(Uri.parse('https://ipinfo.io/json'), headers: headers)
           .timeout(const Duration(seconds: 8));
 
       if (response.statusCode == 200) {
@@ -282,14 +284,14 @@ class LocationService {
         final countryCode = data['country'] as String?;
 
         return (
-          ip:          data['ip']       as String?,
+          ip: data['ip'] as String?,
           // ipinfo.io no devuelve nombre de país, solo el código.
           // En UserModel guardamos el código y lo resolvemos en la UI.
-          country:     countryCode,
+          country: countryCode,
           countryCode: countryCode,
-          city:        data['city']     as String?,
-          org:         data['org']      as String?,
-          resolved:    true,
+          city: data['city'] as String?,
+          org: data['org'] as String?,
+          resolved: true,
         );
       }
     } catch (e) {
@@ -299,23 +301,26 @@ class LocationService {
     }
 
     return (
-      ip:          null,
-      country:     null,
+      ip: null,
+      country: null,
       countryCode: null,
-      city:        null,
-      org:         null,
-      resolved:    false,
+      city: null,
+      org: null,
+      resolved: false,
     );
   }
 
-  static Future<({
-    String? ip,
-    String? country,
-    String? countryCode,
-    String? city,
-    String? org,
-    bool    resolved,
-  })> _getFromIpApi() async {
+  static Future<
+    ({
+      String? ip,
+      String? country,
+      String? countryCode,
+      String? city,
+      String? org,
+      bool resolved,
+    })
+  >
+  _getFromIpApi() async {
     try {
       // NOTA: ip-api.com HTTPS requiere plan Pro.
       // En plan gratuito solo funciona HTTP, que está bloqueado en iOS.
@@ -334,12 +339,12 @@ class LocationService {
         final data = jsonDecode(response.body) as Map<String, dynamic>;
         if (data['status'] == 'success') {
           return (
-            ip:          data['query']       as String?,
-            country:     data['country']     as String?,
+            ip: data['query'] as String?,
+            country: data['country'] as String?,
             countryCode: data['countryCode'] as String?,
-            city:        data['city']        as String?,
-            org:         data['org']         as String?,
-            resolved:    true,
+            city: data['city'] as String?,
+            org: data['org'] as String?,
+            resolved: true,
           );
         }
       }
@@ -350,19 +355,19 @@ class LocationService {
     }
 
     return (
-      ip:          null,
-      country:     null,
+      ip: null,
+      country: null,
       countryCode: null,
-      city:        null,
-      org:         null,
-      resolved:    false,
+      city: null,
+      org: null,
+      resolved: false,
     );
   }
 
   // ── Timezone ───────────────────────────────────────────────────────────────
 
   static ({String name, int offsetMinutes}) getTimezone() {
-    final now    = DateTime.now();
+    final now = DateTime.now();
     final offset = now.timeZoneOffset;
     return (name: now.timeZoneName, offsetMinutes: offset.inMinutes);
   }
@@ -376,49 +381,100 @@ class LocationService {
   //   - Total: max(GPS, IP) en lugar de GPS + IP.
 
   static Future<LocationData> collect() async {
-    final results = await Future.wait([
-      getGPS(),
-      getIPInfo(),
-    ]);
+    final results = await Future.wait([getGPS(), getIPInfo()]);
 
-    final gps = results[0] as ({
-      Position? position,
-      String?   city,
-      String?   country,
-      String?   countryCode,
-      bool      granted,
-    });
+    final gps =
+        results[0]
+            as ({
+              Position? position,
+              String? city,
+              String? country,
+              String? countryCode,
+              bool granted,
+            });
 
-    final ip = results[1] as ({
-      String? ip,
-      String? country,
-      String? countryCode,
-      String? city,
-      String? org,
-      bool    resolved,
-    });
+    final ip =
+        results[1]
+            as ({
+              String? ip,
+              String? country,
+              String? countryCode,
+              String? city,
+              String? org,
+              bool resolved,
+            });
 
     final tz = getTimezone();
 
     return LocationData(
       // GPS
-      lat:         gps.position?.latitude,
-      lng:         gps.position?.longitude,
-      accuracy:    gps.position?.accuracy,
-      city:        gps.city,
-      country:     gps.country,
+      lat: gps.position?.latitude,
+      lng: gps.position?.longitude,
+      accuracy: gps.position?.accuracy,
+      city: gps.city,
+      country: gps.country,
       countryCode: gps.countryCode,
-      gpsGranted:  gps.granted,
+      gpsGranted: gps.granted,
       // IP
-      ipAddress:     ip.ip,
-      ipCountry:     ip.country,
+      ipAddress: ip.ip,
+      ipCountry: ip.country,
       ipCountryCode: ip.countryCode,
-      ipCity:        ip.city,
-      ipOrg:         ip.org,
-      ipResolved:    ip.resolved,
+      ipCity: ip.city,
+      ipOrg: ip.org,
+      ipResolved: ip.resolved,
       // Timezone
-      timezone:              tz.name,
+      timezone: tz.name,
       timezoneOffsetMinutes: tz.offsetMinutes,
     );
+  }
+
+  // ── Búsqueda de ciudades del mundo ───────────────────────────────────────────
+  // Usa OpenStreetMap (gratis, sin API key)
+
+  static Future<List<Map<String, String>>> searchCities(String query) async {
+    if (query.trim().length < 2) return [];
+
+    try {
+      final url = Uri.parse(
+        'https://nominatim.openstreetmap.org/search'
+        '?q=$query'
+        '&format=json'
+        '&addressdetails=1'
+        '&limit=5',
+      );
+
+      final response = await http.get(
+        url,
+        headers: {'User-Agent': 'NomadApp/1.0'},
+      );
+
+      if (response.statusCode != 200) return [];
+
+      final data = jsonDecode(response.body) as List;
+
+      return data
+          .map((e) {
+            final address = e['address'] as Map<String, dynamic>? ?? {};
+
+            // Forzamos el tipado a <String, String> para que coincida con el Future
+            return <String, String>{
+              'ciudad':
+                  (address['city'] ??
+                          address['town'] ??
+                          address['village'] ??
+                          '')
+                      .toString(),
+              'pais': (address['country'] ?? '').toString(),
+              'pais_code': (address['country_code'] ?? '')
+                  .toString(), // <-- Clave para el emoji de la bandera
+              'lat': (e['lat'] ?? '').toString(),
+              'lng': (e['lon'] ?? '').toString(),
+            };
+          })
+          .where((e) => e['ciudad']!.isNotEmpty)
+          .toList();
+    } catch (_) {
+      return [];
+    }
   }
 }

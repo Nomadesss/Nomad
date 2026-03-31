@@ -41,6 +41,16 @@ class UserService {
     return uid;
   }
 
+  Future<Map<String, dynamic>?> getUserData(String uid) async {
+    DocumentSnapshot doc = await _db.collection('users').doc(uid).get();
+    return doc.data() as Map<String, dynamic>?;
+  }
+
+  // Actualizar datos del usuario
+  Future<void> updateProfile(String uid, Map<String, dynamic> data) async {
+    await _db.collection('users').doc(uid).update(data);
+  }
+
   DocumentReference _userRef(String uid) =>
       _db.collection(_usersCollection).doc(uid);
 
@@ -119,7 +129,7 @@ class UserService {
     try {
       final uid = _requireUid();
       await _userRef(uid).update({
-        'fotoUrl':      fotoUrl,
+        'fotoUrl': fotoUrl,
         'actualizadoEn': FieldValue.serverTimestamp(),
       });
       // Sincronizar también en Firebase Auth para que displayName y photoURL
@@ -149,8 +159,9 @@ class UserService {
         // Si el GPS tiene ciudad y país, los promovemos al nivel raíz
         // para que feed_service y social_service puedan filtrar por ciudad
         // sin navegar dentro del objeto ubicacionActual.
-        if (location.city != null)        'ciudad': location.city!.trim().toLowerCase(),
-        if (location.country != null)     'pais': location.country,
+        if (location.city != null)
+          'ciudad': location.city!.trim().toLowerCase(),
+        if (location.country != null) 'pais': location.country,
         if (location.countryCode != null) 'paisCode': location.countryCode,
         'actualizadoEn': FieldValue.serverTimestamp(),
       });
@@ -183,7 +194,7 @@ class UserService {
       );
 
       await _userRef(uid).update({
-        'trustScore':   result.toMap(),
+        'trustScore': result.toMap(),
         'actualizadoEn': FieldValue.serverTimestamp(),
       });
       return null;
@@ -349,8 +360,8 @@ class UserService {
         'dataDeletionRequestedAt': FieldValue.serverTimestamp(),
         // Borrado inmediato de datos sensibles.
         'ubicacionActual': FieldValue.delete(),
-        'trustScore':      FieldValue.delete(),
-        'actualizadoEn':   FieldValue.serverTimestamp(),
+        'trustScore': FieldValue.delete(),
+        'actualizadoEn': FieldValue.serverTimestamp(),
       });
       return null;
     } catch (e) {
@@ -364,7 +375,7 @@ class UserService {
       final uid = _requireUid();
       await _userRef(uid).update({
         'dataDeletionRequestedAt': FieldValue.delete(),
-        'actualizadoEn':          FieldValue.serverTimestamp(),
+        'actualizadoEn': FieldValue.serverTimestamp(),
       });
       return null;
     } catch (e) {
@@ -404,11 +415,11 @@ class UserService {
           .get();
 
       return {
-        'exportadoEn':  DateTime.now().toIso8601String(),
-        'version':      '1.0',
-        'perfil':       perfilSnap.data(),
-        'posts':        postsSnap.docs.map((d) => d.data()).toList(),
-        'siguiendo':    followingSnap.docs.map((d) => d.data()).toList(),
+        'exportadoEn': DateTime.now().toIso8601String(),
+        'version': '1.0',
+        'perfil': perfilSnap.data(),
+        'posts': postsSnap.docs.map((d) => d.data()).toList(),
+        'siguiendo': followingSnap.docs.map((d) => d.data()).toList(),
         'notificaciones': notifSnap.docs.map((d) => d.data()).toList(),
       };
     } catch (e) {
@@ -429,10 +440,7 @@ class UserService {
 
     // Dividir en chunks de 30 (límite de Firestore para whereIn).
     for (var i = 0; i < ids.length; i += 30) {
-      final chunk = ids.sublist(
-        i,
-        i + 30 > ids.length ? ids.length : i + 30,
-      );
+      final chunk = ids.sublist(i, i + 30 > ids.length ? ids.length : i + 30);
 
       final snap = await _db
           .collection(_usersCollection)
