@@ -37,31 +37,11 @@ class _PerfilPropioState extends State<PerfilPropio>
   String _username = '';
   String _bio = '';
   List<Map<String, String>> _lugaresVividos = [];
+  List<Map<String, dynamic>> _highlights = [];
+  int _seguidoresCount = 0;
+  int _siguiendoCount = 0;
+  int _publicacionesCount = 0;
   bool _datosLoaded = false;
-
-  final List<Map<String, dynamic>> _historias = [
-    {
-      'label': 'Mi llegada',
-      'color': 0xFF0D9488,
-      'icon': Icons.flight_land_rounded,
-    },
-    {
-      'label': 'Trabajo',
-      'color': 0xFF0891B2,
-      'icon': Icons.work_outline_rounded,
-    },
-    {
-      'label': 'Amigos',
-      'color': 0xFF7C3AED,
-      'icon': Icons.people_outline_rounded,
-    },
-    {'label': 'Comida', 'color': 0xFFD97706, 'icon': Icons.restaurant_outlined},
-    {
-      'label': 'Tips',
-      'color': 0xFF059669,
-      'icon': Icons.lightbulb_outline_rounded,
-    },
-  ];
 
   @override
   void initState() {
@@ -81,6 +61,84 @@ class _PerfilPropioState extends State<PerfilPropio>
     final List<Map<String, String>> ciudades = ciudadesRaw is List
         ? ciudadesRaw.map((e) => Map<String, String>.from(e as Map)).toList()
         : [];
+
+    // Obtener estadísticas
+    int seguidoresTemp = 0;
+    int siguiendoTemp = 0;
+    int publicacionesTemp = 0;
+    try {
+      final followersSnapshot = await _firestore
+          .collection('users')
+          .doc(user.uid)
+          .collection('followers')
+          .get();
+      final followingSnapshot = await _firestore
+          .collection('users')
+          .doc(user.uid)
+          .collection('following')
+          .get();
+      final postsSnapshot = await _firestore
+          .collection('users')
+          .doc(user.uid)
+          .collection('publicaciones')
+          .get();
+      seguidoresTemp = followersSnapshot.size;
+      siguiendoTemp = followingSnapshot.size;
+      publicacionesTemp = postsSnapshot.size;
+    } catch (e) {
+      debugPrint('Error al cargar estadísticas: $e');
+    }
+
+    try {
+      final highlightsSnapshot = await _firestore
+          .collection('users')
+          .doc(user.uid)
+          .collection('highlights')
+          .orderBy('order')
+          .get();
+
+      if (highlightsSnapshot.docs.isEmpty) {
+        final defaults = [
+          {"title": "Llegada", "emoji": "✈️"},
+          {"title": "Trabajo", "emoji": "💼"},
+          {"title": "Trámites", "emoji": "📄"},
+          {"title": "Vida diaria", "emoji": "🏡"},
+          {"title": "Comunidad", "emoji": "🤝"},
+        ];
+
+        for (int i = 0; i < defaults.length; i++) {
+          await _firestore
+              .collection('users')
+              .doc(user.uid)
+              .collection('highlights')
+              .add({
+                "title": defaults[i]["title"],
+                "emoji": defaults[i]["emoji"],
+                "coverUrl": null,
+                "order": i,
+              });
+        }
+
+        return _cargarDatosUsuario();
+      }
+
+      _highlights = highlightsSnapshot.docs.map((d) {
+        final data = d.data();
+
+        return {
+          "id": d.id,
+
+          "title": data["title"] ?? "Highlight",
+
+          "emoji": data["emoji"] ?? "📍",
+
+          "coverUrl": data["coverUrl"],
+        };
+      }).toList();
+    } catch (e) {
+      debugPrint("error highlights $e");
+    }
+
     setState(() {
       _nombre =
           data?['displayName'] ??
@@ -91,6 +149,9 @@ class _PerfilPropioState extends State<PerfilPropio>
           data?['username'] ?? _nombre.toLowerCase().replaceAll(' ', '_');
       _bio = data?['bio'] ?? '';
       _lugaresVividos = ciudades;
+      _seguidoresCount = seguidoresTemp;
+      _siguiendoCount = siguiendoTemp;
+      _publicacionesCount = publicacionesTemp;
       _datosLoaded = true;
     });
   }
@@ -177,11 +238,18 @@ class _PerfilPropioState extends State<PerfilPropio>
           nombre: nombre,
           username: username,
           bio: _bio,
-          historias: _historias,
+          highlights: _highlights,
           lugaresVividos: _lugaresVividos,
+          seguidoresCount: _seguidoresCount,
+          siguiendoCount: _siguiendoCount,
+          publicacionesCount: _publicacionesCount,
+
           onEditarPerfil: () => _showEditarPerfil(context),
           onFoto: () => _showFotoOptions(context, user),
           onEditarPortada: () => _showPortadaOptions(context),
+
+          onCrearHighlight: _crearHighlight,
+          onAbrirHighlight: _abrirHighlight,
         ),
       ),
     );
@@ -270,6 +338,35 @@ class _PerfilPropioState extends State<PerfilPropio>
       builder: (_) => const _ConfiguracionSheet(),
     );
   }
+
+  Future<void> _crearHighlight(BuildContext context) async {
+    final user = FirebaseAuth.instance.currentUser;
+
+    if (user == null) return;
+
+    await _firestore
+        .collection('users')
+        .doc(user.uid)
+        .collection('highlights')
+        .add({
+          "title": "Nuevo",
+          "emoji": "📍",
+          "coverUrl": null,
+          "order": DateTime.now().millisecondsSinceEpoch,
+        });
+
+    _cargarDatosUsuario();
+  }
+
+  void _abrirHighlight(BuildContext context, String highlightId) {
+    Navigator.push(
+      context,
+
+      MaterialPageRoute(
+        builder: (_) => HighlightStoriesScreen(highlightId: highlightId),
+      ),
+    );
+  }
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -281,22 +378,32 @@ class _ProfileHeader extends StatelessWidget {
   final String nombre;
   final String username;
   final String bio;
-  final List<Map<String, dynamic>> historias;
+  final List<Map<String, dynamic>> highlights;
   final List<Map<String, String>> lugaresVividos;
+  final int seguidoresCount;
+  final int siguiendoCount;
+  final int publicacionesCount;
   final VoidCallback onEditarPerfil;
   final VoidCallback onFoto;
   final VoidCallback onEditarPortada;
+  final Function(BuildContext) onCrearHighlight;
+  final Function(BuildContext, String) onAbrirHighlight;
 
   const _ProfileHeader({
     required this.user,
     required this.nombre,
     required this.username,
     required this.bio,
-    required this.historias,
+    required this.highlights,
     required this.lugaresVividos,
+    required this.seguidoresCount,
+    required this.siguiendoCount,
+    required this.publicacionesCount,
     required this.onEditarPerfil,
     required this.onFoto,
     required this.onEditarPortada,
+    required this.onCrearHighlight,
+    required this.onAbrirHighlight,
   });
 
   @override
@@ -363,7 +470,7 @@ class _ProfileHeader extends StatelessWidget {
           ),
 
           // Historias + destacadas
-          _buildHistorias(),
+          _buildHighlights(context),
 
           const SizedBox(height: 8),
 
@@ -545,9 +652,20 @@ class _ProfileHeader extends StatelessWidget {
               mainAxisSize: MainAxisSize.min,
               crossAxisAlignment: CrossAxisAlignment.center,
               children: [
-                _StatBubble(value: '1.2k', label: 'Seguidores'),
-                const SizedBox(width: 20),
-                _StatBubble(value: '42', label: 'Publicaciones'),
+                _StatBubble(
+                  value: seguidoresCount.toString(),
+                  label: 'Seguidores',
+                ),
+                const SizedBox(width: 16),
+                _StatBubble(
+                  value: siguiendoCount.toString(),
+                  label: 'Siguiendo',
+                ),
+                const SizedBox(width: 16),
+                _StatBubble(
+                  value: publicacionesCount.toString(),
+                  label: 'Publicaciones',
+                ),
               ],
             ),
           ),
@@ -701,57 +819,159 @@ class _ProfileHeader extends StatelessWidget {
     );
   }
 
-  Widget _buildHistorias() {
+  Widget _buildHighlights(BuildContext context) {
     return SizedBox(
-      height: 90,
+      height: 100,
+
       child: ListView(
         scrollDirection: Axis.horizontal,
+
         padding: const EdgeInsets.symmetric(horizontal: 16),
+
         children: [
-          // Nueva historia
-          _HistoriaItem(
-            label: 'Nueva',
-            isNew: true,
-            color: _teal.value,
-            icon: Icons.add_rounded,
-            onTap: () {},
+          _HighlightItem(
+            title: 'Nuevo',
+
+            isCreate: true,
+
+            onTap: () => onCrearHighlight(context),
           ),
-          // Historias destacadas
-          ...[
-            {
-              'label': 'Mi llegada',
-              'color': 0xFF0D9488,
-              'icon': Icons.flight_land_rounded,
-            },
-            {
-              'label': 'Trabajo',
-              'color': 0xFF0891B2,
-              'icon': Icons.work_outline_rounded,
-            },
-            {
-              'label': 'Amigos',
-              'color': 0xFF7C3AED,
-              'icon': Icons.people_outline_rounded,
-            },
-            {
-              'label': 'Comida',
-              'color': 0xFFD97706,
-              'icon': Icons.restaurant_outlined,
-            },
-            {
-              'label': 'Tips',
-              'color': 0xFF059669,
-              'icon': Icons.lightbulb_outline_rounded,
-            },
-          ].map(
-            (h) => _HistoriaItem(
-              label: h['label'] as String,
-              color: h['color'] as int,
-              icon: h['icon'] as IconData,
-              onTap: () {},
+
+          ...highlights.map(
+            (h) => _HighlightItem(
+              title: h['title'],
+
+              emoji: h['emoji'],
+
+              imageUrl: h['coverUrl'],
+
+              onTap: () {
+                final id = h["id"];
+
+                if (id != null) {
+                  onAbrirHighlight(context, id);
+                }
+              },
             ),
           ),
         ],
+      ),
+    );
+  }
+}
+
+class _HighlightItem extends StatelessWidget {
+  final String title;
+  final String? emoji;
+  final String? imageUrl;
+  final bool isCreate;
+  final VoidCallback onTap;
+
+  const _HighlightItem({
+    required this.title,
+    required this.onTap,
+    this.emoji,
+    this.imageUrl,
+    this.isCreate = false,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return GestureDetector(
+      onTap: onTap,
+
+      child: Container(
+        margin: const EdgeInsets.only(right: 14),
+
+        child: Column(
+          children: [
+            Container(
+              width: 68,
+              height: 68,
+
+              decoration: BoxDecoration(
+                shape: BoxShape.circle,
+
+                border: Border.all(color: const Color(0xFF0D9488), width: 2),
+              ),
+
+              child: ClipOval(
+                child: isCreate
+                    ? Container(
+                        color: const Color(0xFFF0FAF9),
+                        child: const Icon(Icons.add, color: Color(0xFF0D9488)),
+                      )
+                    : imageUrl != null
+                    ? Image.network(imageUrl!, fit: BoxFit.cover)
+                    : Center(
+                        child: Text(
+                          emoji ?? "📍",
+                          style: const TextStyle(fontSize: 26),
+                        ),
+                      ),
+              ),
+            ),
+
+            const SizedBox(height: 6),
+
+            SizedBox(
+              width: 70,
+
+              child: Text(
+                title,
+                overflow: TextOverflow.ellipsis,
+                textAlign: TextAlign.center,
+
+                style: const TextStyle(
+                  fontSize: 11,
+                  fontWeight: FontWeight.w500,
+                ),
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+class HighlightStoriesScreen extends StatelessWidget {
+  final String highlightId;
+
+  const HighlightStoriesScreen({required this.highlightId});
+
+  @override
+  Widget build(BuildContext context) {
+    final user = FirebaseAuth.instance.currentUser;
+
+    return Scaffold(
+      backgroundColor: Colors.black,
+
+      body: StreamBuilder(
+        stream: FirebaseFirestore.instance
+            .collection('users')
+            .doc(user!.uid)
+            .collection('stories')
+            .where('highlightId', isEqualTo: highlightId)
+            .snapshots(),
+
+        builder: (context, snapshot) {
+          if (!snapshot.hasData) {
+            return const Center(child: CircularProgressIndicator());
+          }
+
+          final stories = snapshot.data!.docs;
+
+          return PageView.builder(
+            itemCount: stories.length,
+
+            itemBuilder: (_, i) {
+              final story = stories[i];
+
+              return Image.network(story['mediaUrl'], fit: BoxFit.cover);
+            },
+          );
+        },
       ),
     );
   }
