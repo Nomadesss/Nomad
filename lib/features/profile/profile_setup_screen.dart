@@ -469,17 +469,14 @@ class _ProfileSetupScreenState extends State<ProfileSetupScreen>
       resizeToAvoidBottomInset: true,
       body: Stack(
         children: [
-          // ── Fondo animado (crossfade entre steps) ──────────────
-          Positioned.fill(
-            child: AnimatedSwitcher(
-              duration: const Duration(milliseconds: 500),
-              child: step == 0
-                  ? const _FingerprintBgWidget(key: ValueKey('fp'))
-                  : step == 1
-                  ? const _FlagsBgWidget(key: ValueKey('flags'))
-                  : const SizedBox.shrink(key: ValueKey('none')),
-            ),
-          ),
+          // ── Fondo huella digital animado (solo step 0) ──────────
+          if (step == 0) const Positioned.fill(child: _FingerprintBgWidget()),
+
+          // ── Fondo banderas (solo step 1) ──────────────────────────
+          if (step == 1) const Positioned.fill(child: _FlagsBgWidget()),
+
+          // ── Fondo red de nodos (solo step 3) ─────────────────────
+          if (step == 3) const Positioned.fill(child: _NetworkBgWidget()),
 
           SafeArea(
             child: FadeTransition(
@@ -496,17 +493,23 @@ class _ProfileSetupScreenState extends State<ProfileSetupScreen>
                       child: Stack(
                         alignment: Alignment.center,
                         children: [
-                          const Positioned.fill(
+                          Positioned.fill(
                             child: IgnorePointer(
-                              child: Align(
-                                alignment: Alignment.center,
-                                child: Text(
-                                  "Nomad",
-                                  style: TextStyle(
-                                    fontSize: 34,
-                                    fontWeight: FontWeight.bold,
-                                    color: Colors.white,
-                                    letterSpacing: -0.5,
+                              child: Hero(
+                                tag: "logo",
+                                child: Material(
+                                  color: Colors.transparent,
+                                  child: const Align(
+                                    alignment: Alignment.center,
+                                    child: Text(
+                                      "Nomad",
+                                      style: TextStyle(
+                                        fontSize: 34,
+                                        fontWeight: FontWeight.bold,
+                                        color: Colors.white,
+                                        letterSpacing: -0.5,
+                                      ),
+                                    ),
                                   ),
                                 ),
                               ),
@@ -1166,42 +1169,7 @@ class _ProfileSetupScreenState extends State<ProfileSetupScreen>
                   ),
                 ),
 
-                // Pins flotantes de usuarios
-                if (loc != null) ...[
-                  _MapPin(
-                    left: 0.18,
-                    top: 0.22,
-                    label: 'Sofía · 1.2km',
-                    delay: 0,
-                  ),
-                  _MapPin(
-                    left: 0.62,
-                    top: 0.15,
-                    label: 'Mateo · 2.8km',
-                    delay: 300,
-                  ),
-                  _MapPin(
-                    left: 0.75,
-                    top: 0.50,
-                    label: 'Ana · 0.9km',
-                    delay: 600,
-                  ),
-                  _MapPin(
-                    left: 0.30,
-                    top: 0.60,
-                    label: 'Diego · 3.1km',
-                    delay: 150,
-                  ),
-                ],
-
-                // Pin central (tu ubicación)
-                Center(
-                  child: _CenterLocationPin(
-                    loading: _loadingLocation,
-                    detected: loc != null,
-                    denied: denied,
-                  ),
-                ),
+                // (pins eliminados)
 
                 // Chip de ciudad detectada
                 if (hasGPS)
@@ -1408,25 +1376,27 @@ class _ProfileSetupScreenState extends State<ProfileSetupScreen>
           "¿Qué buscás en Nomad?",
           textAlign: TextAlign.center,
           style: TextStyle(
-            fontSize: 34,
-            fontWeight: FontWeight.bold,
+            fontSize: 36,
+            fontWeight: FontWeight.w800,
             color: Colors.white,
-            letterSpacing: -0.5,
+            letterSpacing: -1.0,
+            height: 1.1,
           ),
         ),
 
-        const SizedBox(height: 10),
+        const SizedBox(height: 8),
 
         Text(
           "Podés elegir más de una opción",
           textAlign: TextAlign.center,
           style: TextStyle(
-            fontSize: 18,
-            color: Colors.white.withValues(alpha: 0.45),
+            fontSize: 14,
+            color: Colors.white.withValues(alpha: 0.40),
+            letterSpacing: 0.2,
           ),
         ),
 
-        const SizedBox(height: 40),
+        const SizedBox(height: 32),
 
         Row(
           mainAxisAlignment: MainAxisAlignment.spaceEvenly,
@@ -1440,7 +1410,7 @@ class _ProfileSetupScreenState extends State<ProfileSetupScreen>
                 onTap: () => setState(() => amistad = !amistad),
               ),
             ),
-            const SizedBox(width: 16),
+            const SizedBox(width: 12),
             Expanded(
               child: _interestCard(
                 icon: HeartbeatWidget(beating: citas),
@@ -1453,7 +1423,7 @@ class _ProfileSetupScreenState extends State<ProfileSetupScreen>
           ],
         ),
 
-        const SizedBox(height: 20),
+        const SizedBox(height: 16),
 
         Row(
           mainAxisAlignment: MainAxisAlignment.spaceEvenly,
@@ -1467,7 +1437,7 @@ class _ProfileSetupScreenState extends State<ProfileSetupScreen>
                 onTap: () => setState(() => servicios = !servicios),
               ),
             ),
-            const SizedBox(width: 16),
+            const SizedBox(width: 12),
             Expanded(
               child: _interestCard(
                 icon: MegaphoneWidget(animating: foros),
@@ -1492,30 +1462,36 @@ class _ProfileSetupScreenState extends State<ProfileSetupScreen>
   }) {
     return GestureDetector(
       onTap: onTap,
-      child: Column(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          _GlowCircle(selected: selected, size: 140, child: icon),
-          const SizedBox(height: 12),
-          Text(
-            label,
-            style: const TextStyle(
-              fontSize: 18,
-              fontWeight: FontWeight.w700,
-              color: Colors.white,
+      child: AnimatedScale(
+        scale: selected ? 1.04 : 1.0,
+        duration: const Duration(milliseconds: 200),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            _GlowCircle(selected: selected, size: 140, child: icon),
+            const SizedBox(height: 10),
+            AnimatedDefaultTextStyle(
+              duration: const Duration(milliseconds: 200),
+              style: TextStyle(
+                fontSize: selected ? 19 : 17,
+                fontWeight: FontWeight.w700,
+                color: selected ? const Color(0xFF34D399) : Colors.white,
+                letterSpacing: -0.3,
+              ),
+              child: Text(label, textAlign: TextAlign.center),
             ),
-          ),
-          const SizedBox(height: 5),
-          Text(
-            desc,
-            textAlign: TextAlign.center,
-            style: TextStyle(
-              fontSize: 14,
-              color: Colors.white.withValues(alpha: 0.45),
-              height: 1.4,
+            const SizedBox(height: 4),
+            Text(
+              desc,
+              textAlign: TextAlign.center,
+              style: TextStyle(
+                fontSize: 12,
+                color: Colors.white.withValues(alpha: selected ? 0.60 : 0.35),
+                height: 1.3,
+              ),
             ),
-          ),
-        ],
+          ],
+        ),
       ),
     );
   }
@@ -1574,13 +1550,27 @@ class _GlowCircleState extends State<_GlowCircle>
                 selected: widget.selected,
               ),
             ),
-            // Círculo interior con fondo
-            Container(
+            // Círculo interior con fondo animado
+            AnimatedContainer(
+              duration: const Duration(milliseconds: 300),
               width: s,
               height: s,
               decoration: BoxDecoration(
                 shape: BoxShape.circle,
-                color: const Color(0xFF0D2E2A),
+                color: widget.selected
+                    ? const Color(0xFF0D4A3A)
+                    : const Color(0xFF0D2E2A),
+                boxShadow: widget.selected
+                    ? [
+                        BoxShadow(
+                          color: const Color(
+                            0xFF0D9488,
+                          ).withValues(alpha: 0.35),
+                          blurRadius: 24,
+                          spreadRadius: 4,
+                        ),
+                      ]
+                    : [],
               ),
               child: Center(child: widget.child),
             ),
@@ -2873,7 +2863,7 @@ class _GeoPinPainter extends CustomPainter {
 // ── Fondo huella digital animado ─────────────────────────────
 
 class _FingerprintBgWidget extends StatefulWidget {
-  const _FingerprintBgWidget({super.key});
+  const _FingerprintBgWidget();
 
   @override
   State<_FingerprintBgWidget> createState() => _FingerprintBgWidgetState();
@@ -2976,92 +2966,9 @@ class _FingerprintBgWidgetState extends State<_FingerprintBgWidget>
             ),
           ),
         ),
-
-        // ── Destellos animados ────────────────────────────────
-        AnimatedBuilder(
-          animation: _ctrl,
-          builder: (_, __) =>
-              CustomPaint(painter: _FingerprintGlowPainter(_ctrl.value)),
-        ),
       ],
     );
   }
-}
-
-// ── Destellos animados sobre la imagen ───────────────────────
-
-// ── Destellos animados sobre la imagen ───────────────────────
-
-class _FingerprintGlowPainter extends CustomPainter {
-  final double t;
-  const _FingerprintGlowPainter(this.t);
-
-  @override
-  void paint(Canvas canvas, Size size) {
-    final w = size.width;
-    final h = size.height;
-
-    // Posiciones de destellos coincidiendo con centros de huellas
-    final glowSpots = [
-      (x: 0.12, y: 0.08, phase: 0.00, r: 16.0),
-      (x: 0.55, y: 0.05, phase: 0.15, r: 12.0),
-      (x: 0.82, y: 0.12, phase: 0.30, r: 14.0),
-      (x: 0.08, y: 0.28, phase: 0.45, r: 11.0),
-      (x: 0.30, y: 0.22, phase: 0.10, r: 18.0),
-      (x: 0.72, y: 0.20, phase: 0.55, r: 20.0),
-      (x: 0.50, y: 0.42, phase: 0.20, r: 24.0),
-      (x: 0.88, y: 0.38, phase: 0.65, r: 12.0),
-      (x: 0.15, y: 0.52, phase: 0.35, r: 14.0),
-      (x: 0.62, y: 0.58, phase: 0.75, r: 10.0),
-      (x: 0.38, y: 0.68, phase: 0.40, r: 15.0),
-      (x: 0.80, y: 0.65, phase: 0.85, r: 17.0),
-      (x: 0.10, y: 0.75, phase: 0.50, r: 13.0),
-      (x: 0.55, y: 0.80, phase: 0.60, r: 15.0),
-      (x: 0.25, y: 0.88, phase: 0.25, r: 19.0),
-      (x: 0.70, y: 0.90, phase: 0.90, r: 12.0),
-      (x: 0.90, y: 0.82, phase: 0.70, r: 14.0),
-    ];
-
-    for (final spot in glowSpots) {
-      final phase = (t + spot.phase) % 1.0;
-      final pulse = sin(phase * 2 * pi) * 0.5 + 0.5; // 0..1
-      final alpha = 0.10 + pulse * 0.25;
-      final radius = spot.r * (0.85 + pulse * 0.30);
-      final cx = w * spot.x;
-      final cy = h * spot.y;
-
-      // Halo exterior — usando capas sin MaskFilter para evitar artefactos
-      for (final (hR, hA) in [
-        (radius * 3.0, alpha * 0.08),
-        (radius * 2.0, alpha * 0.15),
-        (radius * 1.2, alpha * 0.25),
-      ]) {
-        canvas.drawCircle(
-          Offset(cx, cy),
-          hR,
-          Paint()
-            ..color = const Color(0xFF0D9488).withValues(alpha: hA)
-            ..style = PaintingStyle.fill,
-        );
-      }
-
-      // Punto central brillante
-      canvas.drawCircle(
-        Offset(cx, cy),
-        radius * 0.40,
-        Paint()
-          ..color = const Color(
-            0xFF34D399,
-          ).withValues(alpha: alpha * 1.5 > 1.0 ? 1.0 : alpha * 1.5)
-          ..style = PaintingStyle.fill,
-      );
-    }
-
-    // Sin gradients en el painter — se manejan como widgets en _FingerprintBgWidget
-  }
-
-  @override
-  bool shouldRepaint(_FingerprintGlowPainter old) => old.t != t;
 }
 
 // ── Fondo banderas animado ────────────────────────────────────
@@ -3069,7 +2976,7 @@ class _FingerprintGlowPainter extends CustomPainter {
 // ── Fondo banderas ────────────────────────────────────────────
 
 class _FlagsBgWidget extends StatefulWidget {
-  const _FlagsBgWidget({super.key});
+  const _FlagsBgWidget();
 
   @override
   State<_FlagsBgWidget> createState() => _FlagsBgWidgetState();
@@ -3108,29 +3015,29 @@ class _FlagsBgWidgetState extends State<_FlagsBgWidget>
           fit: BoxFit.cover,
           width: w,
           height: h,
-          opacity: const AlwaysStoppedAnimation(0.65),
+          opacity: const AlwaysStoppedAnimation(0.55),
         ),
 
-        // 2. Tinte oscuro fuerte para bajar el celeste y unificar con la paleta
-        Container(color: const Color(0xFF0A0F1A).withValues(alpha: 0.60)),
+        // 2. Tinte verde oscuro uniforme
+        Container(color: const Color(0xFF071510).withValues(alpha: 0.50)),
 
-        // 3. Degradado superior — legibilidad del header
+        // 3. Degradado solo en la zona del header (top 40%)
         Positioned(
           top: 0,
           left: 0,
           right: 0,
-          height: h * 0.50,
+          height: h * 0.42,
           child: DecoratedBox(
             decoration: BoxDecoration(
               gradient: LinearGradient(
                 begin: Alignment.topCenter,
                 end: Alignment.bottomCenter,
                 colors: [
+                  const Color(0xFF0F0F14),
                   const Color(0xFF0F0F14).withValues(alpha: 0.75),
-                  const Color(0xFF0F0F14).withValues(alpha: 0.30),
                   Colors.transparent,
                 ],
-                stops: const [0.0, 0.45, 1.0],
+                stops: const [0.0, 0.55, 1.0],
               ),
             ),
           ),
@@ -3152,68 +3059,235 @@ class _FlagsBgWidgetState extends State<_FlagsBgWidget>
             ),
           ),
         ),
+      ],
+    );
+  }
+}
 
-        // 5. Destellos animados
+// ── Fondo red de nodos animada (step 3) ──────────────────────
+
+class _NetworkBgWidget extends StatefulWidget {
+  const _NetworkBgWidget();
+
+  @override
+  State<_NetworkBgWidget> createState() => _NetworkBgWidgetState();
+}
+
+class _NetworkBgWidgetState extends State<_NetworkBgWidget>
+    with SingleTickerProviderStateMixin {
+  late AnimationController _ctrl;
+
+  @override
+  void initState() {
+    super.initState();
+    _ctrl = AnimationController(
+      vsync: this,
+      duration: const Duration(seconds: 7),
+    )..repeat();
+  }
+
+  @override
+  void dispose() {
+    _ctrl.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Stack(
+      fit: StackFit.expand,
+      children: [
+        // Red animada
         AnimatedBuilder(
           animation: _ctrl,
           builder: (_, __) =>
-              CustomPaint(painter: _FlagsBgOverlayPainter(_ctrl.value)),
+              CustomPaint(painter: _NetworkPainter(_ctrl.value)),
+        ),
+
+        // Degradado superior — protege header
+        Positioned(
+          top: 0,
+          left: 0,
+          right: 0,
+          child: SizedBox(
+            height: MediaQuery.of(context).size.height * 0.28,
+            child: const DecoratedBox(
+              decoration: BoxDecoration(
+                gradient: LinearGradient(
+                  begin: Alignment.topCenter,
+                  end: Alignment.bottomCenter,
+                  colors: [Color(0xFF0F0F14), Colors.transparent],
+                ),
+              ),
+            ),
+          ),
+        ),
+
+        // Degradado inferior — protege botón
+        Positioned(
+          bottom: 0,
+          left: 0,
+          right: 0,
+          child: SizedBox(
+            height: MediaQuery.of(context).size.height * 0.14,
+            child: const DecoratedBox(
+              decoration: BoxDecoration(
+                gradient: LinearGradient(
+                  begin: Alignment.bottomCenter,
+                  end: Alignment.topCenter,
+                  colors: [Color(0xFF0F0F14), Colors.transparent],
+                ),
+              ),
+            ),
+          ),
         ),
       ],
     );
   }
 }
 
-class _FlagsBgOverlayPainter extends CustomPainter {
+class _NetworkPainter extends CustomPainter {
   final double t;
-  const _FlagsBgOverlayPainter(this.t);
+  const _NetworkPainter(this.t);
+
+  // Nodos fijos con movimiento suave
+  static const _baseNodes = [
+    (x: 0.08, y: 0.12),
+    (x: 0.28, y: 0.08),
+    (x: 0.55, y: 0.15),
+    (x: 0.80, y: 0.10),
+    (x: 0.92, y: 0.22),
+    (x: 0.15, y: 0.30),
+    (x: 0.42, y: 0.28),
+    (x: 0.70, y: 0.32),
+    (x: 0.88, y: 0.45),
+    (x: 0.05, y: 0.50),
+    (x: 0.30, y: 0.52),
+    (x: 0.58, y: 0.48),
+    (x: 0.78, y: 0.60),
+    (x: 0.95, y: 0.65),
+    (x: 0.18, y: 0.70),
+    (x: 0.45, y: 0.72),
+    (x: 0.65, y: 0.80),
+    (x: 0.85, y: 0.82),
+    (x: 0.10, y: 0.88),
+    (x: 0.38, y: 0.90),
+    (x: 0.62, y: 0.92),
+  ];
+
+  // Conexiones entre índices de nodos
+  static const _edges = [
+    (0, 1),
+    (1, 2),
+    (2, 3),
+    (3, 4),
+    (0, 5),
+    (1, 6),
+    (2, 6),
+    (3, 7),
+    (4, 8),
+    (5, 6),
+    (6, 7),
+    (7, 8),
+    (5, 10),
+    (6, 10),
+    (6, 11),
+    (7, 11),
+    (7, 12),
+    (8, 13),
+    (9, 10),
+    (10, 11),
+    (11, 12),
+    (12, 13),
+    (9, 14),
+    (10, 15),
+    (11, 15),
+    (12, 16),
+    (13, 17),
+    (14, 15),
+    (15, 16),
+    (16, 17),
+    (14, 18),
+    (15, 19),
+    (16, 20),
+    (18, 19),
+    (19, 20),
+  ];
 
   @override
   void paint(Canvas canvas, Size size) {
     final w = size.width;
     final h = size.height;
 
-    // Destellos suaves — sin gradients complejos
-    final spots = [
-      (x: 0.22, y: 0.52, phase: 0.00),
-      (x: 0.72, y: 0.45, phase: 0.30),
-      (x: 0.15, y: 0.68, phase: 0.55),
-      (x: 0.60, y: 0.72, phase: 0.20),
-      (x: 0.38, y: 0.82, phase: 0.70),
-      (x: 0.82, y: 0.78, phase: 0.45),
-      (x: 0.50, y: 0.92, phase: 0.15),
-    ];
+    // Calcular posiciones animadas (flotan suavemente)
+    final nodes = _baseNodes.asMap().entries.map((e) {
+      final i = e.key;
+      final n = e.value;
+      final dx = sin(t * 2 * pi + i * 0.7) * 0.018;
+      final dy = cos(t * 2 * pi + i * 1.1) * 0.018;
+      return Offset(w * (n.x + dx), h * (n.y + dy));
+    }).toList();
 
-    for (final s in spots) {
-      final pulse = (sin(((t + s.phase) % 1.0) * 2 * pi) * 0.5 + 0.5);
-      final a = 0.05 + pulse * 0.10;
-      final cx = w * s.x;
-      final cy = h * s.y;
+    // Dibujar conexiones
+    final linePaint = Paint()
+      ..style = PaintingStyle.stroke
+      ..strokeWidth = 0.7;
 
+    for (final (a, b) in _edges) {
+      final pa = nodes[a];
+      final pb = nodes[b];
+      final dist = (pa - pb).distance;
+      final maxDist = w * 0.55;
+      if (dist > maxDist) continue;
+      final alpha = (1 - dist / maxDist) * 0.18;
+      linePaint.color = const Color(0xFF0D9488).withValues(alpha: alpha);
+      canvas.drawLine(pa, pb, linePaint);
+    }
+
+    // Dibujar nodos
+    for (int i = 0; i < nodes.length; i++) {
+      final pos = nodes[i];
+      final pulse = sin(t * 2 * pi * 1.2 + i * 0.8) * 0.5 + 0.5;
+      final alpha = 0.12 + pulse * 0.18;
+      final r = 3.0 + pulse * 1.5;
+
+      // Halo
       canvas.drawCircle(
-        Offset(cx, cy),
-        32,
+        pos,
+        r * 2.5,
         Paint()
-          ..color = const Color(0xFF0D9488).withValues(alpha: a * 0.4)
+          ..color = const Color(0xFF0D9488).withValues(alpha: alpha * 0.35)
           ..style = PaintingStyle.fill,
       );
+      // Núcleo
       canvas.drawCircle(
-        Offset(cx, cy),
-        16,
+        pos,
+        r,
         Paint()
-          ..color = const Color(0xFF0D9488).withValues(alpha: a * 0.7)
+          ..color = const Color(0xFF34D399).withValues(alpha: alpha * 0.9)
           ..style = PaintingStyle.fill,
       );
+    }
+
+    // Pulso viajando por las conexiones
+    final pulseProgress = t % 1.0;
+    final edgeIdx = (pulseProgress * _edges.length).floor() % _edges.length;
+    final edgeT = (pulseProgress * _edges.length) % 1.0;
+    final (ea, eb) = _edges[edgeIdx];
+    if (ea < nodes.length && eb < nodes.length) {
+      final pa = nodes[ea];
+      final pb = nodes[eb];
+      final pulsePos = Offset.lerp(pa, pb, edgeT)!;
       canvas.drawCircle(
-        Offset(cx, cy),
-        6,
+        pulsePos,
+        4,
         Paint()
-          ..color = const Color(0xFF34D399).withValues(alpha: a * 1.0)
+          ..color = const Color(0xFF34D399).withValues(alpha: 0.85)
           ..style = PaintingStyle.fill,
       );
     }
   }
 
   @override
-  bool shouldRepaint(_FlagsBgOverlayPainter old) => old.t != t;
+  bool shouldRepaint(_NetworkPainter old) => old.t != t;
 }
