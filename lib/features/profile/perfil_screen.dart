@@ -6,6 +6,9 @@ import 'package:cloud_firestore/cloud_firestore.dart';
 
 import '../feed/widgets/bottom_nav.dart';
 import 'edit_profile_screen.dart';
+import '../feed/crear_evento_screen.dart';
+import '../feed/mensaje_comunidad_screen.dart';
+import '../feed/nueva_historia_screen.dart';
 
 // ─────────────────────────────────────────────────────────────────────────────
 // perfil_screen.dart  –  Nomad App
@@ -46,7 +49,7 @@ class _PerfilPropioState extends State<PerfilPropio>
   @override
   void initState() {
     super.initState();
-    _tabController = TabController(length: 4, vsync: this)
+    _tabController = TabController(length: 3, vsync: this)
       ..addListener(() => setState(() => _tabIndex = _tabController.index));
     _cargarDatosUsuario();
   }
@@ -97,44 +100,16 @@ class _PerfilPropioState extends State<PerfilPropio>
           .orderBy('order')
           .get();
 
-      if (highlightsSnapshot.docs.isEmpty) {
-        final defaults = [
-          {"title": "Llegada", "emoji": "✈️"},
-          {"title": "Trabajo", "emoji": "💼"},
-          {"title": "Trámites", "emoji": "📄"},
-          {"title": "Vida diaria", "emoji": "🏡"},
-          {"title": "Comunidad", "emoji": "🤝"},
-        ];
-
-        for (int i = 0; i < defaults.length; i++) {
-          await _firestore
-              .collection('users')
-              .doc(user.uid)
-              .collection('highlights')
-              .add({
-                "title": defaults[i]["title"],
-                "emoji": defaults[i]["emoji"],
-                "coverUrl": null,
-                "order": i,
-              });
-        }
-
-        return _cargarDatosUsuario();
-      }
-
-      _highlights = highlightsSnapshot.docs.map((d) {
+      final loadedHighlights = highlightsSnapshot.docs.map((d) {
         final data = d.data();
-
         return {
           "id": d.id,
-
-          "title": data["title"] ?? "Highlight",
-
-          "emoji": data["emoji"] ?? "📍",
-
+          "title": data["title"] ?? "Destacada",
+          "emoji": data["emoji"] ?? "⭐",
           "coverUrl": data["coverUrl"],
         };
       }).toList();
+      setState(() => _highlights = loadedHighlights);
     } catch (e) {
       debugPrint("error highlights $e");
     }
@@ -192,10 +167,9 @@ class _PerfilPropioState extends State<PerfilPropio>
               child: TabBarView(
                 controller: _tabController,
                 children: [
-                  _TabPublicaciones(),
-                  _TabEventos(),
-                  _TabMensajes(),
-                  _TabActividad(),
+                  _TabPublicacionesFirebase(),
+                  _TabEventosFirebase(),
+                  _TabMensajesFirebase(),
                 ],
               ),
             ),
@@ -262,7 +236,6 @@ class _PerfilPropioState extends State<PerfilPropio>
       (Icons.grid_on_rounded, 'Posts'),
       (Icons.event_outlined, 'Eventos'),
       (Icons.campaign_outlined, 'Mensajes'),
-      (Icons.timeline_rounded, 'Actividad'),
     ];
 
     return Container(
@@ -340,21 +313,12 @@ class _PerfilPropioState extends State<PerfilPropio>
   }
 
   Future<void> _crearHighlight(BuildContext context) async {
-    final user = FirebaseAuth.instance.currentUser;
-
-    if (user == null) return;
-
-    await _firestore
-        .collection('users')
-        .doc(user.uid)
-        .collection('highlights')
-        .add({
-          "title": "Nuevo",
-          "emoji": "📍",
-          "coverUrl": null,
-          "order": DateTime.now().millisecondsSinceEpoch,
-        });
-
+    // Primero navegamos a NuevaHistoriaScreen para crear el contenido
+    await Navigator.push(
+      context,
+      MaterialPageRoute(builder: (_) => const NuevaHistoriaScreen()),
+    );
+    // Al volver, recargamos por si se creó una nueva destacada
     _cargarDatosUsuario();
   }
 
@@ -905,7 +869,7 @@ class _HighlightItem extends StatelessWidget {
                     ? Image.network(imageUrl!, fit: BoxFit.cover)
                     : Center(
                         child: Text(
-                          emoji ?? "📍",
+                          emoji ?? "⭐",
                           style: const TextStyle(fontSize: 26),
                         ),
                       ),
@@ -1030,227 +994,834 @@ class _BioExpandableState extends State<_BioExpandable> {
 // Tabs de contenido
 // ─────────────────────────────────────────────────────────────────────────────
 
-class _TabPublicaciones extends StatelessWidget {
+class _TabPublicacionesFirebase extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
-    return GridView.builder(
-      padding: const EdgeInsets.all(2),
-      gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
-        crossAxisCount: 3,
-        crossAxisSpacing: 2,
-        mainAxisSpacing: 2,
-      ),
-      itemCount: 15,
-      itemBuilder: (context, i) {
-        final colors = [
-          0xFF0D9488,
-          0xFF0891B2,
-          0xFF7C3AED,
-          0xFF059669,
-          0xFFD97706,
-        ];
-        return Container(
-          color: Color(
-            colors[i % colors.length],
-          ).withOpacity(0.15 + (i % 4) * 0.1),
-          child: Center(
-            child: Icon(
-              [
-                Icons.image_outlined,
-                Icons.videocam_outlined,
-                Icons.mic_outlined,
-              ][i % 3],
-              color: Color(colors[i % colors.length]),
-              size: 28,
+    final user = FirebaseAuth.instance.currentUser;
+    if (user == null) return const SizedBox.shrink();
+
+    return StreamBuilder<QuerySnapshot>(
+      stream: FirebaseFirestore.instance
+          .collection('users')
+          .doc(user.uid)
+          .collection('publicaciones')
+          .orderBy('timestamp', descending: true)
+          .snapshots(),
+      builder: (context, snapshot) {
+        if (snapshot.connectionState == ConnectionState.waiting) {
+          return const Center(child: CircularProgressIndicator(color: _teal));
+        }
+        final docs = snapshot.data?.docs ?? [];
+        if (docs.isEmpty) {
+          return Center(
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Icon(Icons.photo_library_outlined, size: 48, color: _tealLight),
+                const SizedBox(height: 12),
+                const Text(
+                  'Aún no publicaste nada',
+                  style: TextStyle(
+                    fontSize: 15,
+                    color: _tealDark,
+                    fontWeight: FontWeight.w600,
+                  ),
+                ),
+                const SizedBox(height: 6),
+                const Text(
+                  'Compartí tu experiencia migrante',
+                  style: TextStyle(fontSize: 13, color: Color(0xFF94A3B8)),
+                ),
+              ],
             ),
+          );
+        }
+        return GridView.builder(
+          padding: const EdgeInsets.all(2),
+          gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
+            crossAxisCount: 3,
+            crossAxisSpacing: 2,
+            mainAxisSpacing: 2,
           ),
+          itemCount: docs.length,
+          itemBuilder: (context, i) {
+            final data = docs[i].data() as Map<String, dynamic>;
+            final docId = docs[i].id;
+            final tipo = data['tipo'] as String? ?? 'imagen';
+            final mediaUrl = data['mediaUrl'] as String?;
+            final thumbUrl = data['thumbUrl'] as String?;
+            return GestureDetector(
+              onTap: () => _abrirDetalle(context, docId, data),
+              child: Stack(
+                fit: StackFit.expand,
+                children: [
+                  if (mediaUrl != null &&
+                      (tipo == 'imagen' || thumbUrl != null))
+                    Image.network(
+                      tipo == 'imagen' ? mediaUrl : (thumbUrl ?? mediaUrl),
+                      fit: BoxFit.cover,
+                      loadingBuilder: (_, child, p) => p == null
+                          ? child
+                          : Container(
+                              color: _tealBg,
+                              child: const Center(
+                                child: CircularProgressIndicator(
+                                  color: _teal,
+                                  strokeWidth: 2,
+                                ),
+                              ),
+                            ),
+                      errorBuilder: (_, __, ___) =>
+                          _PostPlaceholder(tipo: tipo),
+                    )
+                  else
+                    _PostPlaceholder(tipo: tipo),
+                  if (tipo == 'video')
+                    const Positioned(
+                      top: 6,
+                      right: 6,
+                      child: Icon(
+                        Icons.play_circle_fill_rounded,
+                        color: Colors.white,
+                        size: 22,
+                      ),
+                    ),
+                  if (tipo == 'audio')
+                    const Positioned(
+                      top: 6,
+                      right: 6,
+                      child: Icon(
+                        Icons.graphic_eq_rounded,
+                        color: Colors.white,
+                        size: 22,
+                      ),
+                    ),
+                  if (tipo == 'texto')
+                    const Positioned(
+                      top: 6,
+                      right: 6,
+                      child: Icon(
+                        Icons.format_quote_rounded,
+                        color: Colors.white,
+                        size: 22,
+                      ),
+                    ),
+                ],
+              ),
+            );
+          },
         );
       },
     );
   }
-}
 
-class _TabEventos extends StatelessWidget {
-  @override
-  Widget build(BuildContext context) {
-    final eventos = [
-      {
-        'titulo': 'Encuentro de migrantes latinoamericanos',
-        'fecha': '15 Abr 2025',
-        'lugar': 'Ciudad de México',
-        'emoji': '🎉',
-        'asistentes': 34,
-      },
-      {
-        'titulo': 'Taller: Cómo abrir cuenta bancaria en el extranjero',
-        'fecha': '22 Abr 2025',
-        'lugar': 'Online',
-        'emoji': '💳',
-        'asistentes': 120,
-      },
-      {
-        'titulo': 'Cena de integración – comunidad Nomad',
-        'fecha': '1 May 2025',
-        'lugar': 'Barcelona',
-        'emoji': '🍽️',
-        'asistentes': 18,
-      },
-    ];
-
-    return ListView(
-      padding: const EdgeInsets.all(16),
-      children: [
-        _ActionChip(
-          icon: Icons.add_rounded,
-          label: 'Crear evento',
-          onTap: () {},
-        ),
-        const SizedBox(height: 16),
-        ...eventos.map((e) => _EventCard(evento: e)),
-      ],
+  void _abrirDetalle(
+    BuildContext context,
+    String docId,
+    Map<String, dynamic> data,
+  ) {
+    showModalBottomSheet(
+      context: context,
+      isScrollControlled: true,
+      backgroundColor: Colors.transparent,
+      builder: (_) => _PublicacionDetalle(docId: docId, data: data),
     );
   }
 }
 
-class _TabMensajes extends StatelessWidget {
+class _PostPlaceholder extends StatelessWidget {
+  final String tipo;
+  const _PostPlaceholder({required this.tipo});
   @override
   Widget build(BuildContext context) {
-    final mensajes = [
-      {
-        'texto':
-            '¿Cómo tramitar el NIE en España sin morir en el intento? Acá va mi guía completa 🇪🇸',
-        'fecha': 'hace 2 días',
-        'likes': 87,
-        'emoji': '📋',
-      },
-      {
-        'texto':
-            'El primer mes en un país nuevo es el más difícil, pero también el más transformador. ¿Lo sentiste así? 💬',
-        'fecha': 'hace 1 semana',
-        'likes': 213,
-        'emoji': '✈️',
-      },
-      {
-        'texto':
-            'Buscando compañía para explorar el Zócalo este domingo. ¡Nomads bienvenidos! 🗺️',
-        'fecha': 'hace 2 semanas',
-        'likes': 45,
-        'emoji': '🗺️',
-      },
-    ];
-
-    return ListView(
-      padding: const EdgeInsets.all(16),
-      children: [
-        _ActionChip(
-          icon: Icons.campaign_outlined,
-          label: 'Nuevo mensaje a la comunidad',
-          onTap: () {},
-        ),
-        const SizedBox(height: 16),
-        ...mensajes.map((m) => _MensajeCard(mensaje: m)),
-      ],
+    const map = {
+      'imagen': (Icons.image_outlined, 0xFF0D9488),
+      'video': (Icons.videocam_outlined, 0xFF0891B2),
+      'audio': (Icons.mic_outlined, 0xFF7C3AED),
+      'texto': (Icons.format_quote_rounded, 0xFF059669),
+    };
+    final entry = map[tipo] ?? (Icons.photo_outlined, 0xFF0D9488);
+    return Container(
+      color: Color(entry.$2).withOpacity(0.12),
+      child: Center(child: Icon(entry.$1, color: Color(entry.$2), size: 28)),
     );
   }
 }
 
-class _TabActividad extends StatelessWidget {
+// ─────────────────────────────────────────────────────────────────────────────
+// Detalle de publicación con interacciones completas
+// ─────────────────────────────────────────────────────────────────────────────
+class _PublicacionDetalle extends StatefulWidget {
+  final String docId;
+  final Map<String, dynamic> data;
+  const _PublicacionDetalle({required this.docId, required this.data});
+  @override
+  State<_PublicacionDetalle> createState() => _PublicacionDetalleState();
+}
+
+class _PublicacionDetalleState extends State<_PublicacionDetalle> {
+  static const _reacciones = ['❤️', '🔥', '👏', '😮', '😂', '💪'];
+  bool _mostrarReacciones = false;
+  String? _miReaccion;
+  bool _guardandoReaccion = false;
+
+  late int _likes;
+  late int _comentarios;
+  late int _compartidos;
+
+  @override
+  void initState() {
+    super.initState();
+    _likes = (widget.data['likes'] as num?)?.toInt() ?? 0;
+    _comentarios = (widget.data['comentarios'] as num?)?.toInt() ?? 0;
+    _compartidos = (widget.data['compartidos'] as num?)?.toInt() ?? 0;
+    _cargarMiReaccion();
+  }
+
+  Future<void> _cargarMiReaccion() async {
+    final uid = FirebaseAuth.instance.currentUser?.uid;
+    if (uid == null) return;
+    final doc = await FirebaseFirestore.instance
+        .collection('users')
+        .doc(_autorId)
+        .collection('publicaciones')
+        .doc(widget.docId)
+        .collection('reacciones')
+        .doc(uid)
+        .get();
+    if (doc.exists && mounted) {
+      setState(() => _miReaccion = doc.data()?['emoji'] as String?);
+    }
+  }
+
+  String get _autorId =>
+      widget.data['autorId'] as String? ??
+      FirebaseAuth.instance.currentUser?.uid ??
+      '';
+
+  Future<void> _reaccionar(String emoji) async {
+    final uid = FirebaseAuth.instance.currentUser?.uid;
+    if (uid == null || _guardandoReaccion) return;
+    setState(() {
+      _guardandoReaccion = true;
+      _mostrarReacciones = false;
+    });
+
+    final reacRef = FirebaseFirestore.instance
+        .collection('users')
+        .doc(_autorId)
+        .collection('publicaciones')
+        .doc(widget.docId)
+        .collection('reacciones')
+        .doc(uid);
+    final postRef = FirebaseFirestore.instance
+        .collection('users')
+        .doc(_autorId)
+        .collection('publicaciones')
+        .doc(widget.docId);
+
+    try {
+      if (_miReaccion == emoji) {
+        // Toggle off
+        await reacRef.delete();
+        await postRef.update({'likes': FieldValue.increment(-1)});
+        if (mounted)
+          setState(() {
+            _miReaccion = null;
+            _likes = (_likes - 1).clamp(0, 99999);
+          });
+      } else {
+        final isNew = _miReaccion == null;
+        await reacRef.set({
+          'emoji': emoji,
+          'uid': uid,
+          'ts': FieldValue.serverTimestamp(),
+        });
+        if (isNew) {
+          await postRef.update({'likes': FieldValue.increment(1)});
+          if (mounted)
+            setState(() {
+              _likes++;
+            });
+        }
+        if (mounted) setState(() => _miReaccion = emoji);
+      }
+    } catch (e) {
+      debugPrint('Error reacción: $e');
+    } finally {
+      if (mounted) setState(() => _guardandoReaccion = false);
+    }
+  }
+
+  String _fmt(int n) => n >= 1000 ? '${(n / 1000).toStringAsFixed(1)}k' : '$n';
+  String _fechaStr() {
+    final ts = widget.data['timestamp'];
+    if (ts == null) return '';
+    try {
+      final dt = (ts as dynamic).toDate() as DateTime;
+      return '${dt.day}/${dt.month}/${dt.year}';
+    } catch (_) {
+      return '';
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
-    final actividades = [
-      {
-        'texto': 'Carlos M. comenzó a seguirte',
-        'tiempo': 'hace 5 min',
-        'icon': Icons.person_add_outlined,
-        'color': 0xFF0D9488,
-      },
-      {
-        'texto': 'Tu post recibió 12 nuevos likes',
-        'tiempo': 'hace 1h',
-        'icon': Icons.favorite_outline_rounded,
-        'color': 0xFFE11D48,
-      },
-      {
-        'texto': 'Lucía comentó en tu evento',
-        'tiempo': 'hace 3h',
-        'icon': Icons.comment_outlined,
-        'color': 0xFF0891B2,
-      },
-      {
-        'texto': 'Tu historia fue vista por 84 personas',
-        'tiempo': 'hace 6h',
-        'icon': Icons.remove_red_eye_outlined,
-        'color': 0xFF7C3AED,
-      },
-      {
-        'texto': 'Nomad te mencionó en un post',
-        'tiempo': 'ayer',
-        'icon': Icons.alternate_email_rounded,
-        'color': 0xFFD97706,
-      },
-    ];
+    final tipo = widget.data['tipo'] as String? ?? 'imagen';
+    final mediaUrl = widget.data['mediaUrl'] as String?;
+    final caption = widget.data['caption'] as String? ?? '';
 
-    return ListView(
-      padding: const EdgeInsets.all(16),
-      children: actividades.map((a) {
-        return Container(
-          margin: const EdgeInsets.only(bottom: 10),
-          padding: const EdgeInsets.all(14),
-          decoration: BoxDecoration(
+    return DraggableScrollableSheet(
+      initialChildSize: 0.88,
+      maxChildSize: 0.96,
+      minChildSize: 0.5,
+      builder: (_, ctrl) => GestureDetector(
+        onTap: () {
+          if (_mostrarReacciones) setState(() => _mostrarReacciones = false);
+        },
+        child: Container(
+          decoration: const BoxDecoration(
             color: Colors.white,
-            borderRadius: BorderRadius.circular(14),
-            boxShadow: [
-              BoxShadow(
-                color: Colors.black.withOpacity(0.04),
-                blurRadius: 8,
-                offset: const Offset(0, 2),
-              ),
-            ],
+            borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
           ),
-          child: Row(
+          child: Stack(
             children: [
-              Container(
-                width: 40,
-                height: 40,
-                decoration: BoxDecoration(
-                  color: Color(a['color'] as int).withOpacity(0.12),
-                  shape: BoxShape.circle,
-                ),
-                child: Icon(
-                  a['icon'] as IconData,
-                  color: Color(a['color'] as int),
-                  size: 20,
-                ),
-              ),
-              const SizedBox(width: 12),
-              Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(
-                      a['texto'] as String,
-                      style: const TextStyle(
-                        fontSize: 13.5,
-                        color: _tealDark,
-                        fontWeight: FontWeight.w500,
+              ListView(
+                controller: ctrl,
+                children: [
+                  // Handle
+                  Center(
+                    child: Container(
+                      margin: const EdgeInsets.only(top: 10, bottom: 8),
+                      width: 36,
+                      height: 4,
+                      decoration: BoxDecoration(
+                        color: const Color(0xFFE2E8F0),
+                        borderRadius: BorderRadius.circular(2),
                       ),
                     ),
-                    const SizedBox(height: 2),
-                    Text(
-                      a['tiempo'] as String,
-                      style: const TextStyle(
-                        fontSize: 11,
-                        color: Color(0xFF94A3B8),
+                  ),
+                  // Media
+                  if (mediaUrl != null && tipo == 'imagen')
+                    Image.network(
+                      mediaUrl,
+                      fit: BoxFit.cover,
+                      errorBuilder: (_, __, ___) =>
+                          Container(height: 200, color: _tealBg),
+                    ),
+                  if (tipo == 'video')
+                    Container(
+                      height: 200,
+                      color: Colors.black,
+                      child: const Center(
+                        child: Icon(
+                          Icons.play_circle_outline_rounded,
+                          color: Colors.white,
+                          size: 56,
+                        ),
                       ),
+                    ),
+                  if (tipo == 'audio')
+                    Container(
+                      margin: const EdgeInsets.all(16),
+                      padding: const EdgeInsets.all(16),
+                      decoration: BoxDecoration(
+                        color: _tealBg,
+                        borderRadius: BorderRadius.circular(14),
+                      ),
+                      child: const Row(
+                        children: [
+                          Icon(Icons.mic_rounded, color: _teal, size: 32),
+                          SizedBox(width: 12),
+                          Text(
+                            'Audio',
+                            style: TextStyle(
+                              color: _tealDark,
+                              fontWeight: FontWeight.w600,
+                              fontSize: 14,
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                  if (tipo == 'texto')
+                    Container(
+                      margin: const EdgeInsets.all(16),
+                      padding: const EdgeInsets.all(20),
+                      decoration: BoxDecoration(
+                        color: _tealBg,
+                        borderRadius: BorderRadius.circular(14),
+                      ),
+                      child: Text(
+                        caption,
+                        style: const TextStyle(
+                          fontSize: 16,
+                          color: _tealDark,
+                          height: 1.5,
+                          fontWeight: FontWeight.w500,
+                        ),
+                      ),
+                    ),
+                  // Caption (para no-texto)
+                  if (caption.isNotEmpty && tipo != 'texto')
+                    Padding(
+                      padding: const EdgeInsets.fromLTRB(16, 12, 16, 4),
+                      child: Text(
+                        caption,
+                        style: const TextStyle(
+                          fontSize: 14,
+                          color: _tealDark,
+                          height: 1.5,
+                        ),
+                      ),
+                    ),
+                  if (_fechaStr().isNotEmpty)
+                    Padding(
+                      padding: const EdgeInsets.fromLTRB(16, 4, 16, 8),
+                      child: Text(
+                        _fechaStr(),
+                        style: const TextStyle(
+                          fontSize: 12,
+                          color: Color(0xFF94A3B8),
+                        ),
+                      ),
+                    ),
+
+                  // ── BARRA DE INTERACCIONES ──────────────────────────────────
+                  Container(
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 16,
+                      vertical: 10,
+                    ),
+                    decoration: const BoxDecoration(
+                      border: Border(
+                        top: BorderSide(color: Color(0xFFE2F0EF), width: 0.5),
+                      ),
+                    ),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        // Resumen de reacciones activas
+                        if (_miReaccion != null)
+                          Padding(
+                            padding: const EdgeInsets.only(bottom: 8),
+                            child: Row(
+                              children: [
+                                Text(
+                                  _miReaccion!,
+                                  style: const TextStyle(fontSize: 14),
+                                ),
+                                const SizedBox(width: 6),
+                                Text(
+                                  'Tu reacción',
+                                  style: TextStyle(fontSize: 12, color: _teal),
+                                ),
+                              ],
+                            ),
+                          ),
+                        // Contadores
+                        Row(
+                          children: [
+                            // Reaccionar
+                            GestureDetector(
+                              onTap: () => setState(
+                                () => _mostrarReacciones = !_mostrarReacciones,
+                              ),
+                              child: Row(
+                                children: [
+                                  Icon(
+                                    _miReaccion != null
+                                        ? Icons.favorite_rounded
+                                        : Icons.favorite_outline_rounded,
+                                    size: 22,
+                                    color: _miReaccion != null
+                                        ? Colors.redAccent
+                                        : const Color(0xFF94A3B8),
+                                  ),
+                                  const SizedBox(width: 5),
+                                  Text(
+                                    _fmt(_likes),
+                                    style: const TextStyle(
+                                      fontSize: 13,
+                                      color: Color(0xFF64748B),
+                                    ),
+                                  ),
+                                ],
+                              ),
+                            ),
+                            const SizedBox(width: 20),
+                            // Comentarios
+                            GestureDetector(
+                              onTap: () {},
+                              child: Row(
+                                children: [
+                                  const Icon(
+                                    Icons.chat_bubble_outline_rounded,
+                                    size: 20,
+                                    color: Color(0xFF94A3B8),
+                                  ),
+                                  const SizedBox(width: 5),
+                                  Text(
+                                    _fmt(_comentarios),
+                                    style: const TextStyle(
+                                      fontSize: 13,
+                                      color: Color(0xFF64748B),
+                                    ),
+                                  ),
+                                ],
+                              ),
+                            ),
+                            const SizedBox(width: 20),
+                            // Compartir
+                            GestureDetector(
+                              onTap: () {},
+                              child: Row(
+                                children: [
+                                  const Icon(
+                                    Icons.send_outlined,
+                                    size: 20,
+                                    color: Color(0xFF94A3B8),
+                                  ),
+                                  const SizedBox(width: 5),
+                                  Text(
+                                    _fmt(_compartidos),
+                                    style: const TextStyle(
+                                      fontSize: 13,
+                                      color: Color(0xFF64748B),
+                                    ),
+                                  ),
+                                ],
+                              ),
+                            ),
+                            const Spacer(),
+                            // Guardar
+                            const Icon(
+                              Icons.bookmark_outline_rounded,
+                              size: 22,
+                              color: Color(0xFF94A3B8),
+                            ),
+                          ],
+                        ),
+                      ],
+                    ),
+                  ),
+
+                  // Sección de comentarios placeholder
+                  Padding(
+                    padding: const EdgeInsets.fromLTRB(16, 8, 16, 32),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        const Text(
+                          'Comentarios',
+                          style: TextStyle(
+                            fontSize: 13,
+                            fontWeight: FontWeight.w600,
+                            color: _tealDark,
+                          ),
+                        ),
+                        const SizedBox(height: 8),
+                        if (_comentarios == 0)
+                          const Text(
+                            'Sé el primero en comentar',
+                            style: TextStyle(
+                              fontSize: 13,
+                              color: Color(0xFF94A3B8),
+                            ),
+                          )
+                        else
+                          Text(
+                            'Ver los $_comentarios comentarios',
+                            style: const TextStyle(fontSize: 13, color: _teal),
+                          ),
+                        const SizedBox(height: 12),
+                        // Campo para comentar
+                        Row(
+                          children: [
+                            Expanded(
+                              child: Container(
+                                padding: const EdgeInsets.symmetric(
+                                  horizontal: 14,
+                                  vertical: 10,
+                                ),
+                                decoration: BoxDecoration(
+                                  color: _tealBg,
+                                  borderRadius: BorderRadius.circular(24),
+                                  border: Border.all(
+                                    color: _tealLight.withOpacity(0.5),
+                                  ),
+                                ),
+                                child: const Text(
+                                  'Agregá un comentario…',
+                                  style: TextStyle(
+                                    fontSize: 13,
+                                    color: Color(0xFF94A3B8),
+                                  ),
+                                ),
+                              ),
+                            ),
+                          ],
+                        ),
+                      ],
+                    ),
+                  ),
+                ],
+              ),
+
+              // ── PANEL DE REACCIONES (flotante) ──────────────────────────
+              if (_mostrarReacciones)
+                Positioned(
+                  bottom: 80,
+                  left: 16,
+                  child: Container(
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 12,
+                      vertical: 10,
+                    ),
+                    decoration: BoxDecoration(
+                      color: Colors.white,
+                      borderRadius: BorderRadius.circular(30),
+                      border: Border.all(color: const Color(0xFFE2F0EF)),
+                      boxShadow: [
+                        BoxShadow(
+                          color: Colors.black.withOpacity(0.08),
+                          blurRadius: 12,
+                          offset: const Offset(0, 4),
+                        ),
+                      ],
+                    ),
+                    child: Row(
+                      mainAxisSize: MainAxisSize.min,
+                      children: _reacciones
+                          .map(
+                            (emoji) => GestureDetector(
+                              onTap: () => _reaccionar(emoji),
+                              child: AnimatedContainer(
+                                duration: const Duration(milliseconds: 150),
+                                margin: const EdgeInsets.symmetric(
+                                  horizontal: 4,
+                                ),
+                                padding: const EdgeInsets.all(6),
+                                decoration: BoxDecoration(
+                                  shape: BoxShape.circle,
+                                  color: _miReaccion == emoji
+                                      ? _tealBg
+                                      : Colors.transparent,
+                                ),
+                                child: Text(
+                                  emoji,
+                                  style: const TextStyle(fontSize: 24),
+                                ),
+                              ),
+                            ),
+                          )
+                          .toList(),
+                    ),
+                  ),
+                ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+class _TabEventosFirebase extends StatelessWidget {
+  @override
+  Widget build(BuildContext context) {
+    final user = FirebaseAuth.instance.currentUser;
+    if (user == null) return const SizedBox.shrink();
+    return StreamBuilder<QuerySnapshot>(
+      stream: FirebaseFirestore.instance
+          .collection('events')
+          .where('authorId', isEqualTo: user.uid)
+          .orderBy('fecha', descending: true)
+          .snapshots(),
+      builder: (context, snapshot) {
+        if (snapshot.connectionState == ConnectionState.waiting) {
+          return const Center(child: CircularProgressIndicator(color: _teal));
+        }
+        final docs = snapshot.data?.docs ?? [];
+        return ListView(
+          padding: const EdgeInsets.all(16),
+          children: [
+            _ActionChip(
+              icon: Icons.add_rounded,
+              label: 'Crear evento',
+              onTap: () => Navigator.push(
+                context,
+                MaterialPageRoute(builder: (_) => const CrearEventoScreen()),
+              ),
+            ),
+            const SizedBox(height: 16),
+            if (docs.isEmpty) ...[
+              const SizedBox(height: 32),
+              Center(
+                child: Column(
+                  children: [
+                    Icon(Icons.event_outlined, size: 48, color: _tealLight),
+                    const SizedBox(height: 12),
+                    const Text(
+                      'Sin eventos creados',
+                      style: TextStyle(
+                        fontSize: 15,
+                        color: _tealDark,
+                        fontWeight: FontWeight.w600,
+                      ),
+                    ),
+                    const SizedBox(height: 6),
+                    const Text(
+                      'Organizá encuentros para la comunidad',
+                      style: TextStyle(fontSize: 13, color: Color(0xFF94A3B8)),
                     ),
                   ],
                 ),
               ),
-            ],
-          ),
+            ] else
+              ...docs.map((doc) {
+                final d = doc.data() as Map<String, dynamic>;
+                return _EventCard(
+                  evento: {
+                    'titulo': d['title'] ?? d['titulo'] ?? 'Evento',
+                    'fecha': _fmtFecha(d['fecha']),
+                    'lugar': d['location'] ?? d['lugar'] ?? '',
+                    'emoji': d['tipo'] == 'Cultural'
+                        ? '🎭'
+                        : d['tipo'] == 'Gastronómico'
+                        ? '🍽️'
+                        : d['tipo'] == 'Deportivo'
+                        ? '⚽'
+                        : '🤝',
+                    'asistentes': d['attendeesCount'] ?? d['asistentes'] ?? 0,
+                  },
+                );
+              }),
+          ],
         );
-      }).toList(),
+      },
     );
+  }
+
+  String _fmtFecha(dynamic ts) {
+    if (ts == null) return '';
+    try {
+      final dt = (ts as dynamic).toDate() as DateTime;
+      const m = [
+        'Ene',
+        'Feb',
+        'Mar',
+        'Abr',
+        'May',
+        'Jun',
+        'Jul',
+        'Ago',
+        'Sep',
+        'Oct',
+        'Nov',
+        'Dic',
+      ];
+      return '${dt.day} ${m[dt.month - 1]} ${dt.year}';
+    } catch (_) {
+      return '';
+    }
+  }
+}
+
+class _TabMensajesFirebase extends StatelessWidget {
+  @override
+  Widget build(BuildContext context) {
+    final user = FirebaseAuth.instance.currentUser;
+    if (user == null) return const SizedBox.shrink();
+    return StreamBuilder<QuerySnapshot>(
+      stream: FirebaseFirestore.instance
+          .collection('community_messages')
+          .where('authorId', isEqualTo: user.uid)
+          .orderBy('createdAt', descending: true)
+          .snapshots(),
+      builder: (context, snapshot) {
+        if (snapshot.connectionState == ConnectionState.waiting) {
+          return const Center(child: CircularProgressIndicator(color: _teal));
+        }
+        final docs = snapshot.data?.docs ?? [];
+        return ListView(
+          padding: const EdgeInsets.all(16),
+          children: [
+            _ActionChip(
+              icon: Icons.campaign_outlined,
+              label: 'Nuevo mensaje a la comunidad',
+              onTap: () => Navigator.push(
+                context,
+                MaterialPageRoute(
+                  builder: (_) => const MensajeComunidadScreen(),
+                ),
+              ),
+            ),
+            const SizedBox(height: 16),
+            if (docs.isEmpty) ...[
+              const SizedBox(height: 32),
+              Center(
+                child: Column(
+                  children: [
+                    Icon(Icons.campaign_outlined, size: 48, color: _tealLight),
+                    const SizedBox(height: 12),
+                    const Text(
+                      'Sin mensajes aún',
+                      style: TextStyle(
+                        fontSize: 15,
+                        color: _tealDark,
+                        fontWeight: FontWeight.w600,
+                      ),
+                    ),
+                    const SizedBox(height: 6),
+                    const Text(
+                      'Compartí tips, preguntas o experiencias',
+                      style: TextStyle(fontSize: 13, color: Color(0xFF94A3B8)),
+                    ),
+                  ],
+                ),
+              ),
+            ] else
+              ...docs.map((doc) {
+                final d = doc.data() as Map<String, dynamic>;
+                return _MensajeCard(
+                  mensaje: {
+                    'texto': d['mensaje'] ?? d['texto'] ?? '',
+                    'fecha': _timeAgo(d['createdAt'] ?? d['timestamp']),
+                    'likes': d['likes'] ?? 0,
+                    'emoji': _emojiCat(d['categoria'] as String?),
+                  },
+                );
+              }),
+          ],
+        );
+      },
+    );
+  }
+
+  String _emojiCat(String? cat) {
+    const map = {
+      'Info': '📢',
+      'Urgente': '🚨',
+      'Pregunta': '❓',
+      'Oferta': '🎁',
+      'Alerta': '⚠️',
+    };
+    return map[cat] ?? '💬';
+  }
+
+  String _timeAgo(dynamic ts) {
+    if (ts == null) return '';
+    try {
+      final dt = (ts as dynamic).toDate() as DateTime;
+      final d = DateTime.now().difference(dt);
+      if (d.inMinutes < 60) return 'hace ${d.inMinutes} min';
+      if (d.inHours < 24) return 'hace ${d.inHours}h';
+      if (d.inDays < 7) return 'hace ${d.inDays} días';
+      return 'hace ${(d.inDays / 7).floor()} semanas';
+    } catch (_) {
+      return '';
+    }
   }
 }
 
@@ -2243,6 +2814,195 @@ class _SettingItem extends StatelessWidget {
         color: Color(0xFFCBD5E1),
       ),
       onTap: onTap,
+    );
+  }
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Sheet para nombrar una nueva historia destacada
+// ─────────────────────────────────────────────────────────────────────────────
+class _NuevoHighlightSheet extends StatefulWidget {
+  final Future<void> Function(String title, String emoji) onCreate;
+  const _NuevoHighlightSheet({required this.onCreate});
+  @override
+  State<_NuevoHighlightSheet> createState() => _NuevoHighlightSheetState();
+}
+
+class _NuevoHighlightSheetState extends State<_NuevoHighlightSheet> {
+  final _ctrl = TextEditingController();
+  String _emoji = '✈️';
+  bool _guardando = false;
+
+  static const _emojis = [
+    '✈️',
+    '💼',
+    '🏠',
+    '🍽️',
+    '🤝',
+    '📄',
+    '🏥',
+    '🚌',
+    '💰',
+    '🎭',
+    '⚽',
+    '📚',
+    '🌍',
+    '🎉',
+    '💡',
+  ];
+
+  Future<void> _crear() async {
+    final title = _ctrl.text.trim();
+    if (title.isEmpty) return;
+    setState(() => _guardando = true);
+    await widget.onCreate(title, _emoji);
+    if (mounted) Navigator.pop(context);
+  }
+
+  @override
+  void dispose() {
+    _ctrl.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Padding(
+      padding: EdgeInsets.only(
+        bottom: MediaQuery.of(context).viewInsets.bottom,
+      ),
+      child: Container(
+        decoration: const BoxDecoration(
+          color: Colors.white,
+          borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
+        ),
+        padding: const EdgeInsets.fromLTRB(20, 16, 20, 28),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Center(
+              child: Container(
+                width: 36,
+                height: 4,
+                decoration: BoxDecoration(
+                  color: const Color(0xFFE2E8F0),
+                  borderRadius: BorderRadius.circular(2),
+                ),
+              ),
+            ),
+            const SizedBox(height: 16),
+            const Text(
+              'Nueva historia destacada',
+              style: TextStyle(
+                fontSize: 17,
+                fontWeight: FontWeight.w800,
+                color: _tealDark,
+              ),
+            ),
+            const SizedBox(height: 16),
+            const Text(
+              'Ícono',
+              style: TextStyle(
+                fontSize: 12,
+                fontWeight: FontWeight.w600,
+                color: _teal,
+              ),
+            ),
+            const SizedBox(height: 8),
+            Wrap(
+              spacing: 6,
+              runSpacing: 6,
+              children: _emojis
+                  .map(
+                    (e) => GestureDetector(
+                      onTap: () => setState(() => _emoji = e),
+                      child: AnimatedContainer(
+                        duration: const Duration(milliseconds: 150),
+                        width: 40,
+                        height: 40,
+                        decoration: BoxDecoration(
+                          shape: BoxShape.circle,
+                          color: _emoji == e ? _teal : _tealBg,
+                          border: Border.all(
+                            color: _emoji == e ? _teal : _tealLight,
+                          ),
+                        ),
+                        child: Center(
+                          child: Text(e, style: const TextStyle(fontSize: 20)),
+                        ),
+                      ),
+                    ),
+                  )
+                  .toList(),
+            ),
+            const SizedBox(height: 16),
+            const Text(
+              'Nombre',
+              style: TextStyle(
+                fontSize: 12,
+                fontWeight: FontWeight.w600,
+                color: _teal,
+              ),
+            ),
+            const SizedBox(height: 8),
+            TextField(
+              controller: _ctrl,
+              autofocus: true,
+              maxLength: 20,
+              decoration: InputDecoration(
+                hintText: 'ej: Mi llegada, Trabajo, Trámites...',
+                filled: true,
+                fillColor: _tealBg,
+                border: OutlineInputBorder(
+                  borderRadius: BorderRadius.circular(12),
+                  borderSide: BorderSide.none,
+                ),
+                focusedBorder: OutlineInputBorder(
+                  borderRadius: BorderRadius.circular(12),
+                  borderSide: const BorderSide(color: _teal, width: 1.5),
+                ),
+                counterStyle: const TextStyle(
+                  color: Color(0xFF94A3B8),
+                  fontSize: 11,
+                ),
+              ),
+            ),
+            const SizedBox(height: 16),
+            SizedBox(
+              width: double.infinity,
+              child: ElevatedButton(
+                onPressed: _guardando ? null : _crear,
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: _teal,
+                  foregroundColor: Colors.white,
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(14),
+                  ),
+                  padding: const EdgeInsets.symmetric(vertical: 14),
+                  disabledBackgroundColor: _tealLight,
+                ),
+                child: _guardando
+                    ? const SizedBox(
+                        width: 20,
+                        height: 20,
+                        child: CircularProgressIndicator(
+                          color: Colors.white,
+                          strokeWidth: 2,
+                        ),
+                      )
+                    : const Text(
+                        'Crear destacada',
+                        style: TextStyle(
+                          fontSize: 15,
+                          fontWeight: FontWeight.w700,
+                        ),
+                      ),
+              ),
+            ),
+          ],
+        ),
+      ),
     );
   }
 }
