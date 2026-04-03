@@ -9,6 +9,12 @@ import 'edit_profile_screen.dart';
 import '../feed/crear_evento_screen.dart';
 import '../feed/mensaje_comunidad_screen.dart';
 import '../feed/nueva_historia_screen.dart';
+import '../feed/widgets/like_button.dart';
+import '../feed/widgets/save_button.dart';
+import '../feed/widgets/share_sheet.dart';
+import '../feed/widgets/post_options_sheet.dart';
+import '../feed/widgets/comments_screen.dart';
+import '../../services/social_service.dart';
 
 // ─────────────────────────────────────────────────────────────────────────────
 // perfil_screen.dart  –  Nomad App
@@ -313,12 +319,10 @@ class _PerfilPropioState extends State<PerfilPropio>
   }
 
   Future<void> _crearHighlight(BuildContext context) async {
-    // Primero navegamos a NuevaHistoriaScreen para crear el contenido
     await Navigator.push(
       context,
       MaterialPageRoute(builder: (_) => const NuevaHistoriaScreen()),
     );
-    // Al volver, recargamos por si se creó una nueva destacada
     _cargarDatosUsuario();
   }
 
@@ -1045,16 +1049,19 @@ class _TabPublicacionesFirebase extends StatelessWidget {
           ),
           itemCount: docs.length,
           itemBuilder: (context, i) {
-            final data = docs[i].data() as Map<String, dynamic>;
-            final docId = docs[i].id;
+            final doc = docs[i];
+            final data = doc.data() as Map<String, dynamic>;
             final tipo = data['tipo'] as String? ?? 'imagen';
             final mediaUrl = data['mediaUrl'] as String?;
             final thumbUrl = data['thumbUrl'] as String?;
+            final uid = FirebaseAuth.instance.currentUser!.uid;
+
             return GestureDetector(
-              onTap: () => _abrirDetalle(context, docId, data),
+              onTap: () => _abrirDetalle(context, doc.id, uid, data),
               child: Stack(
                 fit: StackFit.expand,
                 children: [
+                  // Miniatura
                   if (mediaUrl != null &&
                       (tipo == 'imagen' || thumbUrl != null))
                     Image.network(
@@ -1076,6 +1083,7 @@ class _TabPublicacionesFirebase extends StatelessWidget {
                     )
                   else
                     _PostPlaceholder(tipo: tipo),
+                  // Badge de tipo
                   if (tipo == 'video')
                     const Positioned(
                       top: 6,
@@ -1117,18 +1125,21 @@ class _TabPublicacionesFirebase extends StatelessWidget {
 
   void _abrirDetalle(
     BuildContext context,
-    String docId,
+    String postId,
+    String autorId,
     Map<String, dynamic> data,
   ) {
     showModalBottomSheet(
       context: context,
       isScrollControlled: true,
       backgroundColor: Colors.transparent,
-      builder: (_) => _PublicacionDetalle(docId: docId, data: data),
+      builder: (_) =>
+          _PublicacionDetalle(postId: postId, autorId: autorId, data: data),
     );
   }
 }
 
+// ── Placeholder de color cuando no hay media ─────────────────────────────────
 class _PostPlaceholder extends StatelessWidget {
   final String tipo;
   const _PostPlaceholder({required this.tipo});
@@ -1149,117 +1160,39 @@ class _PostPlaceholder extends StatelessWidget {
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
-// Detalle de publicación con interacciones completas
+// Detalle de publicación — usa los mismos widgets del feed
 // ─────────────────────────────────────────────────────────────────────────────
-class _PublicacionDetalle extends StatefulWidget {
-  final String docId;
+class _PublicacionDetalle extends StatelessWidget {
+  final String postId;
+  final String autorId;
   final Map<String, dynamic> data;
-  const _PublicacionDetalle({required this.docId, required this.data});
-  @override
-  State<_PublicacionDetalle> createState() => _PublicacionDetalleState();
-}
 
-class _PublicacionDetalleState extends State<_PublicacionDetalle> {
-  static const _reacciones = ['❤️', '🔥', '👏', '😮', '😂', '💪'];
-  bool _mostrarReacciones = false;
-  String? _miReaccion;
-  bool _guardandoReaccion = false;
+  const _PublicacionDetalle({
+    required this.postId,
+    required this.autorId,
+    required this.data,
+  });
 
-  late int _likes;
-  late int _comentarios;
-  late int _compartidos;
-
-  @override
-  void initState() {
-    super.initState();
-    _likes = (widget.data['likes'] as num?)?.toInt() ?? 0;
-    _comentarios = (widget.data['comentarios'] as num?)?.toInt() ?? 0;
-    _compartidos = (widget.data['compartidos'] as num?)?.toInt() ?? 0;
-    _cargarMiReaccion();
-  }
-
-  Future<void> _cargarMiReaccion() async {
-    final uid = FirebaseAuth.instance.currentUser?.uid;
-    if (uid == null) return;
-    final doc = await FirebaseFirestore.instance
-        .collection('users')
-        .doc(_autorId)
-        .collection('publicaciones')
-        .doc(widget.docId)
-        .collection('reacciones')
-        .doc(uid)
-        .get();
-    if (doc.exists && mounted) {
-      setState(() => _miReaccion = doc.data()?['emoji'] as String?);
-    }
-  }
-
-  String get _autorId =>
-      widget.data['autorId'] as String? ??
-      FirebaseAuth.instance.currentUser?.uid ??
-      '';
-
-  Future<void> _reaccionar(String emoji) async {
-    final uid = FirebaseAuth.instance.currentUser?.uid;
-    if (uid == null || _guardandoReaccion) return;
-    setState(() {
-      _guardandoReaccion = true;
-      _mostrarReacciones = false;
-    });
-
-    final reacRef = FirebaseFirestore.instance
-        .collection('users')
-        .doc(_autorId)
-        .collection('publicaciones')
-        .doc(widget.docId)
-        .collection('reacciones')
-        .doc(uid);
-    final postRef = FirebaseFirestore.instance
-        .collection('users')
-        .doc(_autorId)
-        .collection('publicaciones')
-        .doc(widget.docId);
-
-    try {
-      if (_miReaccion == emoji) {
-        // Toggle off
-        await reacRef.delete();
-        await postRef.update({'likes': FieldValue.increment(-1)});
-        if (mounted)
-          setState(() {
-            _miReaccion = null;
-            _likes = (_likes - 1).clamp(0, 99999);
-          });
-      } else {
-        final isNew = _miReaccion == null;
-        await reacRef.set({
-          'emoji': emoji,
-          'uid': uid,
-          'ts': FieldValue.serverTimestamp(),
-        });
-        if (isNew) {
-          await postRef.update({'likes': FieldValue.increment(1)});
-          if (mounted)
-            setState(() {
-              _likes++;
-            });
-        }
-        if (mounted) setState(() => _miReaccion = emoji);
-      }
-    } catch (e) {
-      debugPrint('Error reacción: $e');
-    } finally {
-      if (mounted) setState(() => _guardandoReaccion = false);
-    }
-  }
-
-  String _fmt(int n) => n >= 1000 ? '${(n / 1000).toStringAsFixed(1)}k' : '$n';
   String _fechaStr() {
-    final ts = widget.data['timestamp'];
+    final ts = data['timestamp'];
     if (ts == null) return '';
     try {
       final dt = (ts as dynamic).toDate() as DateTime;
-      return '${dt.day}/${dt.month}/${dt.year}';
+      const meses = [
+        'Ene',
+        'Feb',
+        'Mar',
+        'Abr',
+        'May',
+        'Jun',
+        'Jul',
+        'Ago',
+        'Sep',
+        'Oct',
+        'Nov',
+        'Dic',
+      ];
+      return '${dt.day} ${meses[dt.month - 1]} ${dt.year}';
     } catch (_) {
       return '';
     }
@@ -1267,73 +1200,86 @@ class _PublicacionDetalleState extends State<_PublicacionDetalle> {
 
   @override
   Widget build(BuildContext context) {
-    final tipo = widget.data['tipo'] as String? ?? 'imagen';
-    final mediaUrl = widget.data['mediaUrl'] as String?;
-    final caption = widget.data['caption'] as String? ?? '';
+    final tipo = data['tipo'] as String? ?? 'imagen';
+    final mediaUrl = data['mediaUrl'] as String?;
+    final caption = data['caption'] as String? ?? '';
+    final myUid = FirebaseAuth.instance.currentUser?.uid ?? '';
+    final esPropio = autorId == myUid;
 
     return DraggableScrollableSheet(
       initialChildSize: 0.88,
       maxChildSize: 0.96,
       minChildSize: 0.5,
-      builder: (_, ctrl) => GestureDetector(
-        onTap: () {
-          if (_mostrarReacciones) setState(() => _mostrarReacciones = false);
-        },
-        child: Container(
-          decoration: const BoxDecoration(
-            color: Colors.white,
-            borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
-          ),
-          child: Stack(
-            children: [
-              ListView(
-                controller: ctrl,
-                children: [
-                  // Handle
-                  Center(
-                    child: Container(
-                      margin: const EdgeInsets.only(top: 10, bottom: 8),
-                      width: 36,
-                      height: 4,
-                      decoration: BoxDecoration(
-                        color: const Color(0xFFE2E8F0),
-                        borderRadius: BorderRadius.circular(2),
-                      ),
-                    ),
+      builder: (_, ctrl) => Container(
+        decoration: const BoxDecoration(
+          color: Colors.white,
+          borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
+        ),
+        child: ListView(
+          controller: ctrl,
+          children: [
+            // Handle
+            Center(
+              child: Container(
+                margin: const EdgeInsets.only(top: 10, bottom: 8),
+                width: 36,
+                height: 4,
+                decoration: BoxDecoration(
+                  color: const Color(0xFFE2E8F0),
+                  borderRadius: BorderRadius.circular(2),
+                ),
+              ),
+            ),
+
+            // Media
+            if (mediaUrl != null && tipo == 'imagen')
+              Image.network(
+                mediaUrl,
+                fit: BoxFit.cover,
+                errorBuilder: (_, __, ___) =>
+                    Container(height: 220, color: _tealBg),
+              ),
+            if (tipo == 'video')
+              Container(
+                height: 220,
+                color: Colors.black,
+                child: const Center(
+                  child: Icon(
+                    Icons.play_circle_outline_rounded,
+                    color: Colors.white,
+                    size: 60,
                   ),
-                  // Media
-                  if (mediaUrl != null && tipo == 'imagen')
-                    Image.network(
-                      mediaUrl,
-                      fit: BoxFit.cover,
-                      errorBuilder: (_, __, ___) =>
-                          Container(height: 200, color: _tealBg),
-                    ),
-                  if (tipo == 'video')
+                ),
+              ),
+            if (tipo == 'audio')
+              Container(
+                margin: const EdgeInsets.all(16),
+                padding: const EdgeInsets.all(18),
+                decoration: BoxDecoration(
+                  color: _tealBg,
+                  borderRadius: BorderRadius.circular(14),
+                ),
+                child: Row(
+                  children: [
                     Container(
-                      height: 200,
-                      color: Colors.black,
-                      child: const Center(
-                        child: Icon(
-                          Icons.play_circle_outline_rounded,
-                          color: Colors.white,
-                          size: 56,
-                        ),
-                      ),
-                    ),
-                  if (tipo == 'audio')
-                    Container(
-                      margin: const EdgeInsets.all(16),
-                      padding: const EdgeInsets.all(16),
+                      width: 44,
+                      height: 44,
                       decoration: BoxDecoration(
-                        color: _tealBg,
-                        borderRadius: BorderRadius.circular(14),
+                        color: _teal,
+                        shape: BoxShape.circle,
                       ),
-                      child: const Row(
+                      child: const Icon(
+                        Icons.play_arrow_rounded,
+                        color: Colors.white,
+                        size: 26,
+                      ),
+                    ),
+                    const SizedBox(width: 12),
+                    Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
-                          Icon(Icons.mic_rounded, color: _teal, size: 32),
-                          SizedBox(width: 12),
-                          Text(
+                          const Text(
                             'Audio',
                             style: TextStyle(
                               color: _tealDark,
@@ -1341,286 +1287,224 @@ class _PublicacionDetalleState extends State<_PublicacionDetalle> {
                               fontSize: 14,
                             ),
                           ),
+                          if (caption.isNotEmpty)
+                            Text(
+                              caption,
+                              style: const TextStyle(
+                                fontSize: 12,
+                                color: _teal,
+                              ),
+                              maxLines: 1,
+                              overflow: TextOverflow.ellipsis,
+                            ),
                         ],
                       ),
                     ),
-                  if (tipo == 'texto')
-                    Container(
-                      margin: const EdgeInsets.all(16),
-                      padding: const EdgeInsets.all(20),
-                      decoration: BoxDecoration(
-                        color: _tealBg,
-                        borderRadius: BorderRadius.circular(14),
-                      ),
-                      child: Text(
-                        caption,
-                        style: const TextStyle(
-                          fontSize: 16,
-                          color: _tealDark,
-                          height: 1.5,
-                          fontWeight: FontWeight.w500,
-                        ),
-                      ),
-                    ),
-                  // Caption (para no-texto)
-                  if (caption.isNotEmpty && tipo != 'texto')
-                    Padding(
-                      padding: const EdgeInsets.fromLTRB(16, 12, 16, 4),
-                      child: Text(
-                        caption,
-                        style: const TextStyle(
-                          fontSize: 14,
-                          color: _tealDark,
-                          height: 1.5,
-                        ),
-                      ),
-                    ),
-                  if (_fechaStr().isNotEmpty)
-                    Padding(
-                      padding: const EdgeInsets.fromLTRB(16, 4, 16, 8),
-                      child: Text(
-                        _fechaStr(),
-                        style: const TextStyle(
-                          fontSize: 12,
-                          color: Color(0xFF94A3B8),
-                        ),
-                      ),
-                    ),
+                  ],
+                ),
+              ),
+            if (tipo == 'texto')
+              Container(
+                margin: const EdgeInsets.all(16),
+                padding: const EdgeInsets.all(20),
+                decoration: BoxDecoration(
+                  color: _tealBg,
+                  borderRadius: BorderRadius.circular(14),
+                ),
+                child: Text(
+                  caption,
+                  style: const TextStyle(
+                    fontSize: 16,
+                    color: _tealDark,
+                    height: 1.5,
+                    fontWeight: FontWeight.w500,
+                  ),
+                ),
+              ),
 
-                  // ── BARRA DE INTERACCIONES ──────────────────────────────────
-                  Container(
-                    padding: const EdgeInsets.symmetric(
-                      horizontal: 16,
-                      vertical: 10,
+            // Caption + fecha (para no-texto)
+            if (caption.isNotEmpty && tipo != 'texto')
+              Padding(
+                padding: const EdgeInsets.fromLTRB(16, 14, 16, 4),
+                child: RichText(
+                  text: TextSpan(
+                    style: const TextStyle(
+                      fontSize: 14,
+                      color: _tealDark,
+                      height: 1.5,
                     ),
-                    decoration: const BoxDecoration(
-                      border: Border(
-                        top: BorderSide(color: Color(0xFFE2F0EF), width: 0.5),
+                    children: [
+                      TextSpan(
+                        text: '${data['username'] ?? ''} ',
+                        style: const TextStyle(fontWeight: FontWeight.w700),
                       ),
-                    ),
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        // Resumen de reacciones activas
-                        if (_miReaccion != null)
-                          Padding(
-                            padding: const EdgeInsets.only(bottom: 8),
-                            child: Row(
-                              children: [
-                                Text(
-                                  _miReaccion!,
-                                  style: const TextStyle(fontSize: 14),
-                                ),
-                                const SizedBox(width: 6),
-                                Text(
-                                  'Tu reacción',
-                                  style: TextStyle(fontSize: 12, color: _teal),
-                                ),
-                              ],
-                            ),
-                          ),
-                        // Contadores
-                        Row(
+                      TextSpan(text: caption),
+                    ],
+                  ),
+                ),
+              ),
+            if (_fechaStr().isNotEmpty)
+              Padding(
+                padding: const EdgeInsets.fromLTRB(16, 4, 16, 0),
+                child: Text(
+                  _fechaStr(),
+                  style: const TextStyle(
+                    fontSize: 11,
+                    color: Color(0xFF94A3B8),
+                  ),
+                ),
+              ),
+
+            // ── BARRA DE INTERACCIONES — mismos widgets que el feed ───────────
+            Padding(
+              padding: const EdgeInsets.fromLTRB(14, 12, 14, 4),
+              child: Row(
+                children: [
+                  // Like (con animación de bounce y stream en tiempo real)
+                  LikeButton(postId: postId, postAuthorId: autorId),
+
+                  const SizedBox(width: 18),
+
+                  // Comentarios (abre CommentsScreen igual que en el feed)
+                  StreamBuilder<int>(
+                    stream: SocialService.commentsCountStream(postId),
+                    builder: (_, snap) {
+                      final count = snap.data ?? 0;
+                      return GestureDetector(
+                        onTap: () => CommentsScreen.show(
+                          context,
+                          postId: postId,
+                          postAuthorId: autorId,
+                        ),
+                        child: Row(
                           children: [
-                            // Reaccionar
-                            GestureDetector(
-                              onTap: () => setState(
-                                () => _mostrarReacciones = !_mostrarReacciones,
-                              ),
-                              child: Row(
-                                children: [
-                                  Icon(
-                                    _miReaccion != null
-                                        ? Icons.favorite_rounded
-                                        : Icons.favorite_outline_rounded,
-                                    size: 22,
-                                    color: _miReaccion != null
-                                        ? Colors.redAccent
-                                        : const Color(0xFF94A3B8),
-                                  ),
-                                  const SizedBox(width: 5),
-                                  Text(
-                                    _fmt(_likes),
-                                    style: const TextStyle(
-                                      fontSize: 13,
-                                      color: Color(0xFF64748B),
-                                    ),
-                                  ),
-                                ],
-                              ),
-                            ),
-                            const SizedBox(width: 20),
-                            // Comentarios
-                            GestureDetector(
-                              onTap: () {},
-                              child: Row(
-                                children: [
-                                  const Icon(
-                                    Icons.chat_bubble_outline_rounded,
-                                    size: 20,
-                                    color: Color(0xFF94A3B8),
-                                  ),
-                                  const SizedBox(width: 5),
-                                  Text(
-                                    _fmt(_comentarios),
-                                    style: const TextStyle(
-                                      fontSize: 13,
-                                      color: Color(0xFF64748B),
-                                    ),
-                                  ),
-                                ],
-                              ),
-                            ),
-                            const SizedBox(width: 20),
-                            // Compartir
-                            GestureDetector(
-                              onTap: () {},
-                              child: Row(
-                                children: [
-                                  const Icon(
-                                    Icons.send_outlined,
-                                    size: 20,
-                                    color: Color(0xFF94A3B8),
-                                  ),
-                                  const SizedBox(width: 5),
-                                  Text(
-                                    _fmt(_compartidos),
-                                    style: const TextStyle(
-                                      fontSize: 13,
-                                      color: Color(0xFF64748B),
-                                    ),
-                                  ),
-                                ],
-                              ),
-                            ),
-                            const Spacer(),
-                            // Guardar
                             const Icon(
-                              Icons.bookmark_outline_rounded,
-                              size: 22,
-                              color: Color(0xFF94A3B8),
+                              Icons.chat_bubble_outline_rounded,
+                              size: 24,
+                              color: _tealDark,
+                            ),
+                            const SizedBox(width: 5),
+                            Text(
+                              '$count',
+                              style: const TextStyle(
+                                fontSize: 13,
+                                fontWeight: FontWeight.w600,
+                                color: _tealDark,
+                              ),
                             ),
                           ],
                         ),
-                      ],
+                      );
+                    },
+                  ),
+
+                  const SizedBox(width: 18),
+
+                  // Compartir
+                  GestureDetector(
+                    onTap: () => ShareSheet.show(
+                      context,
+                      postId: postId,
+                      username: data['username'] ?? '',
+                    ),
+                    child: const Icon(
+                      Icons.send_outlined,
+                      size: 22,
+                      color: _tealDark,
                     ),
                   ),
 
-                  // Sección de comentarios placeholder
-                  Padding(
-                    padding: const EdgeInsets.fromLTRB(16, 8, 16, 32),
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        const Text(
-                          'Comentarios',
-                          style: TextStyle(
-                            fontSize: 13,
-                            fontWeight: FontWeight.w600,
-                            color: _tealDark,
-                          ),
-                        ),
-                        const SizedBox(height: 8),
-                        if (_comentarios == 0)
-                          const Text(
-                            'Sé el primero en comentar',
-                            style: TextStyle(
-                              fontSize: 13,
-                              color: Color(0xFF94A3B8),
-                            ),
-                          )
-                        else
-                          Text(
-                            'Ver los $_comentarios comentarios',
-                            style: const TextStyle(fontSize: 13, color: _teal),
-                          ),
-                        const SizedBox(height: 12),
-                        // Campo para comentar
-                        Row(
-                          children: [
-                            Expanded(
-                              child: Container(
-                                padding: const EdgeInsets.symmetric(
-                                  horizontal: 14,
-                                  vertical: 10,
-                                ),
-                                decoration: BoxDecoration(
-                                  color: _tealBg,
-                                  borderRadius: BorderRadius.circular(24),
-                                  border: Border.all(
-                                    color: _tealLight.withOpacity(0.5),
-                                  ),
-                                ),
-                                child: const Text(
-                                  'Agregá un comentario…',
-                                  style: TextStyle(
-                                    fontSize: 13,
-                                    color: Color(0xFF94A3B8),
-                                  ),
-                                ),
-                              ),
-                            ),
-                          ],
-                        ),
-                      ],
+                  const Spacer(),
+
+                  // Guardar
+                  SaveButton(postId: postId),
+
+                  const SizedBox(width: 4),
+
+                  // Opciones (3 puntitos — reportar, guardar, eliminar si es propio)
+                  GestureDetector(
+                    onTap: () => PostOptionsSheet.show(
+                      context,
+                      postId: postId,
+                      username: data['username'] ?? '',
+                      isOwnPost: esPropio,
+                    ),
+                    child: const Icon(
+                      Icons.more_horiz_rounded,
+                      size: 22,
+                      color: _tealDark,
                     ),
                   ),
                 ],
               ),
+            ),
 
-              // ── PANEL DE REACCIONES (flotante) ──────────────────────────
-              if (_mostrarReacciones)
-                Positioned(
-                  bottom: 80,
-                  left: 16,
-                  child: Container(
-                    padding: const EdgeInsets.symmetric(
-                      horizontal: 12,
-                      vertical: 10,
+            // ── SECCIÓN COMENTARIOS ───────────────────────────────────────────
+            Padding(
+              padding: const EdgeInsets.fromLTRB(16, 10, 16, 8),
+              child: const Divider(color: Color(0xFFE2F0EF), height: 1),
+            ),
+            Padding(
+              padding: const EdgeInsets.fromLTRB(16, 0, 16, 0),
+              child: StreamBuilder<int>(
+                stream: SocialService.commentsCountStream(postId),
+                builder: (_, snap) {
+                  final count = snap.data ?? 0;
+                  return GestureDetector(
+                    onTap: () => CommentsScreen.show(
+                      context,
+                      postId: postId,
+                      postAuthorId: autorId,
                     ),
-                    decoration: BoxDecoration(
-                      color: Colors.white,
-                      borderRadius: BorderRadius.circular(30),
-                      border: Border.all(color: const Color(0xFFE2F0EF)),
-                      boxShadow: [
-                        BoxShadow(
-                          color: Colors.black.withOpacity(0.08),
-                          blurRadius: 12,
-                          offset: const Offset(0, 4),
-                        ),
-                      ],
+                    child: Text(
+                      count == 0
+                          ? 'Sé el primero en comentar'
+                          : 'Ver los $count comentarios',
+                      style: TextStyle(
+                        fontSize: 13,
+                        color: count == 0 ? const Color(0xFF94A3B8) : _teal,
+                        fontWeight: count == 0
+                            ? FontWeight.w400
+                            : FontWeight.w600,
+                      ),
                     ),
-                    child: Row(
-                      mainAxisSize: MainAxisSize.min,
-                      children: _reacciones
-                          .map(
-                            (emoji) => GestureDetector(
-                              onTap: () => _reaccionar(emoji),
-                              child: AnimatedContainer(
-                                duration: const Duration(milliseconds: 150),
-                                margin: const EdgeInsets.symmetric(
-                                  horizontal: 4,
-                                ),
-                                padding: const EdgeInsets.all(6),
-                                decoration: BoxDecoration(
-                                  shape: BoxShape.circle,
-                                  color: _miReaccion == emoji
-                                      ? _tealBg
-                                      : Colors.transparent,
-                                ),
-                                child: Text(
-                                  emoji,
-                                  style: const TextStyle(fontSize: 24),
-                                ),
-                              ),
-                            ),
-                          )
-                          .toList(),
-                    ),
-                  ),
+                  );
+                },
+              ),
+            ),
+
+            // Campo de comentario rápido — abre CommentsScreen al tocar
+            GestureDetector(
+              onTap: () => CommentsScreen.show(
+                context,
+                postId: postId,
+                postAuthorId: autorId,
+              ),
+              child: Container(
+                margin: const EdgeInsets.fromLTRB(16, 10, 16, 24),
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 16,
+                  vertical: 12,
                 ),
-            ],
-          ),
+                decoration: BoxDecoration(
+                  color: _tealBg,
+                  borderRadius: BorderRadius.circular(24),
+                  border: Border.all(color: _tealLight.withOpacity(0.5)),
+                ),
+                child: Row(
+                  children: [
+                    Expanded(
+                      child: Text(
+                        'Agregá un comentario…',
+                        style: TextStyle(fontSize: 13, color: _tealLight),
+                      ),
+                    ),
+                    Icon(Icons.send_rounded, size: 18, color: _tealLight),
+                  ],
+                ),
+              ),
+            ),
+          ],
         ),
       ),
     );
@@ -1800,14 +1684,14 @@ class _TabMensajesFirebase extends StatelessWidget {
   }
 
   String _emojiCat(String? cat) {
-    const map = {
+    const m = {
       'Info': '📢',
       'Urgente': '🚨',
       'Pregunta': '❓',
       'Oferta': '🎁',
       'Alerta': '⚠️',
     };
-    return map[cat] ?? '💬';
+    return m[cat] ?? '💬';
   }
 
   String _timeAgo(dynamic ts) {
@@ -2819,7 +2703,7 @@ class _SettingItem extends StatelessWidget {
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
-// Sheet para nombrar una nueva historia destacada
+// Sheet para crear una historia destacada con nombre y emoji personalizados
 // ─────────────────────────────────────────────────────────────────────────────
 class _NuevoHighlightSheet extends StatefulWidget {
   final Future<void> Function(String title, String emoji) onCreate;
