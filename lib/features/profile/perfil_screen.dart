@@ -1009,6 +1009,7 @@ class _TabPublicacionesFirebase extends StatelessWidget {
           .collection('users')
           .doc(user.uid)
           .collection('publicaciones')
+          .where('tipo', whereIn: ['imagen', 'video', 'audio'])
           .orderBy('timestamp', descending: true)
           .snapshots(),
       builder: (context, snapshot) {
@@ -1104,16 +1105,6 @@ class _TabPublicacionesFirebase extends StatelessWidget {
                         size: 22,
                       ),
                     ),
-                  if (tipo == 'texto')
-                    const Positioned(
-                      top: 6,
-                      right: 6,
-                      child: Icon(
-                        Icons.format_quote_rounded,
-                        color: Colors.white,
-                        size: 22,
-                      ),
-                    ),
                 ],
               ),
             );
@@ -1149,7 +1140,6 @@ class _PostPlaceholder extends StatelessWidget {
       'imagen': (Icons.image_outlined, 0xFF0D9488),
       'video': (Icons.videocam_outlined, 0xFF0891B2),
       'audio': (Icons.mic_outlined, 0xFF7C3AED),
-      'texto': (Icons.format_quote_rounded, 0xFF059669),
     };
     final entry = map[tipo] ?? (Icons.photo_outlined, 0xFF0D9488);
     return Container(
@@ -1162,7 +1152,11 @@ class _PostPlaceholder extends StatelessWidget {
 // ─────────────────────────────────────────────────────────────────────────────
 // Detalle de publicación — usa los mismos widgets del feed
 // ─────────────────────────────────────────────────────────────────────────────
-class _PublicacionDetalle extends StatelessWidget {
+// ─────────────────────────────────────────────────────────────────────────────
+// Detalle de publicación — StatefulWidget para que LikeButton/SaveButton
+// mantengan su estado mientras el DraggableScrollableSheet está abierto.
+// ─────────────────────────────────────────────────────────────────────────────
+class _PublicacionDetalle extends StatefulWidget {
   final String postId;
   final String autorId;
   final Map<String, dynamic> data;
@@ -1173,8 +1167,13 @@ class _PublicacionDetalle extends StatelessWidget {
     required this.data,
   });
 
+  @override
+  State<_PublicacionDetalle> createState() => _PublicacionDetalleState();
+}
+
+class _PublicacionDetalleState extends State<_PublicacionDetalle> {
   String _fechaStr() {
-    final ts = data['timestamp'];
+    final ts = widget.data['timestamp'];
     if (ts == null) return '';
     try {
       final dt = (ts as dynamic).toDate() as DateTime;
@@ -1200,11 +1199,11 @@ class _PublicacionDetalle extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final tipo = data['tipo'] as String? ?? 'imagen';
-    final mediaUrl = data['mediaUrl'] as String?;
-    final caption = data['caption'] as String? ?? '';
+    final tipo = widget.data['tipo'] as String? ?? 'imagen';
+    final mediaUrl = widget.data['mediaUrl'] as String?;
+    final caption = widget.data['caption'] as String? ?? '';
     final myUid = FirebaseAuth.instance.currentUser?.uid ?? '';
-    final esPropio = autorId == myUid;
+    final esPropio = widget.autorId == myUid;
 
     return DraggableScrollableSheet(
       initialChildSize: 0.88,
@@ -1218,7 +1217,7 @@ class _PublicacionDetalle extends StatelessWidget {
         child: ListView(
           controller: ctrl,
           children: [
-            // Handle
+            // ── Handle ──────────────────────────────────────────────────────────
             Center(
               child: Container(
                 margin: const EdgeInsets.only(top: 10, bottom: 8),
@@ -1231,7 +1230,7 @@ class _PublicacionDetalle extends StatelessWidget {
               ),
             ),
 
-            // Media
+            // ── Media ────────────────────────────────────────────────────────────
             if (mediaUrl != null && tipo == 'imagen')
               Image.network(
                 mediaUrl,
@@ -1241,13 +1240,13 @@ class _PublicacionDetalle extends StatelessWidget {
               ),
             if (tipo == 'video')
               Container(
-                height: 220,
+                height: 260,
                 color: Colors.black,
                 child: const Center(
                   child: Icon(
                     Icons.play_circle_outline_rounded,
                     color: Colors.white,
-                    size: 60,
+                    size: 72,
                   ),
                 ),
               ),
@@ -1262,19 +1261,19 @@ class _PublicacionDetalle extends StatelessWidget {
                 child: Row(
                   children: [
                     Container(
-                      width: 44,
-                      height: 44,
-                      decoration: BoxDecoration(
+                      width: 48,
+                      height: 48,
+                      decoration: const BoxDecoration(
                         color: _teal,
                         shape: BoxShape.circle,
                       ),
                       child: const Icon(
                         Icons.play_arrow_rounded,
                         color: Colors.white,
-                        size: 26,
+                        size: 28,
                       ),
                     ),
-                    const SizedBox(width: 12),
+                    const SizedBox(width: 14),
                     Expanded(
                       child: Column(
                         crossAxisAlignment: CrossAxisAlignment.start,
@@ -1283,8 +1282,8 @@ class _PublicacionDetalle extends StatelessWidget {
                             'Audio',
                             style: TextStyle(
                               color: _tealDark,
-                              fontWeight: FontWeight.w600,
-                              fontSize: 14,
+                              fontWeight: FontWeight.w700,
+                              fontSize: 15,
                             ),
                           ),
                           if (caption.isNotEmpty)
@@ -1303,27 +1302,9 @@ class _PublicacionDetalle extends StatelessWidget {
                   ],
                 ),
               ),
-            if (tipo == 'texto')
-              Container(
-                margin: const EdgeInsets.all(16),
-                padding: const EdgeInsets.all(20),
-                decoration: BoxDecoration(
-                  color: _tealBg,
-                  borderRadius: BorderRadius.circular(14),
-                ),
-                child: Text(
-                  caption,
-                  style: const TextStyle(
-                    fontSize: 16,
-                    color: _tealDark,
-                    height: 1.5,
-                    fontWeight: FontWeight.w500,
-                  ),
-                ),
-              ),
 
-            // Caption + fecha (para no-texto)
-            if (caption.isNotEmpty && tipo != 'texto')
+            // ── Caption + fecha ───────────────────────────────────────────────────
+            if (caption.isNotEmpty)
               Padding(
                 padding: const EdgeInsets.fromLTRB(16, 14, 16, 4),
                 child: RichText(
@@ -1335,7 +1316,7 @@ class _PublicacionDetalle extends StatelessWidget {
                     ),
                     children: [
                       TextSpan(
-                        text: '${data['username'] ?? ''} ',
+                        text: '${widget.data['username'] ?? ''} ',
                         style: const TextStyle(fontWeight: FontWeight.w700),
                       ),
                       TextSpan(text: caption),
@@ -1355,26 +1336,29 @@ class _PublicacionDetalle extends StatelessWidget {
                 ),
               ),
 
-            // ── BARRA DE INTERACCIONES — mismos widgets que el feed ───────────
+            // ── BARRA DE INTERACCIONES ────────────────────────────────────────────
             Padding(
-              padding: const EdgeInsets.fromLTRB(14, 12, 14, 4),
+              padding: const EdgeInsets.fromLTRB(14, 14, 14, 6),
               child: Row(
                 children: [
-                  // Like (con animación de bounce y stream en tiempo real)
-                  LikeButton(postId: postId, postAuthorId: autorId),
+                  // Me gusta — LikeButton del feed (con bounce + stream real)
+                  LikeButton(
+                    postId: widget.postId,
+                    postAuthorId: widget.autorId,
+                  ),
 
-                  const SizedBox(width: 18),
+                  const SizedBox(width: 20),
 
-                  // Comentarios (abre CommentsScreen igual que en el feed)
+                  // Comentarios — contador en tiempo real
                   StreamBuilder<int>(
-                    stream: SocialService.commentsCountStream(postId),
+                    stream: SocialService.commentsCountStream(widget.postId),
                     builder: (_, snap) {
                       final count = snap.data ?? 0;
                       return GestureDetector(
                         onTap: () => CommentsScreen.show(
                           context,
-                          postId: postId,
-                          postAuthorId: autorId,
+                          postId: widget.postId,
+                          postAuthorId: widget.autorId,
                         ),
                         child: Row(
                           children: [
@@ -1384,12 +1368,16 @@ class _PublicacionDetalle extends StatelessWidget {
                               color: _tealDark,
                             ),
                             const SizedBox(width: 5),
-                            Text(
-                              '$count',
-                              style: const TextStyle(
-                                fontSize: 13,
-                                fontWeight: FontWeight.w600,
-                                color: _tealDark,
+                            AnimatedSwitcher(
+                              duration: const Duration(milliseconds: 200),
+                              child: Text(
+                                '$count',
+                                key: ValueKey(count),
+                                style: const TextStyle(
+                                  fontSize: 13,
+                                  fontWeight: FontWeight.w600,
+                                  color: _tealDark,
+                                ),
                               ),
                             ),
                           ],
@@ -1398,14 +1386,14 @@ class _PublicacionDetalle extends StatelessWidget {
                     },
                   ),
 
-                  const SizedBox(width: 18),
+                  const SizedBox(width: 20),
 
                   // Compartir
                   GestureDetector(
                     onTap: () => ShareSheet.show(
                       context,
-                      postId: postId,
-                      username: data['username'] ?? '',
+                      postId: widget.postId,
+                      username: widget.data['username'] as String? ?? '',
                     ),
                     child: const Icon(
                       Icons.send_outlined,
@@ -1416,22 +1404,28 @@ class _PublicacionDetalle extends StatelessWidget {
 
                   const Spacer(),
 
-                  // Guardar
-                  SaveButton(postId: postId),
+                  // Guardar — SaveButton del feed (con stream real)
+                  SaveButton(postId: widget.postId),
 
-                  const SizedBox(width: 4),
+                  const SizedBox(width: 6),
 
-                  // Opciones (3 puntitos — reportar, guardar, eliminar si es propio)
+                  // Opciones — sheet distinto según si es propio o ajeno
                   GestureDetector(
-                    onTap: () => PostOptionsSheet.show(
-                      context,
-                      postId: postId,
-                      username: data['username'] ?? '',
-                      isOwnPost: esPropio,
-                    ),
+                    onTap: () => esPropio
+                        ? _PerfilPostOptionsSheet.show(
+                            context,
+                            postId: widget.postId,
+                            autorId: widget.autorId,
+                          )
+                        : PostOptionsSheet.show(
+                            context,
+                            postId: widget.postId,
+                            username: widget.data['username'] as String? ?? '',
+                            isOwnPost: false,
+                          ),
                     child: const Icon(
                       Icons.more_horiz_rounded,
-                      size: 22,
+                      size: 24,
                       color: _tealDark,
                     ),
                   ),
@@ -1439,22 +1433,24 @@ class _PublicacionDetalle extends StatelessWidget {
               ),
             ),
 
-            // ── SECCIÓN COMENTARIOS ───────────────────────────────────────────
-            Padding(
-              padding: const EdgeInsets.fromLTRB(16, 10, 16, 8),
-              child: const Divider(color: Color(0xFFE2F0EF), height: 1),
+            // ── Divisor ────────────────────────────────────────────────────────────
+            const Padding(
+              padding: EdgeInsets.symmetric(horizontal: 16),
+              child: Divider(color: Color(0xFFE2F0EF), height: 1),
             ),
+
+            // ── Sección comentarios ───────────────────────────────────────────────
             Padding(
-              padding: const EdgeInsets.fromLTRB(16, 0, 16, 0),
+              padding: const EdgeInsets.fromLTRB(16, 10, 16, 0),
               child: StreamBuilder<int>(
-                stream: SocialService.commentsCountStream(postId),
+                stream: SocialService.commentsCountStream(widget.postId),
                 builder: (_, snap) {
                   final count = snap.data ?? 0;
                   return GestureDetector(
                     onTap: () => CommentsScreen.show(
                       context,
-                      postId: postId,
-                      postAuthorId: autorId,
+                      postId: widget.postId,
+                      postAuthorId: widget.autorId,
                     ),
                     child: Text(
                       count == 0
@@ -1473,15 +1469,15 @@ class _PublicacionDetalle extends StatelessWidget {
               ),
             ),
 
-            // Campo de comentario rápido — abre CommentsScreen al tocar
+            // Campo de comentario rápido
             GestureDetector(
               onTap: () => CommentsScreen.show(
                 context,
-                postId: postId,
-                postAuthorId: autorId,
+                postId: widget.postId,
+                postAuthorId: widget.autorId,
               ),
               child: Container(
-                margin: const EdgeInsets.fromLTRB(16, 10, 16, 24),
+                margin: const EdgeInsets.fromLTRB(16, 10, 16, 28),
                 padding: const EdgeInsets.symmetric(
                   horizontal: 16,
                   vertical: 12,
@@ -1504,6 +1500,519 @@ class _PublicacionDetalle extends StatelessWidget {
                 ),
               ),
             ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Sheet de opciones del perfil propio — estilo Instagram
+// Incluye: guardar, código QR, archivar, ocultar likes, ocultar compartidos,
+//          desactivar comentarios, editar, ajustar preview, fijar, eliminar.
+// ─────────────────────────────────────────────────────────────────────────────
+class _PerfilPostOptionsSheet {
+  static void show(
+    BuildContext context, {
+    required String postId,
+    required String autorId,
+  }) {
+    showModalBottomSheet(
+      context: context,
+      isScrollControlled: true,
+      backgroundColor: Colors.transparent,
+      barrierColor: Colors.black.withOpacity(0.55),
+      builder: (_) =>
+          _PerfilPostOptionsContent(postId: postId, autorId: autorId),
+    );
+  }
+}
+
+class _PerfilPostOptionsContent extends StatefulWidget {
+  final String postId;
+  final String autorId;
+  const _PerfilPostOptionsContent({
+    required this.postId,
+    required this.autorId,
+  });
+  @override
+  State<_PerfilPostOptionsContent> createState() =>
+      _PerfilPostOptionsContentState();
+}
+
+class _PerfilPostOptionsContentState extends State<_PerfilPostOptionsContent> {
+  bool _ocultarLikes = false;
+  bool _ocultarCompartidos = false;
+  bool _comentariosActivos = true;
+  bool _fijado = false;
+  bool _guardando = false;
+
+  @override
+  void initState() {
+    super.initState();
+    _cargarEstado();
+  }
+
+  Future<void> _cargarEstado() async {
+    try {
+      final doc = await FirebaseFirestore.instance
+          .collection('users')
+          .doc(widget.autorId)
+          .collection('publicaciones')
+          .doc(widget.postId)
+          .get();
+      if (!mounted) return;
+      final d = doc.data() ?? {};
+      setState(() {
+        _ocultarLikes = d['ocultarLikes'] as bool? ?? false;
+        _ocultarCompartidos = d['ocultarCompartidos'] as bool? ?? false;
+        _comentariosActivos = d['comentariosActivos'] as bool? ?? true;
+        _fijado = d['fijado'] as bool? ?? false;
+      });
+    } catch (_) {}
+  }
+
+  Future<void> _actualizar(Map<String, dynamic> fields) async {
+    if (_guardando) return;
+    setState(() => _guardando = true);
+    try {
+      await FirebaseFirestore.instance
+          .collection('users')
+          .doc(widget.autorId)
+          .collection('publicaciones')
+          .doc(widget.postId)
+          .update(fields);
+    } catch (e) {
+      if (mounted) _snack('Error al guardar. Intentá de nuevo.');
+    } finally {
+      if (mounted) setState(() => _guardando = false);
+    }
+  }
+
+  Future<void> _archivar() async {
+    Navigator.pop(context);
+    try {
+      await FirebaseFirestore.instance
+          .collection('users')
+          .doc(widget.autorId)
+          .collection('publicaciones')
+          .doc(widget.postId)
+          .update({'archivado': true});
+      if (mounted) _snack('Publicación archivada');
+    } catch (_) {
+      if (mounted) _snack('Error al archivar');
+    }
+  }
+
+  Future<void> _eliminar() async {
+    Navigator.pop(context);
+    final confirmar = await showDialog<bool>(
+      context: context,
+      builder: (_) => AlertDialog(
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+        title: const Text(
+          'Eliminar publicación',
+          style: TextStyle(fontWeight: FontWeight.w700, color: _tealDark),
+        ),
+        content: const Text(
+          '¿Estás seguro? Esta acción no se puede deshacer.',
+          style: TextStyle(color: Color(0xFF64748B)),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context, false),
+            child: const Text('Cancelar', style: TextStyle(color: _teal)),
+          ),
+          TextButton(
+            onPressed: () => Navigator.pop(context, true),
+            child: const Text(
+              'Eliminar',
+              style: TextStyle(
+                color: Colors.redAccent,
+                fontWeight: FontWeight.w700,
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+    if (confirmar != true) return;
+    try {
+      await FirebaseFirestore.instance
+          .collection('users')
+          .doc(widget.autorId)
+          .collection('publicaciones')
+          .doc(widget.postId)
+          .delete();
+      if (mounted) _snack('Publicación eliminada');
+    } catch (_) {
+      if (mounted) _snack('Error al eliminar');
+    }
+  }
+
+  void _snack(String msg, {bool error = false}) {
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: Text(msg),
+        behavior: SnackBarBehavior.floating,
+        backgroundColor: error ? Colors.redAccent : _teal,
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+        duration: const Duration(seconds: 2),
+      ),
+    );
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final bottom = MediaQuery.of(context).padding.bottom;
+
+    return Container(
+      decoration: const BoxDecoration(
+        color: Color(0xFF0F2422),
+        borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
+      ),
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          // Handle
+          const SizedBox(height: 12),
+          Container(
+            width: 40,
+            height: 4,
+            decoration: BoxDecoration(
+              color: const Color(0xFF2D5550),
+              borderRadius: BorderRadius.circular(2),
+            ),
+          ),
+          const SizedBox(height: 16),
+
+          // ── Fila de acciones rápidas: Guardar + Código QR ──────────────────
+          Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 20),
+            child: Row(
+              children: [
+                Expanded(
+                  child: _QuickIconButton(
+                    icon: Icons.bookmark_outline_rounded,
+                    label: 'Guardar',
+                    onTap: () async {
+                      Navigator.pop(context);
+                      try {
+                        await SocialService.toggleSave(widget.postId);
+                        if (mounted) _snack('Guardado');
+                      } catch (_) {}
+                    },
+                  ),
+                ),
+                const SizedBox(width: 12),
+                Expanded(
+                  child: _QuickIconButton(
+                    icon: Icons.qr_code_2_rounded,
+                    label: 'Código QR',
+                    onTap: () {
+                      Navigator.pop(context);
+                      _snack('Código QR generado');
+                    },
+                  ),
+                ),
+              ],
+            ),
+          ),
+          const SizedBox(height: 16),
+
+          // ── Grupo principal de opciones ─────────────────────────────────────
+          _OptionsGroup(
+            children: [
+              // Archivar
+              _OptionRow(
+                icon: Icons.archive_outlined,
+                label: 'Archivar',
+                onTap: _archivar,
+              ),
+              const _OptionDivider(),
+
+              // Ocultar recuento de Me gusta
+              _OptionRow(
+                icon: Icons.favorite_border_rounded,
+                label: 'Ocultar recuento de Me gusta',
+                trailing: Switch(
+                  value: _ocultarLikes,
+                  onChanged: (v) {
+                    setState(() => _ocultarLikes = v);
+                    _actualizar({'ocultarLikes': v});
+                  },
+                  activeColor: _teal,
+                  materialTapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                ),
+                onTap: () {
+                  final newVal = !_ocultarLikes;
+                  setState(() => _ocultarLikes = newVal);
+                  _actualizar({'ocultarLikes': newVal});
+                },
+              ),
+              const _OptionDivider(),
+
+              // Ocultar veces que se compartió
+              _OptionRow(
+                icon: Icons.send_outlined,
+                label: 'Ocultar veces que se compartió',
+                trailing: Switch(
+                  value: _ocultarCompartidos,
+                  onChanged: (v) {
+                    setState(() => _ocultarCompartidos = v);
+                    _actualizar({'ocultarCompartidos': v});
+                  },
+                  activeColor: _teal,
+                  materialTapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                ),
+                onTap: () {
+                  final newVal = !_ocultarCompartidos;
+                  setState(() => _ocultarCompartidos = newVal);
+                  _actualizar({'ocultarCompartidos': newVal});
+                },
+              ),
+              const _OptionDivider(),
+
+              // Desactivar comentarios
+              _OptionRow(
+                icon: Icons.chat_bubble_outline_rounded,
+                label: 'Desactivar comentarios',
+                trailing: Switch(
+                  value: !_comentariosActivos,
+                  onChanged: (v) {
+                    setState(() => _comentariosActivos = !v);
+                    _actualizar({'comentariosActivos': !v});
+                  },
+                  activeColor: _teal,
+                  materialTapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                ),
+                onTap: () {
+                  final newVal = !_comentariosActivos;
+                  setState(() => _comentariosActivos = !newVal);
+                  _actualizar({'comentariosActivos': !newVal});
+                },
+              ),
+              const _OptionDivider(),
+
+              // Editar caption
+              _OptionRow(
+                icon: Icons.edit_outlined,
+                label: 'Editar',
+                onTap: () {
+                  Navigator.pop(context);
+                  _snack('Edición de publicación — próximamente');
+                },
+              ),
+              const _OptionDivider(),
+
+              // Ajustar vista previa
+              _OptionRow(
+                icon: Icons.crop_rounded,
+                label: 'Ajustar vista previa',
+                onTap: () {
+                  Navigator.pop(context);
+                  _snack('Ajuste de vista previa — próximamente');
+                },
+              ),
+              const _OptionDivider(),
+
+              // Fijar en cuadrícula
+              _OptionRow(
+                icon: _fijado
+                    ? Icons.push_pin_rounded
+                    : Icons.push_pin_outlined,
+                label: _fijado
+                    ? 'Desfijar de la cuadrícula'
+                    : 'Fijar en la cuadrícula principal',
+                trailing: _fijado
+                    ? Container(
+                        padding: const EdgeInsets.symmetric(
+                          horizontal: 8,
+                          vertical: 3,
+                        ),
+                        decoration: BoxDecoration(
+                          color: const Color(0xFF0D9488).withOpacity(0.2),
+                          borderRadius: BorderRadius.circular(20),
+                        ),
+                        child: const Text(
+                          'Fijado',
+                          style: TextStyle(
+                            fontSize: 11,
+                            color: Color(0xFF4DC9C2),
+                          ),
+                        ),
+                      )
+                    : null,
+                onTap: () {
+                  final newVal = !_fijado;
+                  setState(() => _fijado = newVal);
+                  _actualizar({'fijado': newVal});
+                  _snack(newVal ? 'Fijado en la cuadrícula' : 'Desfijado');
+                },
+              ),
+            ],
+          ),
+          const SizedBox(height: 10),
+
+          // ── Eliminar (separado, en rojo) ─────────────────────────────────────
+          _OptionsGroup(
+            children: [
+              _OptionRow(
+                icon: Icons.delete_outline_rounded,
+                label: 'Eliminar',
+                labelColor: const Color(0xFFF87171),
+                iconColor: const Color(0xFFF87171),
+                onTap: _eliminar,
+              ),
+            ],
+          ),
+
+          SizedBox(height: bottom + 16),
+        ],
+      ),
+    );
+  }
+}
+
+// ── Botón icono cuadrado para la fila superior del sheet ──────────────────────
+class _QuickIconButton extends StatelessWidget {
+  final IconData icon;
+  final String label;
+  final VoidCallback onTap;
+  const _QuickIconButton({
+    required this.icon,
+    required this.label,
+    required this.onTap,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return GestureDetector(
+      onTap: onTap,
+      child: Container(
+        padding: const EdgeInsets.symmetric(vertical: 16),
+        decoration: BoxDecoration(
+          color: const Color(0xFF1A3A36),
+          borderRadius: BorderRadius.circular(14),
+          border: Border.all(color: const Color(0xFF2D5550)),
+        ),
+        child: Column(
+          children: [
+            Icon(icon, color: const Color(0xFFCCFBF1), size: 26),
+            const SizedBox(height: 6),
+            Text(
+              label,
+              style: const TextStyle(
+                color: Color(0xFFCCFBF1),
+                fontSize: 12,
+                fontWeight: FontWeight.w500,
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+// ── Grupo de opciones con fondo oscuro ───────────────────────────────────────
+class _OptionsGroup extends StatelessWidget {
+  final List<Widget> children;
+  const _OptionsGroup({required this.children});
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      margin: const EdgeInsets.symmetric(horizontal: 16),
+      decoration: BoxDecoration(
+        color: const Color(0xFF1A3A36),
+        borderRadius: BorderRadius.circular(14),
+        border: Border.all(color: const Color(0xFF2D5550)),
+      ),
+      child: Column(mainAxisSize: MainAxisSize.min, children: children),
+    );
+  }
+}
+
+class _OptionDivider extends StatelessWidget {
+  const _OptionDivider();
+  @override
+  Widget build(BuildContext context) => Container(
+    height: 1,
+    margin: const EdgeInsets.only(left: 52),
+    color: const Color(0xFF2D5550),
+  );
+}
+
+// ── Fila de opción individual ────────────────────────────────────────────────
+class _OptionRow extends StatefulWidget {
+  final IconData icon;
+  final String label;
+  final Color? labelColor;
+  final Color? iconColor;
+  final Widget? trailing;
+  final VoidCallback onTap;
+
+  const _OptionRow({
+    required this.icon,
+    required this.label,
+    this.labelColor,
+    this.iconColor,
+    this.trailing,
+    required this.onTap,
+  });
+  @override
+  State<_OptionRow> createState() => _OptionRowState();
+}
+
+class _OptionRowState extends State<_OptionRow> {
+  bool _pressed = false;
+  @override
+  Widget build(BuildContext context) {
+    return GestureDetector(
+      onTapDown: (_) => setState(() => _pressed = true),
+      onTapUp: (_) {
+        setState(() => _pressed = false);
+        widget.onTap();
+      },
+      onTapCancel: () => setState(() => _pressed = false),
+      child: AnimatedContainer(
+        duration: const Duration(milliseconds: 100),
+        color: _pressed
+            ? const Color(0xFF0D9488).withOpacity(0.1)
+            : Colors.transparent,
+        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
+        child: Row(
+          children: [
+            Container(
+              width: 34,
+              height: 34,
+              decoration: BoxDecoration(
+                color: (widget.iconColor ?? const Color(0xFF4DC9C2))
+                    .withOpacity(0.15),
+                shape: BoxShape.circle,
+              ),
+              child: Icon(
+                widget.icon,
+                size: 18,
+                color: widget.iconColor ?? const Color(0xFF4DC9C2),
+              ),
+            ),
+            const SizedBox(width: 14),
+            Expanded(
+              child: Text(
+                widget.label,
+                style: TextStyle(
+                  fontSize: 14,
+                  fontWeight: FontWeight.w500,
+                  color: widget.labelColor ?? const Color(0xFFCCFBF1),
+                ),
+              ),
+            ),
+            if (widget.trailing != null) ...[
+              const SizedBox(width: 8),
+              widget.trailing!,
+            ],
           ],
         ),
       ),
