@@ -3,7 +3,6 @@ import 'package:flutter/foundation.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/rendering.dart';
 
-import '../../services/seed_posts.dart';
 import '../../services/location_service.dart';
 import '../../services/feed_service.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
@@ -37,9 +36,7 @@ class _FeedScreenState extends State<FeedScreen> {
   @override
   void initState() {
     super.initState();
-    if (kDebugMode) {
-      SeedPosts.run();
-    }
+    if (kDebugMode) {}
     _loadFeed();
     _scrollController.addListener(_onScroll);
   }

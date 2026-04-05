@@ -79,11 +79,15 @@ class PostService {
       // }
 
       // Placeholder mientras Storage no está activo:
-      final List<String> imageUrls = List.generate(
-        imagenes.length,
-        (i) =>
-            'https://picsum.photos/seed/${DateTime.now().millisecondsSinceEpoch + i}/800/800',
-      );
+      final List<String> imageUrls = imagenes.isNotEmpty
+          ? List.generate(
+              imagenes.length,
+              (i) =>
+                  'https://picsum.photos/seed/${DateTime.now().millisecondsSinceEpoch + i}/800/800',
+            )
+          : [
+              'https://picsum.photos/seed/nomad/800/800',
+            ]; // fallback para no quedar vacío
 
       // ── Crear documento en Firestore ─────────────────────────────────────
       final docRef = _db.collection(_postsCollection).doc();

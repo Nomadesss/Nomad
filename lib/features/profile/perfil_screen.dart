@@ -12,17 +12,15 @@ import '../feed/nueva_historia_screen.dart';
 import '../feed/widgets/like_button.dart';
 import '../feed/widgets/save_button.dart';
 import '../feed/widgets/share_sheet.dart';
-import '../feed/widgets/post_options_sheet.dart';
+import '../feed/widgets/post_options_sheet.dart'; // exporta showPostOptions()
 import '../feed/widgets/comments_screen.dart';
 import '../../services/social_service.dart';
 import '../../services/post_service.dart';
 
 // ─────────────────────────────────────────────────────────────────────────────
 // perfil_screen.dart  –  Nomad App
-// Pantalla de perfil propio, estilo Instagram, orientada a migrantes.
 // ─────────────────────────────────────────────────────────────────────────────
 
-// Paleta
 const _teal = Color(0xFF0D9488);
 const _tealLight = Color(0xFF5EEAD4);
 const _tealDark = Color(0xFF134E4A);
@@ -41,7 +39,6 @@ class _PerfilPropioState extends State<PerfilPropio>
   late TabController _tabController;
   int _tabIndex = 0;
 
-  // ── Datos desde Firestore ─────────────────────────────────────────────────
   final _firestore = FirebaseFirestore.instance;
   String _nombre = '';
   String _username = '';
@@ -72,7 +69,6 @@ class _PerfilPropioState extends State<PerfilPropio>
         ? ciudadesRaw.map((e) => Map<String, String>.from(e as Map)).toList()
         : [];
 
-    // Obtener estadísticas
     int seguidoresTemp = 0;
     int siguiendoTemp = 0;
     int publicacionesTemp = 0;
@@ -106,7 +102,6 @@ class _PerfilPropioState extends State<PerfilPropio>
           .collection('highlights')
           .orderBy('order')
           .get();
-
       final loadedHighlights = highlightsSnapshot.docs.map((d) {
         final data = d.data();
         return {
@@ -147,7 +142,6 @@ class _PerfilPropioState extends State<PerfilPropio>
   @override
   Widget build(BuildContext context) {
     final user = FirebaseAuth.instance.currentUser;
-    // Usamos datos de Firestore si ya cargaron, sino fallback a FirebaseAuth
     final String nombre = _datosLoaded
         ? _nombre
         : (user?.displayName ?? user?.email?.split('@')[0] ?? 'Usuario');
@@ -187,78 +181,6 @@ class _PerfilPropioState extends State<PerfilPropio>
     );
   }
 
-  Widget _buildGrillaDePosts() {
-    final String miId = FirebaseAuth.instance.currentUser?.uid ?? '';
-
-    return StreamBuilder<List<Map<String, dynamic>>>(
-      stream: PostService.getUserPosts(miId),
-      builder: (context, snapshot) {
-        if (snapshot.connectionState == ConnectionState.waiting) {
-          return const Center(child: CircularProgressIndicator());
-        }
-
-        if (!snapshot.hasData || snapshot.data!.isEmpty) {
-          return const Center(
-            child: Text(
-              "Aún no tienes publicaciones",
-              style: TextStyle(color: Colors.grey),
-            ),
-          );
-        }
-
-        final posts = snapshot.data!;
-
-        return GridView.builder(
-          shrinkWrap: true, // Importante si está dentro de un ListView o Column
-          physics: const NeverScrollableScrollPhysics(),
-          gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
-            crossAxisCount: 3,
-            crossAxisSpacing: 2,
-            mainAxisSpacing: 2,
-          ),
-          itemCount: posts.length,
-          itemBuilder: (context, index) {
-            final post = posts[index];
-
-            // Lógica para determinar qué miniatura mostrar
-            return _buildPostThumbnail(post);
-          },
-        );
-      },
-    );
-  }
-
-  Widget _buildPostThumbnail(Map<String, dynamic> post) {
-    // 1. Si es de fotos o video (asumiendo que guardás la URL en 'images')
-    if (post['images'] != null && (post['images'] as List).isNotEmpty) {
-      return Image.network(post['images'][0], fit: BoxFit.cover);
-    }
-
-    // 2. Si es solo audio/Spotify (asumiendo que tenés spotifyAlbumArt)
-    if (post['spotifyTrackId'] != null) {
-      return Stack(
-        fit: StackFit.expand,
-        children: [
-          Image.network(post['spotifyAlbumArt'] ?? '', fit: BoxFit.cover),
-          const Center(
-            child: Icon(Icons.music_note, color: Colors.white, size: 30),
-          ),
-          Container(
-            color: Colors.black26,
-          ), // Oscurece un poco para que se vea el icono
-        ],
-      );
-    }
-
-    // 3. Fallback (post de solo texto o error)
-    return Container(
-      color: _teal.withOpacity(0.1),
-      child: const Icon(Icons.article, color: _teal),
-    );
-  }
-
-  // ── Sliver App Bar con toda la info del perfil ────────────────────────────
-
   Widget _buildSliverHeader(
     BuildContext context,
     User? user,
@@ -294,19 +216,15 @@ class _PerfilPropioState extends State<PerfilPropio>
           seguidoresCount: _seguidoresCount,
           siguiendoCount: _siguiendoCount,
           publicacionesCount: _publicacionesCount,
-
           onEditarPerfil: () => _showEditarPerfil(context),
           onFoto: () => _showFotoOptions(context, user),
           onEditarPortada: () => _showPortadaOptions(context),
-
           onCrearHighlight: _crearHighlight,
           onAbrirHighlight: _abrirHighlight,
         ),
       ),
     );
   }
-
-  // ── Tab bar ───────────────────────────────────────────────────────────────
 
   Widget _buildTabBar() {
     final tabs = [
@@ -351,16 +269,11 @@ class _PerfilPropioState extends State<PerfilPropio>
     );
   }
 
-  // ── Modales ───────────────────────────────────────────────────────────────
-
   void _showEditarPerfil(BuildContext context) {
     Navigator.push(
       context,
       MaterialPageRoute(builder: (context) => const EditProfileScreen()),
-    ).then((_) {
-      // Recargar datos al volver de editar
-      _cargarDatosUsuario();
-    });
+    ).then((_) => _cargarDatosUsuario());
   }
 
   void _showFotoOptions(BuildContext context, User? user) {
@@ -371,7 +284,6 @@ class _PerfilPropioState extends State<PerfilPropio>
     );
   }
 
-  // MODIFICACIÓN: Nueva función para mostrar las opciones de portada
   void _showPortadaOptions(BuildContext context) {
     showModalBottomSheet(
       context: context,
@@ -400,7 +312,6 @@ class _PerfilPropioState extends State<PerfilPropio>
   void _abrirHighlight(BuildContext context, String highlightId) {
     Navigator.push(
       context,
-
       MaterialPageRoute(
         builder: (_) => HighlightStoriesScreen(highlightId: highlightId),
       ),
@@ -452,15 +363,12 @@ class _ProfileHeader extends StatelessWidget {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          // Cover + Avatar
           _buildCoverAndAvatar(context, onEditarPortada),
-          // Info
           Padding(
             padding: const EdgeInsets.fromLTRB(20, 10, 20, 0),
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                // Nombre + botón editar
                 Row(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
@@ -492,47 +400,32 @@ class _ProfileHeader extends StatelessWidget {
                     _EditButton(label: 'Editar perfil', onTap: onEditarPerfil),
                   ],
                 ),
-
                 const SizedBox(height: 10),
-
-                // Bio (dinámica desde Firestore)
                 if (bio.isNotEmpty) _BioExpandable(text: bio),
-
                 const SizedBox(height: 14),
-
-                // Lugares vividos
                 _buildLugaresVividos(),
-
                 const SizedBox(height: 18),
               ],
             ),
           ),
-
-          // Historias + destacadas
           _buildHighlights(context),
-
           const SizedBox(height: 8),
-
-          // Divisor
           Container(height: 0.5, color: const Color(0xFFE2F0EF)),
         ],
       ),
     );
   }
 
-  // MODIFICACIÓN: Acepta onEditarPortada como argumento
   Widget _buildCoverAndAvatar(
     BuildContext context,
     VoidCallback onEditarPortada,
   ) {
-    return Container(
-      // Definimos una altura fija para el contenedor padre para evitar el error de 'infinite height'
+    return SizedBox(
       height: 210,
       width: double.infinity,
       child: Stack(
         clipBehavior: Clip.none,
         children: [
-          // 1. PORTADA
           Container(
             height: 160,
             width: double.infinity,
@@ -548,7 +441,6 @@ class _ProfileHeader extends StatelessWidget {
                     errorBuilder: (_, __, ___) => const SizedBox.shrink(),
                   ),
                 ),
-                // Gradiente oscuro para que resalte el botón de editar
                 Positioned.fill(
                   child: Container(
                     decoration: BoxDecoration(
@@ -566,8 +458,6 @@ class _ProfileHeader extends StatelessWidget {
               ],
             ),
           ),
-
-          // 2. BOTÓN EDITAR PORTADA
           Positioned(
             top: 120,
             right: 14,
@@ -603,15 +493,12 @@ class _ProfileHeader extends StatelessWidget {
               ),
             ),
           ),
-
-          // 3. AVATAR Y BOTÓN "+"
           Positioned(
             top: 115,
             left: 20,
             child: Stack(
               clipBehavior: Clip.none,
               children: [
-                // Círculo de la foto
                 GestureDetector(
                   onTap: onFoto,
                   child: Container(
@@ -647,8 +534,6 @@ class _ProfileHeader extends StatelessWidget {
                     ),
                   ),
                 ),
-
-                // BOTÓN "+" (Corregido con Material e InkWell para asegurar el click)
                 Positioned(
                   bottom: 2,
                   right: 2,
@@ -656,13 +541,9 @@ class _ProfileHeader extends StatelessWidget {
                     color: _teal,
                     shape: const CircleBorder(),
                     elevation: 4,
-                    clipBehavior: Clip
-                        .antiAlias, // Asegura que el efecto splash sea circular
+                    clipBehavior: Clip.antiAlias,
                     child: InkWell(
-                      onTap: () {
-                        debugPrint("Botón + presionado");
-                        onFoto();
-                      },
+                      onTap: onFoto,
                       child: Container(
                         width: 28,
                         height: 28,
@@ -682,14 +563,11 @@ class _ProfileHeader extends StatelessWidget {
               ],
             ),
           ),
-
-          // 4. ESTADÍSTICAS - a la derecha del avatar, centradas verticalmente
           Positioned(
             top: 170,
-            left: 150, // avatar left(20) + diámetro aprox(90)
+            left: 150,
             child: Row(
               mainAxisSize: MainAxisSize.min,
-              crossAxisAlignment: CrossAxisAlignment.center,
               children: [
                 _StatBubble(
                   value: seguidoresCount.toString(),
@@ -710,18 +588,6 @@ class _ProfileHeader extends StatelessWidget {
           ),
         ],
       ),
-    );
-  }
-
-  Widget _buildStats() {
-    return Row(
-      children: [
-        _StatBubble(value: '$_publicacionesCount', label: 'Posts'),
-        const SizedBox(width: 24),
-        _StatBubble(value: '$_seguidoresCount', label: 'Seguidores'),
-        const SizedBox(width: 24),
-        _StatBubble(value: '$_siguiendoCount', label: 'Siguiendo'),
-      ],
     );
   }
 
@@ -749,7 +615,6 @@ class _ProfileHeader extends StatelessWidget {
           scrollDirection: Axis.horizontal,
           child: Row(
             children: [
-              // Ciudades dinámicas desde Firestore
               if (lugaresVividos.isEmpty)
                 GestureDetector(
                   onTap: onEditarPerfil,
@@ -859,35 +724,23 @@ class _ProfileHeader extends StatelessWidget {
   Widget _buildHighlights(BuildContext context) {
     return SizedBox(
       height: 100,
-
       child: ListView(
         scrollDirection: Axis.horizontal,
-
         padding: const EdgeInsets.symmetric(horizontal: 16),
-
         children: [
           _HighlightItem(
             title: 'Nuevo',
-
             isCreate: true,
-
             onTap: () => onCrearHighlight(context),
           ),
-
           ...highlights.map(
             (h) => _HighlightItem(
               title: h['title'],
-
               emoji: h['emoji'],
-
               imageUrl: h['coverUrl'],
-
               onTap: () {
                 final id = h["id"];
-
-                if (id != null) {
-                  onAbrirHighlight(context, id);
-                }
+                if (id != null) onAbrirHighlight(context, id);
               },
             ),
           ),
@@ -897,174 +750,8 @@ class _ProfileHeader extends StatelessWidget {
   }
 }
 
-class _HighlightItem extends StatelessWidget {
-  final String title;
-  final String? emoji;
-  final String? imageUrl;
-  final bool isCreate;
-  final VoidCallback onTap;
-
-  const _HighlightItem({
-    required this.title,
-    required this.onTap,
-    this.emoji,
-    this.imageUrl,
-    this.isCreate = false,
-  });
-
-  @override
-  Widget build(BuildContext context) {
-    return GestureDetector(
-      onTap: onTap,
-
-      child: Container(
-        margin: const EdgeInsets.only(right: 14),
-
-        child: Column(
-          children: [
-            Container(
-              width: 68,
-              height: 68,
-
-              decoration: BoxDecoration(
-                shape: BoxShape.circle,
-
-                border: Border.all(color: const Color(0xFF0D9488), width: 2),
-              ),
-
-              child: ClipOval(
-                child: isCreate
-                    ? Container(
-                        color: const Color(0xFFF0FAF9),
-                        child: const Icon(Icons.add, color: Color(0xFF0D9488)),
-                      )
-                    : imageUrl != null
-                    ? Image.network(imageUrl!, fit: BoxFit.cover)
-                    : Center(
-                        child: Text(
-                          emoji ?? "⭐",
-                          style: const TextStyle(fontSize: 26),
-                        ),
-                      ),
-              ),
-            ),
-
-            const SizedBox(height: 6),
-
-            SizedBox(
-              width: 70,
-
-              child: Text(
-                title,
-                overflow: TextOverflow.ellipsis,
-                textAlign: TextAlign.center,
-
-                style: const TextStyle(
-                  fontSize: 11,
-                  fontWeight: FontWeight.w500,
-                ),
-              ),
-            ),
-          ],
-        ),
-      ),
-    );
-  }
-}
-
-class HighlightStoriesScreen extends StatelessWidget {
-  final String highlightId;
-
-  const HighlightStoriesScreen({required this.highlightId});
-
-  @override
-  Widget build(BuildContext context) {
-    final user = FirebaseAuth.instance.currentUser;
-
-    return Scaffold(
-      backgroundColor: Colors.black,
-
-      body: StreamBuilder(
-        stream: FirebaseFirestore.instance
-            .collection('users')
-            .doc(user!.uid)
-            .collection('stories')
-            .where('highlightId', isEqualTo: highlightId)
-            .snapshots(),
-
-        builder: (context, snapshot) {
-          if (!snapshot.hasData) {
-            return const Center(child: CircularProgressIndicator());
-          }
-
-          final stories = snapshot.data!.docs;
-
-          return PageView.builder(
-            itemCount: stories.length,
-
-            itemBuilder: (_, i) {
-              final story = stories[i];
-
-              return Image.network(story['mediaUrl'], fit: BoxFit.cover);
-            },
-          );
-        },
-      ),
-    );
-  }
-}
-
-class _BioExpandable extends StatefulWidget {
-  final String text;
-  const _BioExpandable({required this.text});
-
-  @override
-  State<_BioExpandable> createState() => _BioExpandableState();
-}
-
-class _BioExpandableState extends State<_BioExpandable> {
-  bool expanded = false;
-
-  @override
-  Widget build(BuildContext context) {
-    final style = const TextStyle(
-      fontSize: 13.5,
-      color: Color(0xFF4B7B78),
-      height: 1.5,
-    );
-
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        Text(
-          widget.text,
-          style: style,
-          maxLines: expanded ? null : 3,
-          overflow: expanded ? TextOverflow.visible : TextOverflow.ellipsis,
-        ),
-
-        if (widget.text.length > 120)
-          GestureDetector(
-            onTap: () => setState(() => expanded = !expanded),
-            child: Padding(
-              padding: const EdgeInsets.only(top: 4),
-              child: Text(
-                expanded ? "ver menos" : "ver más",
-                style: const TextStyle(
-                  fontSize: 12,
-                  color: _teal,
-                  fontWeight: FontWeight.w600,
-                ),
-              ),
-            ),
-          ),
-      ],
-    );
-  }
-}
-
 // ─────────────────────────────────────────────────────────────────────────────
-// Tabs de contenido
+// Detalle de publicación
 // ─────────────────────────────────────────────────────────────────────────────
 
 class _TabPublicacionesFirebase extends StatelessWidget {
@@ -1073,13 +760,12 @@ class _TabPublicacionesFirebase extends StatelessWidget {
     final user = FirebaseAuth.instance.currentUser;
     if (user == null) return const SizedBox.shrink();
 
+    // Lee de la colección 'posts' (donde escribe PostService)
     return StreamBuilder<QuerySnapshot>(
       stream: FirebaseFirestore.instance
-          .collection('users')
-          .doc(user.uid)
-          .collection('publicaciones')
-          .where('tipo', whereIn: ['imagen', 'video', 'audio'])
-          .orderBy('timestamp', descending: true)
+          .collection('posts')
+          .where('authorId', isEqualTo: user.uid)
+          .orderBy('createdAt', descending: true)
           .snapshots(),
       builder: (context, snapshot) {
         if (snapshot.connectionState == ConnectionState.waiting) {
@@ -1121,9 +807,10 @@ class _TabPublicacionesFirebase extends StatelessWidget {
           itemBuilder: (context, i) {
             final doc = docs[i];
             final data = doc.data() as Map<String, dynamic>;
-            final tipo = data['tipo'] as String? ?? 'imagen';
-            final mediaUrl = data['mediaUrl'] as String?;
-            final thumbUrl = data['thumbUrl'] as String?;
+            // PostService guarda las imágenes en el campo 'images' (List<String>)
+            final images = List<String>.from(data['images'] as List? ?? []);
+            final thumbUrl = images.isNotEmpty ? images.first : null;
+            final multipleImages = images.length > 1;
             final uid = FirebaseAuth.instance.currentUser!.uid;
 
             return GestureDetector(
@@ -1131,11 +818,9 @@ class _TabPublicacionesFirebase extends StatelessWidget {
               child: Stack(
                 fit: StackFit.expand,
                 children: [
-                  // Miniatura
-                  if (mediaUrl != null &&
-                      (tipo == 'imagen' || thumbUrl != null))
+                  if (thumbUrl != null)
                     Image.network(
-                      tipo == 'imagen' ? mediaUrl : (thumbUrl ?? mediaUrl),
+                      thumbUrl,
                       fit: BoxFit.cover,
                       loadingBuilder: (_, child, p) => p == null
                           ? child
@@ -1149,29 +834,19 @@ class _TabPublicacionesFirebase extends StatelessWidget {
                               ),
                             ),
                       errorBuilder: (_, __, ___) =>
-                          _PostPlaceholder(tipo: tipo),
+                          const _PostPlaceholder(tipo: 'imagen'),
                     )
                   else
-                    _PostPlaceholder(tipo: tipo),
-                  // Badge de tipo
-                  if (tipo == 'video')
+                    const _PostPlaceholder(tipo: 'imagen'),
+                  if (multipleImages)
                     const Positioned(
                       top: 6,
                       right: 6,
                       child: Icon(
-                        Icons.play_circle_fill_rounded,
+                        Icons.collections_rounded,
                         color: Colors.white,
-                        size: 22,
-                      ),
-                    ),
-                  if (tipo == 'audio')
-                    const Positioned(
-                      top: 6,
-                      right: 6,
-                      child: Icon(
-                        Icons.graphic_eq_rounded,
-                        color: Colors.white,
-                        size: 22,
+                        size: 18,
+                        shadows: [Shadow(color: Colors.black54, blurRadius: 4)],
                       ),
                     ),
                 ],
@@ -1199,7 +874,6 @@ class _TabPublicacionesFirebase extends StatelessWidget {
   }
 }
 
-// ── Placeholder de color cuando no hay media ─────────────────────────────────
 class _PostPlaceholder extends StatelessWidget {
   final String tipo;
   const _PostPlaceholder({required this.tipo});
@@ -1218,13 +892,6 @@ class _PostPlaceholder extends StatelessWidget {
   }
 }
 
-// ─────────────────────────────────────────────────────────────────────────────
-// Detalle de publicación — usa los mismos widgets del feed
-// ─────────────────────────────────────────────────────────────────────────────
-// ─────────────────────────────────────────────────────────────────────────────
-// Detalle de publicación — StatefulWidget para que LikeButton/SaveButton
-// mantengan su estado mientras el DraggableScrollableSheet está abierto.
-// ─────────────────────────────────────────────────────────────────────────────
 class _PublicacionDetalle extends StatefulWidget {
   final String postId;
   final String autorId;
@@ -1241,8 +908,11 @@ class _PublicacionDetalle extends StatefulWidget {
 }
 
 class _PublicacionDetalleState extends State<_PublicacionDetalle> {
+  int _currentImageIndex = 0;
+
+  // PostService usa 'createdAt' (Timestamp). La colección vieja usaba 'timestamp'.
   String _fechaStr() {
-    final ts = widget.data['timestamp'];
+    final ts = widget.data['createdAt'] ?? widget.data['timestamp'];
     if (ts == null) return '';
     try {
       final dt = (ts as dynamic).toDate() as DateTime;
@@ -1268,11 +938,24 @@ class _PublicacionDetalleState extends State<_PublicacionDetalle> {
 
   @override
   Widget build(BuildContext context) {
-    final tipo = widget.data['tipo'] as String? ?? 'imagen';
-    final mediaUrl = widget.data['mediaUrl'] as String?;
+    // PostService guarda en 'images' (List). Soporte también para 'mediaUrl' legacy.
+    final images = List<String>.from(widget.data['images'] as List? ?? []);
+    if (images.isEmpty && widget.data['mediaUrl'] != null) {
+      images.add(widget.data['mediaUrl'] as String);
+    }
+
     final caption = widget.data['caption'] as String? ?? '';
+    final username = widget.data['username'] as String? ?? '';
+    final city = widget.data['city'] as String?;
+    final countryFlag = widget.data['countryFlag'] as String?;
+    final likesCount = (widget.data['likesCount'] as num?)?.toInt() ?? 0;
     final myUid = FirebaseAuth.instance.currentUser?.uid ?? '';
     final esPropio = widget.autorId == myUid;
+
+    // Spotify
+    final spotifyTrackName = widget.data['spotifyTrackName'] as String?;
+    final spotifyArtist = widget.data['spotifyArtist'] as String?;
+    final spotifyAlbumArt = widget.data['spotifyAlbumArt'] as String?;
 
     return DraggableScrollableSheet(
       initialChildSize: 0.88,
@@ -1286,10 +969,10 @@ class _PublicacionDetalleState extends State<_PublicacionDetalle> {
         child: ListView(
           controller: ctrl,
           children: [
-            // ── Handle ──────────────────────────────────────────────────────────
+            // ── Handle ────────────────────────────────────────────────────────
             Center(
               child: Container(
-                margin: const EdgeInsets.only(top: 10, bottom: 8),
+                margin: const EdgeInsets.only(top: 10, bottom: 12),
                 width: 36,
                 height: 4,
                 decoration: BoxDecoration(
@@ -1299,126 +982,164 @@ class _PublicacionDetalleState extends State<_PublicacionDetalle> {
               ),
             ),
 
-            // ── Media ────────────────────────────────────────────────────────────
-            if (mediaUrl != null && tipo == 'imagen')
-              Image.network(
-                mediaUrl,
-                fit: BoxFit.cover,
-                errorBuilder: (_, __, ___) =>
-                    Container(height: 220, color: _tealBg),
-              ),
-            if (tipo == 'video')
-              Container(
-                height: 260,
-                color: Colors.black,
-                child: const Center(
-                  child: Icon(
-                    Icons.play_circle_outline_rounded,
-                    color: Colors.white,
-                    size: 72,
-                  ),
-                ),
-              ),
-            if (tipo == 'audio')
-              Container(
-                margin: const EdgeInsets.all(16),
-                padding: const EdgeInsets.all(18),
-                decoration: BoxDecoration(
-                  color: _tealBg,
-                  borderRadius: BorderRadius.circular(14),
-                ),
-                child: Row(
-                  children: [
-                    Container(
-                      width: 48,
-                      height: 48,
-                      decoration: const BoxDecoration(
-                        color: _teal,
-                        shape: BoxShape.circle,
-                      ),
-                      child: const Icon(
-                        Icons.play_arrow_rounded,
-                        color: Colors.white,
-                        size: 28,
-                      ),
-                    ),
-                    const SizedBox(width: 14),
-                    Expanded(
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          const Text(
-                            'Audio',
-                            style: TextStyle(
-                              color: _tealDark,
-                              fontWeight: FontWeight.w700,
-                              fontSize: 15,
-                            ),
-                          ),
-                          if (caption.isNotEmpty)
-                            Text(
-                              caption,
-                              style: const TextStyle(
-                                fontSize: 12,
-                                color: _teal,
-                              ),
-                              maxLines: 1,
-                              overflow: TextOverflow.ellipsis,
-                            ),
-                        ],
-                      ),
-                    ),
-                  ],
-                ),
-              ),
-
-            // ── Caption + fecha ───────────────────────────────────────────────────
-            if (caption.isNotEmpty)
-              Padding(
-                padding: const EdgeInsets.fromLTRB(16, 14, 16, 4),
-                child: RichText(
-                  text: TextSpan(
-                    style: const TextStyle(
-                      fontSize: 14,
-                      color: _tealDark,
-                      height: 1.5,
-                    ),
-                    children: [
-                      TextSpan(
-                        text: '${widget.data['username'] ?? ''} ',
-                        style: const TextStyle(fontWeight: FontWeight.w700),
-                      ),
-                      TextSpan(text: caption),
-                    ],
-                  ),
-                ),
-              ),
-            if (_fechaStr().isNotEmpty)
-              Padding(
-                padding: const EdgeInsets.fromLTRB(16, 4, 16, 0),
-                child: Text(
-                  _fechaStr(),
-                  style: const TextStyle(
-                    fontSize: 11,
-                    color: Color(0xFF94A3B8),
-                  ),
-                ),
-              ),
-
-            // ── BARRA DE INTERACCIONES ────────────────────────────────────────────
+            // ── Header: avatar + nombre + ciudad ──────────────────────────────
             Padding(
-              padding: const EdgeInsets.fromLTRB(14, 14, 14, 6),
+              padding: const EdgeInsets.fromLTRB(14, 0, 14, 12),
               child: Row(
                 children: [
-                  // Me gusta — LikeButton del feed (con bounce + stream real)
+                  CircleAvatar(
+                    radius: 20,
+                    backgroundColor: _tealBg,
+                    backgroundImage:
+                        FirebaseAuth.instance.currentUser?.photoURL != null
+                        ? NetworkImage(
+                            FirebaseAuth.instance.currentUser!.photoURL!,
+                          )
+                        : null,
+                    child: FirebaseAuth.instance.currentUser?.photoURL == null
+                        ? Text(
+                            username.isNotEmpty
+                                ? username[0].toUpperCase()
+                                : 'U',
+                            style: const TextStyle(
+                              color: _teal,
+                              fontWeight: FontWeight.bold,
+                            ),
+                          )
+                        : null,
+                  ),
+                  const SizedBox(width: 10),
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          username,
+                          style: const TextStyle(
+                            fontSize: 14,
+                            fontWeight: FontWeight.w700,
+                            color: _tealDark,
+                          ),
+                        ),
+                        if (city != null || countryFlag != null)
+                          Row(
+                            children: [
+                              if (countryFlag != null)
+                                Text(
+                                  countryFlag,
+                                  style: const TextStyle(fontSize: 12),
+                                ),
+                              if (countryFlag != null && city != null)
+                                const SizedBox(width: 4),
+                              if (city != null)
+                                Text(
+                                  city,
+                                  style: const TextStyle(
+                                    fontSize: 12,
+                                    color: _teal,
+                                  ),
+                                ),
+                            ],
+                          ),
+                      ],
+                    ),
+                  ),
+                  GestureDetector(
+                    onTap: () {
+                      if (esPropio) {
+                        _PerfilPostOptionsSheet.show(
+                          context,
+                          postId: widget.postId,
+                          autorId: widget.autorId,
+                        );
+                      } else {
+                        showPostOptions(
+                          context: context,
+                          postId: widget.postId,
+                          postAuthorId: widget.autorId,
+                          username: username,
+                          onDismissPost: () => Navigator.pop(context),
+                        );
+                      }
+                    },
+                    child: const Icon(
+                      Icons.more_horiz_rounded,
+                      size: 24,
+                      color: _tealDark,
+                    ),
+                  ),
+                ],
+              ),
+            ),
+
+            // ── Carousel de imágenes ───────────────────────────────────────────
+            if (images.isNotEmpty)
+              Stack(
+                alignment: Alignment.bottomCenter,
+                children: [
+                  SizedBox(
+                    height: 360,
+                    child: PageView.builder(
+                      itemCount: images.length,
+                      onPageChanged: (i) =>
+                          setState(() => _currentImageIndex = i),
+                      itemBuilder: (_, i) => Image.network(
+                        images[i],
+                        fit: BoxFit.cover,
+                        width: double.infinity,
+                        errorBuilder: (_, __, ___) => Container(
+                          height: 360,
+                          color: _tealBg,
+                          child: const Center(
+                            child: Icon(
+                              Icons.broken_image_outlined,
+                              color: _tealLight,
+                              size: 48,
+                            ),
+                          ),
+                        ),
+                      ),
+                    ),
+                  ),
+                  // Dots indicadores (solo si hay más de 1 imagen)
+                  if (images.length > 1)
+                    Positioned(
+                      bottom: 10,
+                      child: Row(
+                        mainAxisSize: MainAxisSize.min,
+                        children: List.generate(
+                          images.length,
+                          (i) => AnimatedContainer(
+                            duration: const Duration(milliseconds: 200),
+                            margin: const EdgeInsets.symmetric(horizontal: 3),
+                            width: _currentImageIndex == i ? 18 : 6,
+                            height: 6,
+                            decoration: BoxDecoration(
+                              color: _currentImageIndex == i
+                                  ? _teal
+                                  : Colors.white.withOpacity(0.7),
+                              borderRadius: BorderRadius.circular(3),
+                              boxShadow: const [
+                                BoxShadow(color: Colors.black26, blurRadius: 4),
+                              ],
+                            ),
+                          ),
+                        ),
+                      ),
+                    ),
+                ],
+              ),
+
+            // ── Barra de interacciones ─────────────────────────────────────────
+            Padding(
+              padding: const EdgeInsets.fromLTRB(14, 12, 14, 6),
+              child: Row(
+                children: [
                   LikeButton(
                     postId: widget.postId,
                     postAuthorId: widget.autorId,
                   ),
-
                   const SizedBox(width: 20),
-
-                  // Comentarios — contador en tiempo real
                   StreamBuilder<int>(
                     stream: SocialService.commentsCountStream(widget.postId),
                     builder: (_, snap) {
@@ -1454,15 +1175,12 @@ class _PublicacionDetalleState extends State<_PublicacionDetalle> {
                       );
                     },
                   ),
-
                   const SizedBox(width: 20),
-
-                  // Compartir
                   GestureDetector(
                     onTap: () => ShareSheet.show(
                       context,
                       postId: widget.postId,
-                      username: widget.data['username'] as String? ?? '',
+                      username: username,
                     ),
                     child: const Icon(
                       Icons.send_outlined,
@@ -1470,47 +1188,138 @@ class _PublicacionDetalleState extends State<_PublicacionDetalle> {
                       color: _tealDark,
                     ),
                   ),
-
                   const Spacer(),
-
-                  // Guardar — SaveButton del feed (con stream real)
                   SaveButton(postId: widget.postId),
-
-                  const SizedBox(width: 6),
-
-                  // Opciones — sheet distinto según si es propio o ajeno
-                  GestureDetector(
-                    onTap: () => esPropio
-                        ? _PerfilPostOptionsSheet.show(
-                            context,
-                            postId: widget.postId,
-                            autorId: widget.autorId,
-                          )
-                        : PostOptionsSheet.show(
-                            context,
-                            postId: widget.postId,
-                            username: widget.data['username'] as String? ?? '',
-                            isOwnPost: false,
-                          ),
-                    child: const Icon(
-                      Icons.more_horiz_rounded,
-                      size: 24,
-                      color: _tealDark,
-                    ),
-                  ),
                 ],
               ),
             ),
 
-            // ── Divisor ────────────────────────────────────────────────────────────
+            // ── Likes count ────────────────────────────────────────────────────
+            if (likesCount > 0)
+              Padding(
+                padding: const EdgeInsets.fromLTRB(16, 0, 16, 4),
+                child: Text(
+                  '$likesCount Me gusta',
+                  style: const TextStyle(
+                    fontSize: 13,
+                    fontWeight: FontWeight.w700,
+                    color: _tealDark,
+                  ),
+                ),
+              ),
+
+            // ── Caption ────────────────────────────────────────────────────────
+            if (caption.isNotEmpty)
+              Padding(
+                padding: const EdgeInsets.fromLTRB(16, 4, 16, 4),
+                child: RichText(
+                  text: TextSpan(
+                    style: const TextStyle(
+                      fontSize: 14,
+                      color: _tealDark,
+                      height: 1.5,
+                    ),
+                    children: [
+                      TextSpan(
+                        text: '$username ',
+                        style: const TextStyle(fontWeight: FontWeight.w700),
+                      ),
+                      TextSpan(text: caption),
+                    ],
+                  ),
+                ),
+              ),
+
+            // ── Spotify chip ───────────────────────────────────────────────────
+            if (spotifyTrackName != null)
+              Padding(
+                padding: const EdgeInsets.fromLTRB(16, 8, 16, 4),
+                child: Container(
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 12,
+                    vertical: 8,
+                  ),
+                  decoration: BoxDecoration(
+                    color: const Color(0xFF1DB954).withOpacity(0.1),
+                    borderRadius: BorderRadius.circular(12),
+                    border: Border.all(
+                      color: const Color(0xFF1DB954).withOpacity(0.3),
+                    ),
+                  ),
+                  child: Row(
+                    children: [
+                      if (spotifyAlbumArt != null)
+                        ClipRRect(
+                          borderRadius: BorderRadius.circular(4),
+                          child: Image.network(
+                            spotifyAlbumArt,
+                            width: 36,
+                            height: 36,
+                            fit: BoxFit.cover,
+                            errorBuilder: (_, __, ___) =>
+                                const SizedBox(width: 36, height: 36),
+                          ),
+                        ),
+                      if (spotifyAlbumArt != null) const SizedBox(width: 10),
+                      const Icon(
+                        Icons.music_note_rounded,
+                        color: Color(0xFF1DB954),
+                        size: 16,
+                      ),
+                      const SizedBox(width: 6),
+                      Expanded(
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Text(
+                              spotifyTrackName,
+                              style: const TextStyle(
+                                fontSize: 12,
+                                fontWeight: FontWeight.w600,
+                                color: _tealDark,
+                              ),
+                              maxLines: 1,
+                              overflow: TextOverflow.ellipsis,
+                            ),
+                            if (spotifyArtist != null)
+                              Text(
+                                spotifyArtist,
+                                style: const TextStyle(
+                                  fontSize: 11,
+                                  color: Color(0xFF94A3B8),
+                                ),
+                                maxLines: 1,
+                                overflow: TextOverflow.ellipsis,
+                              ),
+                          ],
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              ),
+
+            // ── Fecha ──────────────────────────────────────────────────────────
+            if (_fechaStr().isNotEmpty)
+              Padding(
+                padding: const EdgeInsets.fromLTRB(16, 4, 16, 0),
+                child: Text(
+                  _fechaStr(),
+                  style: const TextStyle(
+                    fontSize: 11,
+                    color: Color(0xFF94A3B8),
+                  ),
+                ),
+              ),
+
             const Padding(
-              padding: EdgeInsets.symmetric(horizontal: 16),
+              padding: EdgeInsets.symmetric(horizontal: 16, vertical: 10),
               child: Divider(color: Color(0xFFE2F0EF), height: 1),
             ),
 
-            // ── Sección comentarios ───────────────────────────────────────────────
+            // ── Ver comentarios ────────────────────────────────────────────────
             Padding(
-              padding: const EdgeInsets.fromLTRB(16, 10, 16, 0),
+              padding: const EdgeInsets.fromLTRB(16, 0, 16, 0),
               child: StreamBuilder<int>(
                 stream: SocialService.commentsCountStream(widget.postId),
                 builder: (_, snap) {
@@ -1538,7 +1347,7 @@ class _PublicacionDetalleState extends State<_PublicacionDetalle> {
               ),
             ),
 
-            // Campo de comentario rápido
+            // ── Campo de comentario ────────────────────────────────────────────
             GestureDetector(
               onTap: () => CommentsScreen.show(
                 context,
@@ -1577,10 +1386,9 @@ class _PublicacionDetalleState extends State<_PublicacionDetalle> {
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
-// Sheet de opciones del perfil propio — estilo Instagram
-// Incluye: guardar, código QR, archivar, ocultar likes, ocultar compartidos,
-//          desactivar comentarios, editar, ajustar preview, fijar, eliminar.
+// Sheet de opciones del perfil propio
 // ─────────────────────────────────────────────────────────────────────────────
+
 class _PerfilPostOptionsSheet {
   static void show(
     BuildContext context, {
@@ -1626,9 +1434,7 @@ class _PerfilPostOptionsContentState extends State<_PerfilPostOptionsContent> {
   Future<void> _cargarEstado() async {
     try {
       final doc = await FirebaseFirestore.instance
-          .collection('users')
-          .doc(widget.autorId)
-          .collection('publicaciones')
+          .collection('posts')
           .doc(widget.postId)
           .get();
       if (!mounted) return;
@@ -1647,9 +1453,7 @@ class _PerfilPostOptionsContentState extends State<_PerfilPostOptionsContent> {
     setState(() => _guardando = true);
     try {
       await FirebaseFirestore.instance
-          .collection('users')
-          .doc(widget.autorId)
-          .collection('publicaciones')
+          .collection('posts')
           .doc(widget.postId)
           .update(fields);
     } catch (e) {
@@ -1663,9 +1467,7 @@ class _PerfilPostOptionsContentState extends State<_PerfilPostOptionsContent> {
     Navigator.pop(context);
     try {
       await FirebaseFirestore.instance
-          .collection('users')
-          .doc(widget.autorId)
-          .collection('publicaciones')
+          .collection('posts')
           .doc(widget.postId)
           .update({'archivado': true});
       if (mounted) _snack('Publicación archivada');
@@ -1709,9 +1511,7 @@ class _PerfilPostOptionsContentState extends State<_PerfilPostOptionsContent> {
     if (confirmar != true) return;
     try {
       await FirebaseFirestore.instance
-          .collection('users')
-          .doc(widget.autorId)
-          .collection('publicaciones')
+          .collection('posts')
           .doc(widget.postId)
           .delete();
       if (mounted) _snack('Publicación eliminada');
@@ -1720,12 +1520,12 @@ class _PerfilPostOptionsContentState extends State<_PerfilPostOptionsContent> {
     }
   }
 
-  void _snack(String msg, {bool error = false}) {
+  void _snack(String msg) {
     ScaffoldMessenger.of(context).showSnackBar(
       SnackBar(
         content: Text(msg),
         behavior: SnackBarBehavior.floating,
-        backgroundColor: error ? Colors.redAccent : _teal,
+        backgroundColor: _teal,
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
         duration: const Duration(seconds: 2),
       ),
@@ -1735,7 +1535,6 @@ class _PerfilPostOptionsContentState extends State<_PerfilPostOptionsContent> {
   @override
   Widget build(BuildContext context) {
     final bottom = MediaQuery.of(context).padding.bottom;
-
     return Container(
       decoration: const BoxDecoration(
         color: Color(0xFF0F2422),
@@ -1744,7 +1543,6 @@ class _PerfilPostOptionsContentState extends State<_PerfilPostOptionsContent> {
       child: Column(
         mainAxisSize: MainAxisSize.min,
         children: [
-          // Handle
           const SizedBox(height: 12),
           Container(
             width: 40,
@@ -1755,8 +1553,6 @@ class _PerfilPostOptionsContentState extends State<_PerfilPostOptionsContent> {
             ),
           ),
           const SizedBox(height: 16),
-
-          // ── Fila de acciones rápidas: Guardar + Código QR ──────────────────
           Padding(
             padding: const EdgeInsets.symmetric(horizontal: 20),
             child: Row(
@@ -1789,19 +1585,14 @@ class _PerfilPostOptionsContentState extends State<_PerfilPostOptionsContent> {
             ),
           ),
           const SizedBox(height: 16),
-
-          // ── Grupo principal de opciones ─────────────────────────────────────
           _OptionsGroup(
             children: [
-              // Archivar
               _OptionRow(
                 icon: Icons.archive_outlined,
                 label: 'Archivar',
                 onTap: _archivar,
               ),
               const _OptionDivider(),
-
-              // Ocultar recuento de Me gusta
               _OptionRow(
                 icon: Icons.favorite_border_rounded,
                 label: 'Ocultar recuento de Me gusta',
@@ -1815,14 +1606,12 @@ class _PerfilPostOptionsContentState extends State<_PerfilPostOptionsContent> {
                   materialTapTargetSize: MaterialTapTargetSize.shrinkWrap,
                 ),
                 onTap: () {
-                  final newVal = !_ocultarLikes;
-                  setState(() => _ocultarLikes = newVal);
-                  _actualizar({'ocultarLikes': newVal});
+                  final v = !_ocultarLikes;
+                  setState(() => _ocultarLikes = v);
+                  _actualizar({'ocultarLikes': v});
                 },
               ),
               const _OptionDivider(),
-
-              // Ocultar veces que se compartió
               _OptionRow(
                 icon: Icons.send_outlined,
                 label: 'Ocultar veces que se compartió',
@@ -1836,14 +1625,12 @@ class _PerfilPostOptionsContentState extends State<_PerfilPostOptionsContent> {
                   materialTapTargetSize: MaterialTapTargetSize.shrinkWrap,
                 ),
                 onTap: () {
-                  final newVal = !_ocultarCompartidos;
-                  setState(() => _ocultarCompartidos = newVal);
-                  _actualizar({'ocultarCompartidos': newVal});
+                  final v = !_ocultarCompartidos;
+                  setState(() => _ocultarCompartidos = v);
+                  _actualizar({'ocultarCompartidos': v});
                 },
               ),
               const _OptionDivider(),
-
-              // Desactivar comentarios
               _OptionRow(
                 icon: Icons.chat_bubble_outline_rounded,
                 label: 'Desactivar comentarios',
@@ -1857,14 +1644,12 @@ class _PerfilPostOptionsContentState extends State<_PerfilPostOptionsContent> {
                   materialTapTargetSize: MaterialTapTargetSize.shrinkWrap,
                 ),
                 onTap: () {
-                  final newVal = !_comentariosActivos;
-                  setState(() => _comentariosActivos = !newVal);
-                  _actualizar({'comentariosActivos': !newVal});
+                  final v = !_comentariosActivos;
+                  setState(() => _comentariosActivos = !v);
+                  _actualizar({'comentariosActivos': !v});
                 },
               ),
               const _OptionDivider(),
-
-              // Editar caption
               _OptionRow(
                 icon: Icons.edit_outlined,
                 label: 'Editar',
@@ -1874,8 +1659,6 @@ class _PerfilPostOptionsContentState extends State<_PerfilPostOptionsContent> {
                 },
               ),
               const _OptionDivider(),
-
-              // Ajustar vista previa
               _OptionRow(
                 icon: Icons.crop_rounded,
                 label: 'Ajustar vista previa',
@@ -1885,8 +1668,6 @@ class _PerfilPostOptionsContentState extends State<_PerfilPostOptionsContent> {
                 },
               ),
               const _OptionDivider(),
-
-              // Fijar en cuadrícula
               _OptionRow(
                 icon: _fijado
                     ? Icons.push_pin_rounded
@@ -1914,17 +1695,15 @@ class _PerfilPostOptionsContentState extends State<_PerfilPostOptionsContent> {
                       )
                     : null,
                 onTap: () {
-                  final newVal = !_fijado;
-                  setState(() => _fijado = newVal);
-                  _actualizar({'fijado': newVal});
-                  _snack(newVal ? 'Fijado en la cuadrícula' : 'Desfijado');
+                  final v = !_fijado;
+                  setState(() => _fijado = v);
+                  _actualizar({'fijado': v});
+                  _snack(v ? 'Fijado en la cuadrícula' : 'Desfijado');
                 },
               ),
             ],
           ),
           const SizedBox(height: 10),
-
-          // ── Eliminar (separado, en rojo) ─────────────────────────────────────
           _OptionsGroup(
             children: [
               _OptionRow(
@@ -1936,7 +1715,6 @@ class _PerfilPostOptionsContentState extends State<_PerfilPostOptionsContent> {
               ),
             ],
           ),
-
           SizedBox(height: bottom + 16),
         ],
       ),
@@ -1944,150 +1722,9 @@ class _PerfilPostOptionsContentState extends State<_PerfilPostOptionsContent> {
   }
 }
 
-// ── Botón icono cuadrado para la fila superior del sheet ──────────────────────
-class _QuickIconButton extends StatelessWidget {
-  final IconData icon;
-  final String label;
-  final VoidCallback onTap;
-  const _QuickIconButton({
-    required this.icon,
-    required this.label,
-    required this.onTap,
-  });
-
-  @override
-  Widget build(BuildContext context) {
-    return GestureDetector(
-      onTap: onTap,
-      child: Container(
-        padding: const EdgeInsets.symmetric(vertical: 16),
-        decoration: BoxDecoration(
-          color: const Color(0xFF1A3A36),
-          borderRadius: BorderRadius.circular(14),
-          border: Border.all(color: const Color(0xFF2D5550)),
-        ),
-        child: Column(
-          children: [
-            Icon(icon, color: const Color(0xFFCCFBF1), size: 26),
-            const SizedBox(height: 6),
-            Text(
-              label,
-              style: const TextStyle(
-                color: Color(0xFFCCFBF1),
-                fontSize: 12,
-                fontWeight: FontWeight.w500,
-              ),
-            ),
-          ],
-        ),
-      ),
-    );
-  }
-}
-
-// ── Grupo de opciones con fondo oscuro ───────────────────────────────────────
-class _OptionsGroup extends StatelessWidget {
-  final List<Widget> children;
-  const _OptionsGroup({required this.children});
-  @override
-  Widget build(BuildContext context) {
-    return Container(
-      margin: const EdgeInsets.symmetric(horizontal: 16),
-      decoration: BoxDecoration(
-        color: const Color(0xFF1A3A36),
-        borderRadius: BorderRadius.circular(14),
-        border: Border.all(color: const Color(0xFF2D5550)),
-      ),
-      child: Column(mainAxisSize: MainAxisSize.min, children: children),
-    );
-  }
-}
-
-class _OptionDivider extends StatelessWidget {
-  const _OptionDivider();
-  @override
-  Widget build(BuildContext context) => Container(
-    height: 1,
-    margin: const EdgeInsets.only(left: 52),
-    color: const Color(0xFF2D5550),
-  );
-}
-
-// ── Fila de opción individual ────────────────────────────────────────────────
-class _OptionRow extends StatefulWidget {
-  final IconData icon;
-  final String label;
-  final Color? labelColor;
-  final Color? iconColor;
-  final Widget? trailing;
-  final VoidCallback onTap;
-
-  const _OptionRow({
-    required this.icon,
-    required this.label,
-    this.labelColor,
-    this.iconColor,
-    this.trailing,
-    required this.onTap,
-  });
-  @override
-  State<_OptionRow> createState() => _OptionRowState();
-}
-
-class _OptionRowState extends State<_OptionRow> {
-  bool _pressed = false;
-  @override
-  Widget build(BuildContext context) {
-    return GestureDetector(
-      onTapDown: (_) => setState(() => _pressed = true),
-      onTapUp: (_) {
-        setState(() => _pressed = false);
-        widget.onTap();
-      },
-      onTapCancel: () => setState(() => _pressed = false),
-      child: AnimatedContainer(
-        duration: const Duration(milliseconds: 100),
-        color: _pressed
-            ? const Color(0xFF0D9488).withOpacity(0.1)
-            : Colors.transparent,
-        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
-        child: Row(
-          children: [
-            Container(
-              width: 34,
-              height: 34,
-              decoration: BoxDecoration(
-                color: (widget.iconColor ?? const Color(0xFF4DC9C2))
-                    .withOpacity(0.15),
-                shape: BoxShape.circle,
-              ),
-              child: Icon(
-                widget.icon,
-                size: 18,
-                color: widget.iconColor ?? const Color(0xFF4DC9C2),
-              ),
-            ),
-            const SizedBox(width: 14),
-            Expanded(
-              child: Text(
-                widget.label,
-                style: TextStyle(
-                  fontSize: 14,
-                  fontWeight: FontWeight.w500,
-                  color: widget.labelColor ?? const Color(0xFFCCFBF1),
-                ),
-              ),
-            ),
-            if (widget.trailing != null) ...[
-              const SizedBox(width: 8),
-              widget.trailing!,
-            ],
-          ],
-        ),
-      ),
-    );
-  }
-}
+// ─────────────────────────────────────────────────────────────────────────────
+// Tabs de eventos y mensajes
+// ─────────────────────────────────────────────────────────────────────────────
 
 class _TabEventosFirebase extends StatelessWidget {
   @override
@@ -2288,14 +1925,14 @@ class _TabMensajesFirebase extends StatelessWidget {
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
-// Widgets reutilizables
+// Widgets reutilizables internos del perfil
+// Nota: _OptionTile NO está aquí — viene del import de post_options_sheet.dart
 // ─────────────────────────────────────────────────────────────────────────────
 
 class _StatBubble extends StatelessWidget {
   final String value;
   final String label;
   const _StatBubble({required this.value, required this.label});
-
   @override
   Widget build(BuildContext context) {
     return Column(
@@ -2322,7 +1959,6 @@ class _EditButton extends StatelessWidget {
   final String label;
   final VoidCallback onTap;
   const _EditButton({required this.label, required this.onTap});
-
   @override
   Widget build(BuildContext context) {
     return GestureDetector(
@@ -2347,19 +1983,19 @@ class _EditButton extends StatelessWidget {
   }
 }
 
-class _HistoriaItem extends StatelessWidget {
-  final String label;
-  final int color;
-  final IconData icon;
+class _HighlightItem extends StatelessWidget {
+  final String title;
+  final String? emoji;
+  final String? imageUrl;
+  final bool isCreate;
   final VoidCallback onTap;
-  final bool isNew;
 
-  const _HistoriaItem({
-    required this.label,
-    required this.color,
-    required this.icon,
+  const _HighlightItem({
+    required this.title,
     required this.onTap,
-    this.isNew = false,
+    this.emoji,
+    this.imageUrl,
+    this.isCreate = false,
   });
 
   @override
@@ -2371,32 +2007,39 @@ class _HistoriaItem extends StatelessWidget {
         child: Column(
           children: [
             Container(
-              width: 58,
-              height: 58,
+              width: 68,
+              height: 68,
               decoration: BoxDecoration(
                 shape: BoxShape.circle,
-                gradient: isNew
-                    ? null
-                    : LinearGradient(
-                        colors: [Color(color), Color(color).withOpacity(0.6)],
-                        begin: Alignment.topLeft,
-                        end: Alignment.bottomRight,
-                      ),
-                color: isNew ? _tealBg : null,
-                border: Border.all(
-                  color: isNew ? _tealLight : Color(color).withOpacity(0.3),
-                  width: isNew ? 1.5 : 2.5,
-                ),
+                border: Border.all(color: const Color(0xFF0D9488), width: 2),
               ),
-              child: Icon(icon, color: isNew ? _teal : Colors.white, size: 26),
+              child: ClipOval(
+                child: isCreate
+                    ? Container(
+                        color: const Color(0xFFF0FAF9),
+                        child: const Icon(Icons.add, color: Color(0xFF0D9488)),
+                      )
+                    : imageUrl != null
+                    ? Image.network(imageUrl!, fit: BoxFit.cover)
+                    : Center(
+                        child: Text(
+                          emoji ?? "⭐",
+                          style: const TextStyle(fontSize: 26),
+                        ),
+                      ),
+              ),
             ),
-            const SizedBox(height: 5),
-            Text(
-              label,
-              style: const TextStyle(
-                fontSize: 10,
-                color: _tealDark,
-                fontWeight: FontWeight.w500,
+            const SizedBox(height: 6),
+            SizedBox(
+              width: 70,
+              child: Text(
+                title,
+                overflow: TextOverflow.ellipsis,
+                textAlign: TextAlign.center,
+                style: const TextStyle(
+                  fontSize: 11,
+                  fontWeight: FontWeight.w500,
+                ),
               ),
             ),
           ],
@@ -2415,7 +2058,6 @@ class _ActionChip extends StatelessWidget {
     required this.label,
     required this.onTap,
   });
-
   @override
   Widget build(BuildContext context) {
     return GestureDetector(
@@ -2449,7 +2091,6 @@ class _ActionChip extends StatelessWidget {
 class _EventCard extends StatelessWidget {
   final Map<String, dynamic> evento;
   const _EventCard({required this.evento});
-
   @override
   Widget build(BuildContext context) {
     return Container(
@@ -2546,7 +2187,6 @@ class _EventCard extends StatelessWidget {
 class _MensajeCard extends StatelessWidget {
   final Map<String, dynamic> mensaje;
   const _MensajeCard({required this.mensaje});
-
   @override
   Widget build(BuildContext context) {
     return Container(
@@ -2621,197 +2261,40 @@ class _MensajeCard extends StatelessWidget {
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
-// Sheets (modales)
+// Widgets internos del sheet de opciones del perfil propio
+// (NO son los mismos que _OptionTile/_OptionDivider de post_options_sheet.dart)
 // ─────────────────────────────────────────────────────────────────────────────
 
-class _EditarPerfilSheet extends StatelessWidget {
-  const _EditarPerfilSheet();
-
+class _QuickIconButton extends StatelessWidget {
+  final IconData icon;
+  final String label;
+  final VoidCallback onTap;
+  const _QuickIconButton({
+    required this.icon,
+    required this.label,
+    required this.onTap,
+  });
   @override
   Widget build(BuildContext context) {
-    return DraggableScrollableSheet(
-      initialChildSize: 0.92,
-      maxChildSize: 0.95,
-      minChildSize: 0.5,
-      builder: (_, controller) => Container(
-        decoration: const BoxDecoration(
-          color: Colors.white,
-          borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
+    return GestureDetector(
+      onTap: onTap,
+      child: Container(
+        padding: const EdgeInsets.symmetric(vertical: 16),
+        decoration: BoxDecoration(
+          color: const Color(0xFF1A3A36),
+          borderRadius: BorderRadius.circular(14),
+          border: Border.all(color: const Color(0xFF2D5550)),
         ),
         child: Column(
           children: [
-            const SizedBox(height: 12),
-            Container(
-              width: 40,
-              height: 4,
-              decoration: BoxDecoration(
-                color: const Color(0xFFE2E8F0),
-                borderRadius: BorderRadius.circular(2),
-              ),
-            ),
-            const SizedBox(height: 16),
-            const Text(
-              'Editar perfil',
-              style: TextStyle(
-                fontSize: 18,
-                fontWeight: FontWeight.w800,
-                color: _tealDark,
-              ),
-            ),
-            const Divider(height: 24),
-            Expanded(
-              child: ListView(
-                controller: controller,
-                padding: const EdgeInsets.symmetric(horizontal: 24),
-                children: [
-                  _SectionLabel('Información personal'),
-                  _InputField(label: 'Nombre completo', hint: 'Tu nombre'),
-                  _InputField(label: 'Username', hint: '@usuario', prefix: '@'),
-                  _InputField(
-                    label: 'Bio',
-                    hint: 'Cuéntale al mundo quién sos...',
-                    maxLines: 3,
-                  ),
-                  _InputField(label: 'Sitio web', hint: 'https://'),
-                  const SizedBox(height: 8),
-                  _SectionLabel('Tu ruta migrante'),
-                  const Text(
-                    'Contá los lugares donde viviste. Esto ayuda a conectarte con personas con recorridos similares.',
-                    style: TextStyle(
-                      fontSize: 12.5,
-                      color: Color(0xFF64748B),
-                      height: 1.5,
-                    ),
-                  ),
-                  const SizedBox(height: 12),
-                  // Lugares
-                  ...[
-                    {
-                      'ciudad': 'Buenos Aires',
-                      'emoji': '🇦🇷',
-                      'años': '1995–2018',
-                    },
-                    {
-                      'ciudad': 'Barcelona',
-                      'emoji': '🇪🇸',
-                      'años': '2018–2021',
-                    },
-                    {
-                      'ciudad': 'México DF',
-                      'emoji': '🇲🇽',
-                      'años': '2021–hoy',
-                    },
-                  ].map(
-                    (l) => Container(
-                      margin: const EdgeInsets.only(bottom: 8),
-                      padding: const EdgeInsets.symmetric(
-                        horizontal: 14,
-                        vertical: 12,
-                      ),
-                      decoration: BoxDecoration(
-                        color: _tealBg,
-                        borderRadius: BorderRadius.circular(12),
-                        border: Border.all(color: _tealLight.withOpacity(0.5)),
-                      ),
-                      child: Row(
-                        children: [
-                          Text(
-                            l['emoji']!,
-                            style: const TextStyle(fontSize: 20),
-                          ),
-                          const SizedBox(width: 10),
-                          Expanded(
-                            child: Column(
-                              crossAxisAlignment: CrossAxisAlignment.start,
-                              children: [
-                                Text(
-                                  l['ciudad']!,
-                                  style: const TextStyle(
-                                    fontWeight: FontWeight.w700,
-                                    color: _tealDark,
-                                    fontSize: 14,
-                                  ),
-                                ),
-                                Text(
-                                  l['años']!,
-                                  style: const TextStyle(
-                                    fontSize: 12,
-                                    color: _teal,
-                                  ),
-                                ),
-                              ],
-                            ),
-                          ),
-                          const Icon(
-                            Icons.drag_handle_rounded,
-                            color: Color(0xFFCBD5E1),
-                          ),
-                        ],
-                      ),
-                    ),
-                  ),
-                  GestureDetector(
-                    onTap: () {},
-                    child: Container(
-                      margin: const EdgeInsets.only(bottom: 8),
-                      padding: const EdgeInsets.symmetric(vertical: 12),
-                      decoration: BoxDecoration(
-                        borderRadius: BorderRadius.circular(12),
-                        border: Border.all(color: _tealLight, width: 1.5),
-                      ),
-                      child: const Row(
-                        mainAxisAlignment: MainAxisAlignment.center,
-                        children: [
-                          Icon(Icons.add_rounded, color: _teal, size: 18),
-                          SizedBox(width: 6),
-                          Text(
-                            'Agregar lugar',
-                            style: TextStyle(
-                              color: _teal,
-                              fontWeight: FontWeight.w600,
-                              fontSize: 13,
-                            ),
-                          ),
-                        ],
-                      ),
-                    ),
-                  ),
-                  const SizedBox(height: 8),
-                  _SectionLabel('Privacidad'),
-                  _SwitchTile(
-                    label: 'Cuenta privada',
-                    subtitle: 'Solo seguidores aprobados ven tu contenido',
-                    value: false,
-                    onChanged: (_) {},
-                  ),
-                  _SwitchTile(
-                    label: 'Mostrar mi ruta en el mapa',
-                    subtitle: 'Visible para la comunidad Nomad',
-                    value: true,
-                    onChanged: (_) {},
-                  ),
-                  const SizedBox(height: 24),
-                  ElevatedButton(
-                    onPressed: () => Navigator.pop(context),
-                    style: ElevatedButton.styleFrom(
-                      backgroundColor: _teal,
-                      foregroundColor: Colors.white,
-                      minimumSize: const Size(double.infinity, 50),
-                      shape: RoundedRectangleBorder(
-                        borderRadius: BorderRadius.circular(14),
-                      ),
-                      elevation: 0,
-                    ),
-                    child: const Text(
-                      'Guardar cambios',
-                      style: TextStyle(
-                        fontWeight: FontWeight.w700,
-                        fontSize: 15,
-                      ),
-                    ),
-                  ),
-                  const SizedBox(height: 32),
-                ],
+            Icon(icon, color: const Color(0xFFCCFBF1), size: 26),
+            const SizedBox(height: 6),
+            Text(
+              label,
+              style: const TextStyle(
+                color: Color(0xFFCCFBF1),
+                fontSize: 12,
+                fontWeight: FontWeight.w500,
               ),
             ),
           ],
@@ -2820,6 +2303,112 @@ class _EditarPerfilSheet extends StatelessWidget {
     );
   }
 }
+
+class _OptionsGroup extends StatelessWidget {
+  final List<Widget> children;
+  const _OptionsGroup({required this.children});
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      margin: const EdgeInsets.symmetric(horizontal: 16),
+      decoration: BoxDecoration(
+        color: const Color(0xFF1A3A36),
+        borderRadius: BorderRadius.circular(14),
+        border: Border.all(color: const Color(0xFF2D5550)),
+      ),
+      child: Column(mainAxisSize: MainAxisSize.min, children: children),
+    );
+  }
+}
+
+class _OptionDivider extends StatelessWidget {
+  const _OptionDivider();
+  @override
+  Widget build(BuildContext context) => Container(
+    height: 1,
+    margin: const EdgeInsets.only(left: 52),
+    color: const Color(0xFF2D5550),
+  );
+}
+
+class _OptionRow extends StatefulWidget {
+  final IconData icon;
+  final String label;
+  final Color? labelColor;
+  final Color? iconColor;
+  final Widget? trailing;
+  final VoidCallback onTap;
+
+  const _OptionRow({
+    required this.icon,
+    required this.label,
+    this.labelColor,
+    this.iconColor,
+    this.trailing,
+    required this.onTap,
+  });
+  @override
+  State<_OptionRow> createState() => _OptionRowState();
+}
+
+class _OptionRowState extends State<_OptionRow> {
+  bool _pressed = false;
+  @override
+  Widget build(BuildContext context) {
+    return GestureDetector(
+      onTapDown: (_) => setState(() => _pressed = true),
+      onTapUp: (_) {
+        setState(() => _pressed = false);
+        widget.onTap();
+      },
+      onTapCancel: () => setState(() => _pressed = false),
+      child: AnimatedContainer(
+        duration: const Duration(milliseconds: 100),
+        color: _pressed
+            ? const Color(0xFF0D9488).withOpacity(0.1)
+            : Colors.transparent,
+        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
+        child: Row(
+          children: [
+            Container(
+              width: 34,
+              height: 34,
+              decoration: BoxDecoration(
+                color: (widget.iconColor ?? const Color(0xFF4DC9C2))
+                    .withOpacity(0.15),
+                shape: BoxShape.circle,
+              ),
+              child: Icon(
+                widget.icon,
+                size: 18,
+                color: widget.iconColor ?? const Color(0xFF4DC9C2),
+              ),
+            ),
+            const SizedBox(width: 14),
+            Expanded(
+              child: Text(
+                widget.label,
+                style: TextStyle(
+                  fontSize: 14,
+                  fontWeight: FontWeight.w500,
+                  color: widget.labelColor ?? const Color(0xFFCCFBF1),
+                ),
+              ),
+            ),
+            if (widget.trailing != null) ...[
+              const SizedBox(width: 8),
+              widget.trailing!,
+            ],
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Sheets de foto, portada y configuración
+// ─────────────────────────────────────────────────────────────────────────────
 
 class _FotoOptionsSheet extends StatelessWidget {
   final User? user;
@@ -2853,21 +2442,45 @@ class _FotoOptionsSheet extends StatelessWidget {
                 backgroundImage: NetworkImage(user!.photoURL!),
               ),
             ),
-          _OptionTile(
-            icon: Icons.camera_alt_rounded,
-            label: 'Tomar foto',
+          // Usamos ListTile directo aquí — sin depender de _OptionTile externo
+          ListTile(
+            leading: const Icon(Icons.camera_alt_rounded, color: _teal),
+            title: const Text(
+              'Tomar foto',
+              style: TextStyle(
+                fontSize: 15,
+                fontWeight: FontWeight.w500,
+                color: _tealDark,
+              ),
+            ),
             onTap: () => Navigator.pop(context),
           ),
-          _OptionTile(
-            icon: Icons.photo_library_rounded,
-            label: 'Elegir de galería',
+          ListTile(
+            leading: const Icon(Icons.photo_library_rounded, color: _teal),
+            title: const Text(
+              'Elegir de galería',
+              style: TextStyle(
+                fontSize: 15,
+                fontWeight: FontWeight.w500,
+                color: _tealDark,
+              ),
+            ),
             onTap: () => Navigator.pop(context),
           ),
           if (user?.photoURL != null)
-            _OptionTile(
-              icon: Icons.delete_outline_rounded,
-              label: 'Eliminar foto actual',
-              color: Colors.red,
+            ListTile(
+              leading: const Icon(
+                Icons.delete_outline_rounded,
+                color: Colors.red,
+              ),
+              title: const Text(
+                'Eliminar foto actual',
+                style: TextStyle(
+                  fontSize: 15,
+                  fontWeight: FontWeight.w500,
+                  color: Colors.red,
+                ),
+              ),
               onTap: () => Navigator.pop(context),
             ),
         ],
@@ -2876,10 +2489,8 @@ class _FotoOptionsSheet extends StatelessWidget {
   }
 }
 
-// MODIFICACIÓN: Nuevo modal específico para las opciones de portada
 class _PortadaOptionsSheet extends StatelessWidget {
   const _PortadaOptionsSheet();
-
   @override
   Widget build(BuildContext context) {
     return Container(
@@ -2909,14 +2520,28 @@ class _PortadaOptionsSheet extends StatelessWidget {
             ),
           ),
           const SizedBox(height: 12),
-          _OptionTile(
-            icon: Icons.camera_alt_rounded,
-            label: 'Tomar foto',
+          ListTile(
+            leading: const Icon(Icons.camera_alt_rounded, color: _teal),
+            title: const Text(
+              'Tomar foto',
+              style: TextStyle(
+                fontSize: 15,
+                fontWeight: FontWeight.w500,
+                color: _tealDark,
+              ),
+            ),
             onTap: () => Navigator.pop(context),
           ),
-          _OptionTile(
-            icon: Icons.photo_library_rounded,
-            label: 'Elegir de galería',
+          ListTile(
+            leading: const Icon(Icons.photo_library_rounded, color: _teal),
+            title: const Text(
+              'Elegir de galería',
+              style: TextStyle(
+                fontSize: 15,
+                fontWeight: FontWeight.w500,
+                color: _tealDark,
+              ),
+            ),
             onTap: () => Navigator.pop(context),
           ),
         ],
@@ -2927,7 +2552,6 @@ class _PortadaOptionsSheet extends StatelessWidget {
 
 class _ConfiguracionSheet extends StatelessWidget {
   const _ConfiguracionSheet();
-
   @override
   Widget build(BuildContext context) {
     return DraggableScrollableSheet(
@@ -3044,191 +2668,10 @@ class _ConfiguracionSheet extends StatelessWidget {
   }
 }
 
-// ─────────────────────────────────────────────────────────────────────────────
-// Helpers de UI
-// ─────────────────────────────────────────────────────────────────────────────
-
-class _SectionLabel extends StatelessWidget {
-  final String text;
-  const _SectionLabel(this.text);
-
-  @override
-  Widget build(BuildContext context) {
-    return Padding(
-      padding: const EdgeInsets.only(top: 16, bottom: 10),
-      child: Text(
-        text,
-        style: const TextStyle(
-          fontSize: 13,
-          fontWeight: FontWeight.w700,
-          color: _teal,
-          letterSpacing: 0.5,
-        ),
-      ),
-    );
-  }
-}
-
-class _InputField extends StatelessWidget {
-  final String label;
-  final String hint;
-  final String? prefix;
-  final int maxLines;
-  const _InputField({
-    required this.label,
-    required this.hint,
-    this.prefix,
-    this.maxLines = 1,
-  });
-
-  @override
-  Widget build(BuildContext context) {
-    return Padding(
-      padding: const EdgeInsets.only(bottom: 14),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Text(
-            label,
-            style: const TextStyle(
-              fontSize: 12,
-              fontWeight: FontWeight.w600,
-              color: _teal,
-            ),
-          ),
-          const SizedBox(height: 6),
-          TextField(
-            maxLines: maxLines,
-            decoration: InputDecoration(
-              hintText: hint,
-              prefixText: prefix,
-              hintStyle: const TextStyle(
-                color: Color(0xFFCBD5E1),
-                fontSize: 14,
-              ),
-              filled: true,
-              fillColor: _tealBg,
-              contentPadding: const EdgeInsets.symmetric(
-                horizontal: 14,
-                vertical: 12,
-              ),
-              border: OutlineInputBorder(
-                borderRadius: BorderRadius.circular(12),
-                borderSide: BorderSide.none,
-              ),
-              focusedBorder: OutlineInputBorder(
-                borderRadius: BorderRadius.circular(12),
-                borderSide: const BorderSide(color: _teal, width: 1.5),
-              ),
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-}
-
-class _SwitchTile extends StatefulWidget {
-  final String label;
-  final String subtitle;
-  final bool value;
-  final ValueChanged<bool> onChanged;
-  const _SwitchTile({
-    required this.label,
-    required this.subtitle,
-    required this.value,
-    required this.onChanged,
-  });
-
-  @override
-  State<_SwitchTile> createState() => _SwitchTileState();
-}
-
-class _SwitchTileState extends State<_SwitchTile> {
-  late bool _val;
-
-  @override
-  void initState() {
-    super.initState();
-    _val = widget.value;
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    return Padding(
-      padding: const EdgeInsets.only(bottom: 10),
-      child: Row(
-        children: [
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(
-                  widget.label,
-                  style: const TextStyle(
-                    fontSize: 14,
-                    fontWeight: FontWeight.w600,
-                    color: _tealDark,
-                  ),
-                ),
-                Text(
-                  widget.subtitle,
-                  style: const TextStyle(
-                    fontSize: 12,
-                    color: Color(0xFF94A3B8),
-                  ),
-                ),
-              ],
-            ),
-          ),
-          Switch(
-            value: _val,
-            onChanged: (v) {
-              setState(() => _val = v);
-              widget.onChanged(v);
-            },
-            activeColor: _teal,
-          ),
-        ],
-      ),
-    );
-  }
-}
-
-class _OptionTile extends StatelessWidget {
-  final IconData icon;
-  final String label;
-  final Color color;
-  final VoidCallback onTap;
-  const _OptionTile({
-    required this.icon,
-    required this.label,
-    required this.onTap,
-    this.color = _teal,
-  });
-
-  @override
-  Widget build(BuildContext context) {
-    return ListTile(
-      leading: Icon(icon, color: color),
-      title: Text(
-        label,
-        style: TextStyle(
-          fontSize: 15,
-          fontWeight: FontWeight.w500,
-          color: color == Colors.red ? Colors.red : _tealDark,
-        ),
-      ),
-      onTap: onTap,
-    );
-  }
-}
-
 class _SettingGroup extends StatelessWidget {
   final String title;
   final List<Widget> items;
   const _SettingGroup(this.title, this.items);
-
   @override
   Widget build(BuildContext context) {
     return Column(
@@ -3257,7 +2700,6 @@ class _SettingItem extends StatelessWidget {
   final String label;
   final VoidCallback onTap;
   const _SettingItem(this.icon, this.label, {required this.onTap});
-
   @override
   Widget build(BuildContext context) {
     return ListTile(
@@ -3280,190 +2722,80 @@ class _SettingItem extends StatelessWidget {
   }
 }
 
-// ─────────────────────────────────────────────────────────────────────────────
-// Sheet para crear una historia destacada con nombre y emoji personalizados
-// ─────────────────────────────────────────────────────────────────────────────
-class _NuevoHighlightSheet extends StatefulWidget {
-  final Future<void> Function(String title, String emoji) onCreate;
-  const _NuevoHighlightSheet({required this.onCreate});
+class _BioExpandable extends StatefulWidget {
+  final String text;
+  const _BioExpandable({required this.text});
   @override
-  State<_NuevoHighlightSheet> createState() => _NuevoHighlightSheetState();
+  State<_BioExpandable> createState() => _BioExpandableState();
 }
 
-class _NuevoHighlightSheetState extends State<_NuevoHighlightSheet> {
-  final _ctrl = TextEditingController();
-  String _emoji = '✈️';
-  bool _guardando = false;
-
-  static const _emojis = [
-    '✈️',
-    '💼',
-    '🏠',
-    '🍽️',
-    '🤝',
-    '📄',
-    '🏥',
-    '🚌',
-    '💰',
-    '🎭',
-    '⚽',
-    '📚',
-    '🌍',
-    '🎉',
-    '💡',
-  ];
-
-  Future<void> _crear() async {
-    final title = _ctrl.text.trim();
-    if (title.isEmpty) return;
-    setState(() => _guardando = true);
-    await widget.onCreate(title, _emoji);
-    if (mounted) Navigator.pop(context);
-  }
-
+class _BioExpandableState extends State<_BioExpandable> {
+  bool expanded = false;
   @override
-  void dispose() {
-    _ctrl.dispose();
-    super.dispose();
+  Widget build(BuildContext context) {
+    const style = TextStyle(
+      fontSize: 13.5,
+      color: Color(0xFF4B7B78),
+      height: 1.5,
+    );
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Text(
+          widget.text,
+          style: style,
+          maxLines: expanded ? null : 3,
+          overflow: expanded ? TextOverflow.visible : TextOverflow.ellipsis,
+        ),
+        if (widget.text.length > 120)
+          GestureDetector(
+            onTap: () => setState(() => expanded = !expanded),
+            child: Padding(
+              padding: const EdgeInsets.only(top: 4),
+              child: Text(
+                expanded ? "ver menos" : "ver más",
+                style: const TextStyle(
+                  fontSize: 12,
+                  color: _teal,
+                  fontWeight: FontWeight.w600,
+                ),
+              ),
+            ),
+          ),
+      ],
+    );
   }
+}
+
+class HighlightStoriesScreen extends StatelessWidget {
+  final String highlightId;
+  const HighlightStoriesScreen({required this.highlightId});
 
   @override
   Widget build(BuildContext context) {
-    return Padding(
-      padding: EdgeInsets.only(
-        bottom: MediaQuery.of(context).viewInsets.bottom,
-      ),
-      child: Container(
-        decoration: const BoxDecoration(
-          color: Colors.white,
-          borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
-        ),
-        padding: const EdgeInsets.fromLTRB(20, 16, 20, 28),
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Center(
-              child: Container(
-                width: 36,
-                height: 4,
-                decoration: BoxDecoration(
-                  color: const Color(0xFFE2E8F0),
-                  borderRadius: BorderRadius.circular(2),
-                ),
-              ),
-            ),
-            const SizedBox(height: 16),
-            const Text(
-              'Nueva historia destacada',
-              style: TextStyle(
-                fontSize: 17,
-                fontWeight: FontWeight.w800,
-                color: _tealDark,
-              ),
-            ),
-            const SizedBox(height: 16),
-            const Text(
-              'Ícono',
-              style: TextStyle(
-                fontSize: 12,
-                fontWeight: FontWeight.w600,
-                color: _teal,
-              ),
-            ),
-            const SizedBox(height: 8),
-            Wrap(
-              spacing: 6,
-              runSpacing: 6,
-              children: _emojis
-                  .map(
-                    (e) => GestureDetector(
-                      onTap: () => setState(() => _emoji = e),
-                      child: AnimatedContainer(
-                        duration: const Duration(milliseconds: 150),
-                        width: 40,
-                        height: 40,
-                        decoration: BoxDecoration(
-                          shape: BoxShape.circle,
-                          color: _emoji == e ? _teal : _tealBg,
-                          border: Border.all(
-                            color: _emoji == e ? _teal : _tealLight,
-                          ),
-                        ),
-                        child: Center(
-                          child: Text(e, style: const TextStyle(fontSize: 20)),
-                        ),
-                      ),
-                    ),
-                  )
-                  .toList(),
-            ),
-            const SizedBox(height: 16),
-            const Text(
-              'Nombre',
-              style: TextStyle(
-                fontSize: 12,
-                fontWeight: FontWeight.w600,
-                color: _teal,
-              ),
-            ),
-            const SizedBox(height: 8),
-            TextField(
-              controller: _ctrl,
-              autofocus: true,
-              maxLength: 20,
-              decoration: InputDecoration(
-                hintText: 'ej: Mi llegada, Trabajo, Trámites...',
-                filled: true,
-                fillColor: _tealBg,
-                border: OutlineInputBorder(
-                  borderRadius: BorderRadius.circular(12),
-                  borderSide: BorderSide.none,
-                ),
-                focusedBorder: OutlineInputBorder(
-                  borderRadius: BorderRadius.circular(12),
-                  borderSide: const BorderSide(color: _teal, width: 1.5),
-                ),
-                counterStyle: const TextStyle(
-                  color: Color(0xFF94A3B8),
-                  fontSize: 11,
-                ),
-              ),
-            ),
-            const SizedBox(height: 16),
-            SizedBox(
-              width: double.infinity,
-              child: ElevatedButton(
-                onPressed: _guardando ? null : _crear,
-                style: ElevatedButton.styleFrom(
-                  backgroundColor: _teal,
-                  foregroundColor: Colors.white,
-                  shape: RoundedRectangleBorder(
-                    borderRadius: BorderRadius.circular(14),
-                  ),
-                  padding: const EdgeInsets.symmetric(vertical: 14),
-                  disabledBackgroundColor: _tealLight,
-                ),
-                child: _guardando
-                    ? const SizedBox(
-                        width: 20,
-                        height: 20,
-                        child: CircularProgressIndicator(
-                          color: Colors.white,
-                          strokeWidth: 2,
-                        ),
-                      )
-                    : const Text(
-                        'Crear destacada',
-                        style: TextStyle(
-                          fontSize: 15,
-                          fontWeight: FontWeight.w700,
-                        ),
-                      ),
-              ),
-            ),
-          ],
-        ),
+    final user = FirebaseAuth.instance.currentUser;
+    return Scaffold(
+      backgroundColor: Colors.black,
+      body: StreamBuilder(
+        stream: FirebaseFirestore.instance
+            .collection('users')
+            .doc(user!.uid)
+            .collection('stories')
+            .where('highlightId', isEqualTo: highlightId)
+            .snapshots(),
+        builder: (context, snapshot) {
+          if (!snapshot.hasData) {
+            return const Center(child: CircularProgressIndicator());
+          }
+          final stories = snapshot.data!.docs;
+          return PageView.builder(
+            itemCount: stories.length,
+            itemBuilder: (_, i) {
+              final story = stories[i];
+              return Image.network(story['mediaUrl'], fit: BoxFit.cover);
+            },
+          );
+        },
       ),
     );
   }

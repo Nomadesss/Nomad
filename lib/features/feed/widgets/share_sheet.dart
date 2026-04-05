@@ -1,6 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:phosphor_flutter/phosphor_flutter.dart';
+import 'package:url_launcher/url_launcher.dart';
+import 'package:share_plus/share_plus.dart';
 
 // ─────────────────────────────────────────────────────────────────────────────
 // ShareSheet — bottom sheet estilo Instagram, colores Nomad
@@ -33,7 +35,7 @@ class _ShareSheetContent extends StatefulWidget {
 
 class _ShareSheetContentState extends State<_ShareSheetContent> {
   final TextEditingController _searchController = TextEditingController();
-  final List<_MockContact> _allContacts = _MockContact.samples();
+  final List<_MockContact> _allContacts = _MockContact.sortedByAffinity();
   List<_MockContact> _filtered = [];
   final Set<String> _selected = {};
 
@@ -76,6 +78,58 @@ class _ShareSheetContentState extends State<_ShareSheetContent> {
       SnackBar(
         content: const Text('Enlace copiado'),
         behavior: SnackBarBehavior.floating,
+        backgroundColor: const Color(0xFF0D9488),
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+        duration: const Duration(seconds: 2),
+      ),
+    );
+  }
+
+  Future<void> _shareWhatsApp() async {
+    final text = Uri.encodeComponent(
+      'Mirá esta publicación de @${widget.username} en Nomad: $_postLink',
+    );
+    final uri = Uri.parse('whatsapp://send?text=$text');
+    if (await canLaunchUrl(uri)) {
+      await launchUrl(uri);
+    } else {
+      await _shareNative();
+    }
+    if (mounted) Navigator.pop(context);
+  }
+
+  Future<void> _shareFacebook() async {
+    final uri = Uri.parse(
+      'https://www.facebook.com/sharer/sharer.php?u=${Uri.encodeComponent(_postLink)}',
+    );
+    try {
+      await launchUrl(uri, mode: LaunchMode.externalNonBrowserApplication);
+    } catch (_) {
+      try {
+        await launchUrl(uri, mode: LaunchMode.inAppBrowserView);
+      } catch (_) {
+        // Fallback: compartir nativo
+        await _shareNative();
+      }
+    }
+    if (mounted) Navigator.pop(context);
+  }
+
+  Future<void> _shareNative() async {
+    await Share.share(
+      'Mirá esta publicación de @${widget.username} en Nomad: $_postLink',
+      subject: 'Publicación en Nomad',
+    );
+    if (mounted) Navigator.pop(context);
+  }
+
+  void _addToStory() {
+    Navigator.pop(context);
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: const Text('Próximamente: agregar a historia'),
+        behavior: SnackBarBehavior.floating,
+        backgroundColor: const Color(0xFF0D9488),
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
         duration: const Duration(seconds: 2),
       ),
@@ -91,6 +145,7 @@ class _ShareSheetContentState extends State<_ShareSheetContent> {
           'Enviado a ${_selected.length} persona${_selected.length > 1 ? 's' : ''}',
         ),
         behavior: SnackBarBehavior.floating,
+        backgroundColor: const Color(0xFF0D9488),
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
         duration: const Duration(seconds: 2),
       ),
@@ -109,7 +164,7 @@ class _ShareSheetContentState extends State<_ShareSheetContent> {
       child: Column(
         mainAxisSize: MainAxisSize.min,
         children: [
-          // ── Handle ────────────────────────────────────────────────────────
+          // ── Handle ──────────────────────────────────────────────
           const SizedBox(height: 12),
           Container(
             width: 40,
@@ -119,30 +174,30 @@ class _ShareSheetContentState extends State<_ShareSheetContent> {
               borderRadius: BorderRadius.circular(2),
             ),
           ),
-          const SizedBox(height: 16),
+          const SizedBox(height: 14),
 
-          // ── Fila de contactos ─────────────────────────────────────────────
+          // ── Fila de contactos ordenados por afinidad ─────────────
           SizedBox(
-            height: 108,
+            height: 96,
             child: ListView.separated(
               padding: const EdgeInsets.symmetric(horizontal: 16),
               scrollDirection: Axis.horizontal,
               itemCount: _filtered.length,
-              separatorBuilder: (_, __) => const SizedBox(width: 20),
+              separatorBuilder: (_, __) => const SizedBox(width: 16),
               itemBuilder: (_, i) {
                 final c = _filtered[i];
                 final isSel = _selected.contains(c.id);
                 return GestureDetector(
                   onTap: () => _toggleSelect(c.id),
                   child: SizedBox(
-                    width: 64,
+                    width: 54,
                     child: Column(
                       children: [
                         Stack(
                           children: [
                             Container(
-                              width: 64,
-                              height: 64,
+                              width: 52,
+                              height: 52,
                               decoration: BoxDecoration(
                                 shape: BoxShape.circle,
                                 border: Border.all(
@@ -158,50 +213,12 @@ class _ShareSheetContentState extends State<_ShareSheetContent> {
                                         colorFilter: ColorFilter.mode(
                                           const Color(
                                             0xFF0D9488,
-                                          ).withOpacity(0.75),
+                                          ).withOpacity(0.6),
                                           BlendMode.srcOver,
                                         ),
-                                        child: Image.network(
-                                          c.avatarUrl,
-                                          width: 64,
-                                          height: 64,
-                                          fit: BoxFit.cover,
-                                          errorBuilder: (_, __, ___) =>
-                                              Container(
-                                                color: const Color(0xFF1A3A36),
-                                                child: Center(
-                                                  child: Text(
-                                                    c.initials,
-                                                    style: const TextStyle(
-                                                      color: Color(0xFF99E6E0),
-                                                      fontSize: 20,
-                                                      fontWeight:
-                                                          FontWeight.w600,
-                                                    ),
-                                                  ),
-                                                ),
-                                              ),
-                                        ),
+                                        child: _buildAvatar(c),
                                       )
-                                    : Image.network(
-                                        c.avatarUrl,
-                                        width: 64,
-                                        height: 64,
-                                        fit: BoxFit.cover,
-                                        errorBuilder: (_, __, ___) => Container(
-                                          color: const Color(0xFF1A3A36),
-                                          child: Center(
-                                            child: Text(
-                                              c.initials,
-                                              style: const TextStyle(
-                                                color: Color(0xFF99E6E0),
-                                                fontSize: 20,
-                                                fontWeight: FontWeight.w600,
-                                              ),
-                                            ),
-                                          ),
-                                        ),
-                                      ),
+                                    : _buildAvatar(c),
                               ),
                             ),
                             if (isSel)
@@ -210,18 +227,18 @@ class _ShareSheetContentState extends State<_ShareSheetContent> {
                                   child: Icon(
                                     Icons.check_circle,
                                     color: Colors.white,
-                                    size: 28,
+                                    size: 22,
                                   ),
                                 ),
                               ),
                           ],
                         ),
-                        const SizedBox(height: 6),
+                        const SizedBox(height: 5),
                         Text(
                           c.firstName,
                           style: const TextStyle(
                             color: Color(0xFFCCFBF1),
-                            fontSize: 12,
+                            fontSize: 11,
                           ),
                           overflow: TextOverflow.ellipsis,
                           textAlign: TextAlign.center,
@@ -235,61 +252,55 @@ class _ShareSheetContentState extends State<_ShareSheetContent> {
             ),
           ),
 
-          const SizedBox(height: 16),
+          const SizedBox(height: 12),
 
-          // ── Buscador ──────────────────────────────────────────────────────
+          // ── Buscador ──────────────────────────────────────────────
           Padding(
             padding: const EdgeInsets.symmetric(horizontal: 16),
-            child: Container(
-              height: 42,
-              decoration: BoxDecoration(
-                color: Colors.transparent,
-                borderRadius: BorderRadius.circular(12),
-                border: Border.all(color: const Color(0xFF4DC9C2), width: 1.5),
-              ),
-              child: Row(
-                children: [
-                  const SizedBox(width: 12),
-                  Icon(
-                    PhosphorIcons.magnifyingGlass(),
-                    size: 17,
-                    color: const Color(0xFF4DC9C2),
-                  ),
-                  const SizedBox(width: 8),
-                  Expanded(
-                    child: TextField(
-                      controller: _searchController,
-                      style: const TextStyle(
-                        color: Color(0xFFCCFBF1),
-                        fontSize: 15,
+            child: Row(
+              children: [
+                Icon(
+                  PhosphorIcons.magnifyingGlass(),
+                  size: 16,
+                  color: const Color(0xFF4D9E98),
+                ),
+                const SizedBox(width: 8),
+                Expanded(
+                  child: TextField(
+                    controller: _searchController,
+                    style: const TextStyle(
+                      color: Color(0xFFCCFBF1),
+                      fontSize: 22,
+                    ),
+                    decoration: const InputDecoration(
+                      hintText: 'Buscar',
+                      hintStyle: TextStyle(
+                        color: Color(0xFF4D9E98),
+                        fontSize: 18,
                       ),
-                      decoration: const InputDecoration(
-                        hintText: 'Buscar',
-                        hintStyle: TextStyle(color: Color(0xFF4D9E98)),
-                        border: InputBorder.none,
-                        isDense: true,
-                        contentPadding: EdgeInsets.zero,
-                      ),
+                      border: InputBorder.none,
+                      isDense: true,
+                      contentPadding: EdgeInsets.zero,
                     ),
                   ),
-                ],
-              ),
+                ),
+              ],
             ),
           ),
 
-          const SizedBox(height: 16),
+          const SizedBox(height: 12),
 
-          // ── Botón enviar (aparece si hay seleccionados) ───────────────────
+          // ── Botón enviar ─────────────────────────────────────────
           AnimatedCrossFade(
             duration: const Duration(milliseconds: 200),
             crossFadeState: _selected.isNotEmpty
                 ? CrossFadeState.showFirst
                 : CrossFadeState.showSecond,
             firstChild: Padding(
-              padding: const EdgeInsets.fromLTRB(16, 0, 16, 12),
+              padding: const EdgeInsets.fromLTRB(16, 0, 16, 10),
               child: SizedBox(
                 width: double.infinity,
-                height: 46,
+                height: 44,
                 child: ElevatedButton(
                   onPressed: _sendToSelected,
                   style: ElevatedButton.styleFrom(
@@ -315,33 +326,33 @@ class _ShareSheetContentState extends State<_ShareSheetContent> {
             secondChild: const SizedBox(height: 0),
           ),
 
-          // ── Divider ───────────────────────────────────────────────────────
+          // ── Divider ──────────────────────────────────────────────
           Container(height: 1, color: const Color(0xFF1A3A36)),
 
-          // ── Fila de acciones rápidas ──────────────────────────────────────
+          // ── Acciones rápidas ─────────────────────────────────────
           SizedBox(
-            height: 116,
+            height: 100,
             child: ListView(
-              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
+              padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 10),
               scrollDirection: Axis.horizontal,
               children: [
                 _QuickAction(
                   icon: Icons.add_circle_outline_rounded,
-                  label: 'Agregar a\nhistoria',
+                  label: 'Historia',
                   color: const Color(0xFF0D9488),
-                  onTap: () => Navigator.pop(context),
+                  onTap: _addToStory,
                 ),
                 const SizedBox(width: 20),
                 _QuickAction(
                   customIcon: _WhatsAppIcon(),
                   label: 'WhatsApp',
                   color: const Color(0xFF25D366),
-                  onTap: () => Navigator.pop(context),
+                  onTap: _shareWhatsApp,
                 ),
                 const SizedBox(width: 20),
                 _QuickAction(
                   icon: PhosphorIcons.link(),
-                  label: 'Copiar\nenlace',
+                  label: 'Copiar link',
                   color: const Color(0xFF2D5550),
                   onTap: _copyLink,
                 ),
@@ -349,15 +360,15 @@ class _ShareSheetContentState extends State<_ShareSheetContent> {
                 _QuickAction(
                   customIcon: _FacebookIcon(),
                   label: 'Facebook',
-                  color: const Color.fromARGB(255, 43, 73, 109),
-                  onTap: () => Navigator.pop(context),
+                  color: const Color(0xFF1877F2),
+                  onTap: _shareFacebook,
                 ),
                 const SizedBox(width: 20),
                 _QuickAction(
                   icon: Icons.ios_share_rounded,
-                  label: 'Compartir\nen...',
+                  label: 'Compartir',
                   color: const Color(0xFF2D5550),
-                  onTap: () => Navigator.pop(context),
+                  onTap: _shareNative,
                 ),
               ],
             ),
@@ -368,9 +379,32 @@ class _ShareSheetContentState extends State<_ShareSheetContent> {
       ),
     );
   }
+
+  Widget _buildAvatar(_MockContact c) {
+    return Image.network(
+      c.avatarUrl,
+      width: 52,
+      height: 52,
+      fit: BoxFit.cover,
+      errorBuilder: (_, __, ___) => Container(
+        color: const Color(0xFF1A3A36),
+        child: Center(
+          child: Text(
+            c.initials,
+            style: const TextStyle(
+              color: Color(0xFF99E6E0),
+              fontSize: 17,
+              fontWeight: FontWeight.w600,
+            ),
+          ),
+        ),
+      ),
+    );
+  }
 }
 
-// ── Acción rápida circular ────────────────────────────────────────────────────
+// ── Acción rápida circular ────────────────────────────────────
+
 class _QuickAction extends StatelessWidget {
   final IconData? icon;
   final Widget? customIcon;
@@ -391,16 +425,16 @@ class _QuickAction extends StatelessWidget {
     return GestureDetector(
       onTap: onTap,
       child: SizedBox(
-        width: 66,
+        width: 56,
         child: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
             Container(
-              width: 56,
-              height: 56,
+              width: 50,
+              height: 50,
               decoration: BoxDecoration(shape: BoxShape.circle, color: color),
               child: Center(
-                child: customIcon ?? Icon(icon, color: Colors.white, size: 24),
+                child: customIcon ?? Icon(icon, color: Colors.white, size: 22),
               ),
             ),
             const SizedBox(height: 5),
@@ -411,8 +445,8 @@ class _QuickAction extends StatelessWidget {
               overflow: TextOverflow.ellipsis,
               style: const TextStyle(
                 color: Color(0xFFCCFBF1),
-                fontSize: 11,
-                height: 1.25,
+                fontSize: 10,
+                height: 1.2,
               ),
             ),
           ],
@@ -422,32 +456,33 @@ class _QuickAction extends StatelessWidget {
   }
 }
 
-// ── Ícono WhatsApp (imagen real desde assets) ─────────────────────────────────
+// ── Íconos desde assets ───────────────────────────────────────
+
 class _WhatsAppIcon extends StatelessWidget {
   @override
-  Widget build(BuildContext context) {
-    return Image.asset('assets/icons/whatsapp.png', width: 32, height: 32);
-  }
+  Widget build(BuildContext context) =>
+      Image.asset('assets/icons/whatsapp.png', width: 28, height: 28);
 }
 
-// ── Ícono Facebook (imagen real desde assets) ─────────────────────────────────
 class _FacebookIcon extends StatelessWidget {
   @override
-  Widget build(BuildContext context) {
-    return Image.asset('assets/icons/facebook.png', width: 32, height: 32);
-  }
+  Widget build(BuildContext context) =>
+      Image.asset('assets/icons/facebook.png', width: 28, height: 28);
 }
 
-// ── Modelo mock de contactos ──────────────────────────────────────────────────
+// ── Modelo con score de afinidad ─────────────────────────────
+
 class _MockContact {
   final String id;
   final String name;
   final String avatarUrl;
+  final int affinityScore;
 
   const _MockContact({
     required this.id,
     required this.name,
     required this.avatarUrl,
+    required this.affinityScore,
   });
 
   String get firstName => name.split(' ').first;
@@ -459,46 +494,58 @@ class _MockContact {
         : parts[0][0].toUpperCase();
   }
 
-  static List<_MockContact> samples() => [
-    _MockContact(
-      id: '1',
-      name: 'Ana García',
-      avatarUrl: 'https://randomuser.me/api/portraits/women/44.jpg',
-    ),
-    _MockContact(
-      id: '2',
-      name: 'Luis Martínez',
-      avatarUrl: 'https://randomuser.me/api/portraits/men/32.jpg',
-    ),
-    _MockContact(
-      id: '3',
-      name: 'Carla Ruiz',
-      avatarUrl: 'https://randomuser.me/api/portraits/women/68.jpg',
-    ),
-    _MockContact(
-      id: '4',
-      name: 'Pedro López',
-      avatarUrl: 'https://randomuser.me/api/portraits/men/75.jpg',
-    ),
-    _MockContact(
-      id: '5',
-      name: 'Sofía Torres',
-      avatarUrl: 'https://randomuser.me/api/portraits/women/90.jpg',
-    ),
-    _MockContact(
-      id: '6',
-      name: 'Mateo Silva',
-      avatarUrl: 'https://randomuser.me/api/portraits/men/12.jpg',
-    ),
-    _MockContact(
-      id: '7',
-      name: 'Valentina Paz',
-      avatarUrl: 'https://randomuser.me/api/portraits/women/21.jpg',
-    ),
-    _MockContact(
-      id: '8',
-      name: 'Diego Vera',
-      avatarUrl: 'https://randomuser.me/api/portraits/men/55.jpg',
-    ),
-  ];
+  static List<_MockContact> sortedByAffinity() {
+    final list = [
+      const _MockContact(
+        id: '1',
+        name: 'Ana García',
+        avatarUrl: 'https://randomuser.me/api/portraits/women/44.jpg',
+        affinityScore: 95,
+      ),
+      const _MockContact(
+        id: '2',
+        name: 'Luis Martínez',
+        avatarUrl: 'https://randomuser.me/api/portraits/men/32.jpg',
+        affinityScore: 88,
+      ),
+      const _MockContact(
+        id: '3',
+        name: 'Carla Ruiz',
+        avatarUrl: 'https://randomuser.me/api/portraits/women/68.jpg',
+        affinityScore: 82,
+      ),
+      const _MockContact(
+        id: '4',
+        name: 'Pedro López',
+        avatarUrl: 'https://randomuser.me/api/portraits/men/75.jpg',
+        affinityScore: 74,
+      ),
+      const _MockContact(
+        id: '5',
+        name: 'Sofía Torres',
+        avatarUrl: 'https://randomuser.me/api/portraits/women/90.jpg',
+        affinityScore: 68,
+      ),
+      const _MockContact(
+        id: '6',
+        name: 'Mateo Silva',
+        avatarUrl: 'https://randomuser.me/api/portraits/men/12.jpg',
+        affinityScore: 61,
+      ),
+      const _MockContact(
+        id: '7',
+        name: 'Valentina Paz',
+        avatarUrl: 'https://randomuser.me/api/portraits/women/21.jpg',
+        affinityScore: 55,
+      ),
+      const _MockContact(
+        id: '8',
+        name: 'Diego Vera',
+        avatarUrl: 'https://randomuser.me/api/portraits/men/55.jpg',
+        affinityScore: 48,
+      ),
+    ];
+    list.sort((a, b) => b.affinityScore.compareTo(a.affinityScore));
+    return list;
+  }
 }

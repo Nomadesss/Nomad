@@ -233,9 +233,7 @@ class FeedService {
         if (seenIds.add(p.docId)) allPosts.add(p);
       }
 
-      final validPosts = allPosts
-          .where((p) => p.docId.isNotEmpty && p.images.isNotEmpty)
-          .toList();
+      final validPosts = allPosts.where((p) => p.docId.isNotEmpty).toList();
 
       final combined = _buildCombinedFeed(posts: validPosts, events: events);
 
