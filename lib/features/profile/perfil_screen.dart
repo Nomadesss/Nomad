@@ -1047,7 +1047,7 @@ class _PublicacionDetalleState extends State<_PublicacionDetalle> {
                   GestureDetector(
                     onTap: () {
                       if (esPropio) {
-                        _PerfilPostOptionsSheet.show(
+                        PerfilPostOptionsSheet.show(
                           context,
                           postId: widget.postId,
                           autorId: widget.autorId,
@@ -1389,7 +1389,7 @@ class _PublicacionDetalleState extends State<_PublicacionDetalle> {
 // Sheet de opciones del perfil propio
 // ─────────────────────────────────────────────────────────────────────────────
 
-class _PerfilPostOptionsSheet {
+class PerfilPostOptionsSheet {
   static void show(
     BuildContext context, {
     required String postId,

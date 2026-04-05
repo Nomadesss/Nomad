@@ -4,6 +4,7 @@ import 'package:firebase_auth/firebase_auth.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 
 import 'post_options_sheet.dart';
+import '../../profile/perfil_screen.dart';
 
 /// Tarjeta de post del feed.
 ///
@@ -120,15 +121,26 @@ class _PostCardState extends State<PostCard> {
   }
 
   void _openOptions() {
-    showPostOptions(
-      context: context,
-      postId: widget.postId,
-      postAuthorId: widget.postAuthorId,
-      username: widget.username,
-      onDismissPost: () {
-        widget.onDismiss?.call();
-      },
-    );
+    final myUid = FirebaseAuth.instance.currentUser?.uid;
+    final esPropio = myUid == widget.postAuthorId;
+
+    if (esPropio) {
+      PerfilPostOptionsSheet.show(
+        context,
+        postId: widget.postId,
+        autorId: widget.postAuthorId,
+      );
+    } else {
+      showPostOptions(
+        context: context,
+        postId: widget.postId,
+        postAuthorId: widget.postAuthorId,
+        username: widget.username,
+        onDismissPost: () {
+          widget.onDismiss?.call();
+        },
+      );
+    }
   }
 
   @override
