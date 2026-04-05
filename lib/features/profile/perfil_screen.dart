@@ -15,6 +15,7 @@ import '../feed/widgets/share_sheet.dart';
 import '../feed/widgets/post_options_sheet.dart';
 import '../feed/widgets/comments_screen.dart';
 import '../../services/social_service.dart';
+import '../../services/post_service.dart';
 
 // ─────────────────────────────────────────────────────────────────────────────
 // perfil_screen.dart  –  Nomad App
@@ -183,6 +184,76 @@ class _PerfilPropioState extends State<PerfilPropio>
         ),
       ),
       bottomNavigationBar: const BottomNav(currentIndex: 3),
+    );
+  }
+
+  Widget _buildGrillaDePosts() {
+    final String miId = FirebaseAuth.instance.currentUser?.uid ?? '';
+
+    return StreamBuilder<List<Map<String, dynamic>>>(
+      stream: PostService.getUserPosts(miId),
+      builder: (context, snapshot) {
+        if (snapshot.connectionState == ConnectionState.waiting) {
+          return const Center(child: CircularProgressIndicator());
+        }
+
+        if (!snapshot.hasData || snapshot.data!.isEmpty) {
+          return const Center(
+            child: Text(
+              "Aún no tienes publicaciones",
+              style: TextStyle(color: Colors.grey),
+            ),
+          );
+        }
+
+        final posts = snapshot.data!;
+
+        return GridView.builder(
+          shrinkWrap: true, // Importante si está dentro de un ListView o Column
+          physics: const NeverScrollableScrollPhysics(),
+          gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
+            crossAxisCount: 3,
+            crossAxisSpacing: 2,
+            mainAxisSpacing: 2,
+          ),
+          itemCount: posts.length,
+          itemBuilder: (context, index) {
+            final post = posts[index];
+
+            // Lógica para determinar qué miniatura mostrar
+            return _buildPostThumbnail(post);
+          },
+        );
+      },
+    );
+  }
+
+  Widget _buildPostThumbnail(Map<String, dynamic> post) {
+    // 1. Si es de fotos o video (asumiendo que guardás la URL en 'images')
+    if (post['images'] != null && (post['images'] as List).isNotEmpty) {
+      return Image.network(post['images'][0], fit: BoxFit.cover);
+    }
+
+    // 2. Si es solo audio/Spotify (asumiendo que tenés spotifyAlbumArt)
+    if (post['spotifyTrackId'] != null) {
+      return Stack(
+        fit: StackFit.expand,
+        children: [
+          Image.network(post['spotifyAlbumArt'] ?? '', fit: BoxFit.cover),
+          const Center(
+            child: Icon(Icons.music_note, color: Colors.white, size: 30),
+          ),
+          Container(
+            color: Colors.black26,
+          ), // Oscurece un poco para que se vea el icono
+        ],
+      );
+    }
+
+    // 3. Fallback (post de solo texto o error)
+    return Container(
+      color: _teal.withOpacity(0.1),
+      child: const Icon(Icons.article, color: _teal),
     );
   }
 
@@ -645,13 +716,11 @@ class _ProfileHeader extends StatelessWidget {
   Widget _buildStats() {
     return Row(
       children: [
-        _StatBubble(value: '42', label: 'Posts'),
+        _StatBubble(value: '$_publicacionesCount', label: 'Posts'),
         const SizedBox(width: 24),
-        _StatBubble(value: '1.2k', label: 'Seguidores'),
+        _StatBubble(value: '$_seguidoresCount', label: 'Seguidores'),
         const SizedBox(width: 24),
-        _StatBubble(value: '380', label: 'Siguiendo'),
-        const SizedBox(width: 24),
-        _StatBubble(value: '3', label: 'Países'),
+        _StatBubble(value: '$_siguiendoCount', label: 'Siguiendo'),
       ],
     );
   }

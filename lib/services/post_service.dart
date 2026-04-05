@@ -134,4 +134,20 @@ class PostService {
       return 'No se pudo eliminar la publicación.';
     }
   }
+
+  static Stream<List<Map<String, dynamic>>> getUserPosts(String userId) {
+    return _db
+        .collection(_postsCollection)
+        .where('authorId', isEqualTo: userId)
+        .orderBy('createdAt', descending: true)
+        .snapshots()
+        .map(
+          (snapshot) => snapshot.docs.map((doc) {
+            final data = doc.data();
+            data['id'] = doc
+                .id; // Guardamos el ID por si lo necesitás para borrar o editar
+            return data;
+          }).toList(),
+        );
+  }
 }
