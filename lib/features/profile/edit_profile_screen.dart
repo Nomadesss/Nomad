@@ -187,6 +187,11 @@ class _EditProfileScreenState extends State<EditProfileScreen>
           'ciudadesVividas': _ciudadesVividas,
           'esPrivada': _esPrivada,
         });
+        // sincronizar posts
+        await UserService.syncPostsVisibility(
+          userId: user.uid,
+          esPrivada: _esPrivada,
+        );
         if (mounted) {
           Navigator.pop(context, true); // devuelve true = hubo cambios
         }

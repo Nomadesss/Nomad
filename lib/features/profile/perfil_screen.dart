@@ -73,21 +73,24 @@ class _PerfilPropioState extends State<PerfilPropio>
     int siguiendoTemp = 0;
     int publicacionesTemp = 0;
     try {
+      // seguidores
       final followersSnapshot = await _firestore
-          .collection('users')
-          .doc(user.uid)
-          .collection('followers')
+          .collection('follows')
+          .where('followingId', isEqualTo: user.uid)
           .get();
+
+      // seguidos
       final followingSnapshot = await _firestore
-          .collection('users')
-          .doc(user.uid)
-          .collection('following')
+          .collection('follows')
+          .where('followerId', isEqualTo: user.uid)
           .get();
+
+      // publicaciones
       final postsSnapshot = await _firestore
-          .collection('users')
-          .doc(user.uid)
-          .collection('publicaciones')
+          .collection('posts')
+          .where('authorId', isEqualTo: user.uid)
           .get();
+
       seguidoresTemp = followersSnapshot.size;
       siguiendoTemp = followingSnapshot.size;
       publicacionesTemp = postsSnapshot.size;

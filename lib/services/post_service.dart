@@ -45,8 +45,8 @@ class PostService {
     required List<File> imagenes,
     required String caption,
     String? location,
-    LocationData? locationData, // ← coordenadas GPS para ordenar por distancia
-    String visibility = 'public', // ← 'public' | 'friends'
+    LocationData? locationData,
+
     // Spotify
     String? spotifyTrackId,
     String? spotifyTrackName,
@@ -56,65 +56,74 @@ class PostService {
   }) async {
     try {
       final user = _auth.currentUser;
-      if (user == null) return (postId: null, error: 'No hay sesión activa.');
 
-      // ── Leer perfil del autor desde Firestore ────────────────────────────
+      if (user == null) {
+        return (postId: null, error: 'No hay sesión activa.');
+      }
+
+      // obtener datos usuario
       final userDoc = await _db
           .collection(_usersCollection)
           .doc(user.uid)
           .get();
+
       final userData = userDoc.data() ?? {};
 
-      // ── Subir imágenes a Firebase Storage ────────────────────────────────
-      // TODO (producción): descomentar cuando Storage esté activo.
-      //
-      // final storageRef = FirebaseStorage.instance.ref();
-      // final List<String> imageUrls = [];
-      // for (int i = 0; i < imagenes.length; i++) {
-      //   final ref = storageRef
-      //       .child('posts/${user.uid}/${DateTime.now().millisecondsSinceEpoch}_$i.jpg');
-      //   await ref.putFile(imagenes[i]);
-      //   final url = await ref.getDownloadURL();
-      //   imageUrls.add(url);
-      // }
+      final bool isPrivate = userData['esPrivada'] ?? false;
 
-      // Placeholder mientras Storage no está activo:
+      // definir visibilidad automaticamente
+      final String visibility = isPrivate ? 'followers' : 'public';
+
+      // placeholder imagenes
       final List<String> imageUrls = imagenes.isNotEmpty
           ? List.generate(
               imagenes.length,
               (i) =>
                   'https://picsum.photos/seed/${DateTime.now().millisecondsSinceEpoch + i}/800/800',
             )
-          : [
-              'https://picsum.photos/seed/nomad/800/800',
-            ]; // fallback para no quedar vacío
+          : ['https://picsum.photos/seed/nomad/800/800'];
 
-      // ── Crear documento en Firestore ─────────────────────────────────────
       final docRef = _db.collection(_postsCollection).doc();
 
       final Map<String, dynamic> data = {
         'authorId': user.uid,
+
         'username':
             userData['username'] ?? userData['nombreCompleto'] ?? 'usuario',
+
         'caption': caption.trim(),
+
         'images': imageUrls,
+
         'likesCount': 0,
+
         'commentsCount': 0,
+
         'countryFlag': userData['countryFlag'],
+
         'city': userData['city'],
+
         'bio': userData['bio'],
+
         'visibility': visibility,
+
         'createdAt': FieldValue.serverTimestamp(),
+
         if (location != null && location.isNotEmpty) 'location': location,
-        // Coordenadas GPS: permiten ordenar por distancia en el feed.
-        // Se guardan solo si el usuario otorgó permiso de ubicación.
+
         if (locationData?.lat != null) 'lat': locationData!.lat,
+
         if (locationData?.lng != null) 'lng': locationData!.lng,
+
         if (spotifyTrackId != null) ...{
           'spotifyTrackId': spotifyTrackId,
+
           'spotifyTrackName': spotifyTrackName,
+
           'spotifyArtist': spotifyArtist,
+
           'spotifyPreviewUrl': spotifyPreviewUrl,
+
           'spotifyAlbumArt': spotifyAlbumArt,
         },
       };
@@ -123,7 +132,7 @@ class PostService {
 
       return (postId: docRef.id, error: null);
     } catch (e) {
-      return (postId: null, error: 'No se pudo publicar. Intentá de nuevo.');
+      return (postId: null, error: 'No se pudo publicar.');
     }
   }
 
@@ -131,7 +140,6 @@ class PostService {
 
   static Future<String?> deletePost(String postId) async {
     try {
-      // TODO (producción): eliminar imágenes de Storage también.
       await _db.collection(_postsCollection).doc(postId).delete();
       return null;
     } catch (e) {

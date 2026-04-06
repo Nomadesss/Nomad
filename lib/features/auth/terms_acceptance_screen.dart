@@ -59,11 +59,9 @@ class _TermsAcceptanceScreenState extends State<TermsAcceptanceScreen>
       "email": user.email,
       "name": user.displayName,
       "photo": user.photoURL,
-
-      "acceptedTerms": true,
-      "acceptedAt": Timestamp.now(),
-
-      "createdAt": Timestamp.now(),
+      "terminosAceptados": true,
+      "gdprAceptadoEn": Timestamp.now(),
+      "creadoEn": Timestamp.now(),
     }, SetOptions(merge: true));
 
     if (!mounted) return;

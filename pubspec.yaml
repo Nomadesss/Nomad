@@ -38,6 +38,7 @@ dependencies:
   cloud_firestore: ^5.0.0
   country_picker: ^2.0.27
   geolocator: ^11.0.0
+  google_maps_flutter: ^2.6.0
   image_picker: ^1.0.7
   firebase_storage: ^12.4.10
   geocoding: ^3.0.0

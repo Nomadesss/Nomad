@@ -262,32 +262,60 @@ class SocialService {
   // FOLLOWS
   // ══════════════════════════════════════════════════════════════════════════
 
-  static Future<void> follow(String targetUserId) async {
-    final me = _requireMe();
-    final followId = '${me}_$targetUserId';
-    final batch = _db.batch();
+  static Future followUser(String targetUserId) async {
+    final currentUserId = FirebaseAuth.instance.currentUser!.uid;
 
-    batch.set(_db.collection('follows').doc(followId), {
-      'followerId': me,
-      'followingId': targetUserId,
-      'createdAt': FieldValue.serverTimestamp(),
-    });
-    batch.update(_db.collection('users').doc(me), {
-      'followingCount': FieldValue.increment(1),
-    });
-    batch.update(_db.collection('users').doc(targetUserId), {
-      'followersCount': FieldValue.increment(1),
-    });
-    batch.set(_db.collection('notifications').doc(), {
-      'toUserId': targetUserId,
-      'fromUserId': me,
-      'type': 'follow',
-      'refId': me,
-      'read': false,
-      'createdAt': FieldValue.serverTimestamp(),
-    });
+    final docId = '${currentUserId}_$targetUserId';
 
-    await batch.commit();
+    await FirebaseFirestore.instance.collection('follows').doc(docId).set({
+      "followerId": currentUserId,
+
+      "followingId": targetUserId,
+
+      "createdAt": FieldValue.serverTimestamp(),
+    });
+  }
+
+  static Future unfollowUser(String targetUserId) async {
+    final currentUserId = FirebaseAuth.instance.currentUser!.uid;
+
+    final docId = '${currentUserId}_$targetUserId';
+
+    await FirebaseFirestore.instance.collection('follows').doc(docId).delete();
+  }
+
+  //Gestionar dependiendo de si el usuario es publico o privado.
+  static Future followOrRequestUser(String targetUserId) async {
+    final myUid = FirebaseAuth.instance.currentUser!.uid;
+
+    final userDoc = await FirebaseFirestore.instance
+        .collection('users')
+        .doc(targetUserId)
+        .get();
+
+    final isPrivate = userDoc.data()?["isPrivate"] ?? false;
+
+    if (isPrivate) {
+      await FirebaseFirestore.instance.collection('friend_requests').add({
+        "from": myUid,
+
+        "to": targetUserId,
+
+        "status": "pending",
+
+        "createdAt": FieldValue.serverTimestamp(),
+      });
+    } else {
+      final docId = '${myUid}_$targetUserId';
+
+      await FirebaseFirestore.instance.collection('follows').doc(docId).set({
+        "followerId": myUid,
+
+        "followingId": targetUserId,
+
+        "createdAt": FieldValue.serverTimestamp(),
+      });
+    }
   }
 
   static Future<void> unfollow(String targetUserId) async {

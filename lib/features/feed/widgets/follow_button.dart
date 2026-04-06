@@ -40,7 +40,7 @@ class _FollowButtonState extends State<FollowButton> {
       if (currentlyFollowing) {
         await SocialService.unfollow(widget.targetUserId);
       } else {
-        await SocialService.follow(widget.targetUserId);
+        await SocialService.followUser(widget.targetUserId);
       }
     } catch (e) {
       if (mounted) {
@@ -100,20 +100,14 @@ class _FullButton extends StatelessWidget {
       duration: const Duration(milliseconds: 200),
       height: 42,
       decoration: BoxDecoration(
-        color: following
-            ? const Color(0xFFE6FAF8)
-            : const Color(0xFF0D9488),
+        color: following ? const Color(0xFFE6FAF8) : const Color(0xFF0D9488),
         borderRadius: BorderRadius.circular(10),
-        border: following
-            ? Border.all(color: const Color(0xFF5EEAD4))
-            : null,
+        border: following ? Border.all(color: const Color(0xFF5EEAD4)) : null,
       ),
       child: TextButton(
         onPressed: loading ? null : onTap,
         style: TextButton.styleFrom(
-          foregroundColor: following
-              ? const Color(0xFF0D9488)
-              : Colors.white,
+          foregroundColor: following ? const Color(0xFF0D9488) : Colors.white,
           minimumSize: const Size(double.infinity, 42),
           shape: RoundedRectangleBorder(
             borderRadius: BorderRadius.circular(10),
@@ -125,9 +119,7 @@ class _FullButton extends StatelessWidget {
                 height: 16,
                 child: CircularProgressIndicator(
                   strokeWidth: 2,
-                  color: following
-                      ? const Color(0xFF0D9488)
-                      : Colors.white,
+                  color: following ? const Color(0xFF0D9488) : Colors.white,
                 ),
               )
             : Text(
@@ -163,9 +155,7 @@ class _CompactButton extends StatelessWidget {
         duration: const Duration(milliseconds: 200),
         padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 6),
         decoration: BoxDecoration(
-          color: following
-              ? Colors.transparent
-              : const Color(0xFF0D9488),
+          color: following ? Colors.transparent : const Color(0xFF0D9488),
           borderRadius: BorderRadius.circular(20),
           border: Border.all(
             color: following
@@ -187,9 +177,7 @@ class _CompactButton extends StatelessWidget {
                 style: TextStyle(
                   fontSize: 12,
                   fontWeight: FontWeight.w600,
-                  color: following
-                      ? const Color(0xFF0D9488)
-                      : Colors.white,
+                  color: following ? const Color(0xFF0D9488) : Colors.white,
                 ),
               ),
       ),

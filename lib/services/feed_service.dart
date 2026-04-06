@@ -30,7 +30,7 @@ class PostModel {
   final double? lat;
   final double? lng;
 
-  // Visibilidad: 'public' | 'friends'
+  // Visibilidad: 'public' | 'followers'
   final String visibility;
 
   // Distancia calculada en el cliente (km). null si no hay coords.
@@ -303,7 +303,7 @@ class FeedService {
       for (final doc in snap.docs) {
         final vis =
             (doc.data() as Map<String, dynamic>?)?['visibility'] as String?;
-        if (vis == 'friends') continue; // excluir privados
+        if (vis == 'followers') continue; // excluir privados
         if (seenIds.add(doc.id)) allDocs.add(doc); // deduplicar
       }
     }

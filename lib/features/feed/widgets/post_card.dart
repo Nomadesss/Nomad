@@ -4,7 +4,11 @@ import 'package:firebase_auth/firebase_auth.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 
 import 'post_options_sheet.dart';
+import 'share_sheet.dart';
+import 'comments_screen.dart';
 import '../../profile/perfil_screen.dart';
+import '../../profile/visitor_profile_screen.dart';
+import 'follow_button.dart';
 
 /// Tarjeta de post del feed.
 ///
@@ -120,6 +124,18 @@ class _PostCardState extends State<PostCard> {
     }
   }
 
+  void _openComments() {
+    CommentsScreen.show(
+      context,
+      postId: widget.postId,
+      postAuthorId: widget.postAuthorId,
+    );
+  }
+
+  void _openShare() {
+    ShareSheet.show(context, postId: widget.postId, username: widget.username);
+  }
+
   void _openOptions() {
     final myUid = FirebaseAuth.instance.currentUser?.uid;
     final esPropio = myUid == widget.postAuthorId;
@@ -143,6 +159,26 @@ class _PostCardState extends State<PostCard> {
     }
   }
 
+  /// Mini-perfil al tocar avatar o nombre (solo para posts de otros usuarios)
+  void _openAuthorPreview() {
+    final myUid = FirebaseAuth.instance.currentUser?.uid;
+    if (myUid == widget.postAuthorId)
+      return; // no abrir preview del propio perfil
+
+    showModalBottomSheet(
+      context: context,
+      isScrollControlled: true,
+      backgroundColor: Colors.transparent,
+      builder: (_) => _AuthorPreviewSheet(
+        authorId: widget.postAuthorId,
+        username: widget.username,
+        userCountryFlag: widget.userCountryFlag,
+        userCity: widget.userCity,
+        userBio: widget.userBio,
+      ),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     return Container(
@@ -156,54 +192,60 @@ class _PostCardState extends State<PostCard> {
             padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
             child: Row(
               children: [
-                // Avatar
-                CircleAvatar(
-                  radius: 18,
-                  backgroundColor: const Color(0xFFD1FAE5),
-                  child: Text(
-                    widget.username.isNotEmpty
-                        ? widget.username[0].toUpperCase()
-                        : '?',
-                    style: const TextStyle(
-                      color: Color(0xFF0D9488),
-                      fontWeight: FontWeight.bold,
+                // Avatar — tappable para posts ajenos
+                GestureDetector(
+                  onTap: _openAuthorPreview,
+                  child: CircleAvatar(
+                    radius: 18,
+                    backgroundColor: const Color(0xFFD1FAE5),
+                    child: Text(
+                      widget.username.isNotEmpty
+                          ? widget.username[0].toUpperCase()
+                          : '?',
+                      style: const TextStyle(
+                        color: Color(0xFF0D9488),
+                        fontWeight: FontWeight.bold,
+                      ),
                     ),
                   ),
                 ),
                 const SizedBox(width: 10),
-                // Nombre + ubicación
+                // Nombre + ubicación — también tappable
                 Expanded(
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Row(
-                        children: [
-                          Text(
-                            widget.username,
-                            style: const TextStyle(
-                              fontWeight: FontWeight.w700,
-                              fontSize: 14,
-                              color: Color(0xFF1F2937),
-                            ),
-                          ),
-                          if (widget.userCountryFlag != null) ...[
-                            const SizedBox(width: 4),
+                  child: GestureDetector(
+                    onTap: _openAuthorPreview,
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Row(
+                          children: [
                             Text(
-                              widget.userCountryFlag!,
-                              style: const TextStyle(fontSize: 14),
+                              widget.username,
+                              style: const TextStyle(
+                                fontWeight: FontWeight.w700,
+                                fontSize: 14,
+                                color: Color(0xFF1F2937),
+                              ),
                             ),
+                            if (widget.userCountryFlag != null) ...[
+                              const SizedBox(width: 4),
+                              Text(
+                                widget.userCountryFlag!,
+                                style: const TextStyle(fontSize: 14),
+                              ),
+                            ],
                           ],
-                        ],
-                      ),
-                      if (widget.userCity != null)
-                        Text(
-                          widget.userCity!,
-                          style: const TextStyle(
-                            fontSize: 12,
-                            color: Color(0xFF6B7280),
-                          ),
                         ),
-                    ],
+                        if (widget.userCity != null)
+                          Text(
+                            widget.userCity!,
+                            style: const TextStyle(
+                              fontSize: 12,
+                              color: Color(0xFF6B7280),
+                            ),
+                          ),
+                      ],
+                    ),
                   ),
                 ),
                 // Tres puntos → abre opciones
@@ -302,27 +344,46 @@ class _PostCardState extends State<PostCard> {
                   ),
                 ),
                 const SizedBox(width: 16),
-                // Comentarios
-                Row(
-                  children: [
-                    Icon(
-                      PhosphorIcons.chatCircle(),
-                      color: const Color(0xFF6B7280),
-                      size: 24,
-                    ),
-                    const SizedBox(width: 4),
-                    const Text(
-                      '0',
-                      style: TextStyle(fontSize: 13, color: Color(0xFF6B7280)),
-                    ),
-                  ],
+                // Comentarios — ahora funcional
+                GestureDetector(
+                  onTap: _openComments,
+                  child: StreamBuilder<QuerySnapshot>(
+                    stream: FirebaseFirestore.instance
+                        .collection('posts')
+                        .doc(widget.postId)
+                        .collection('comments')
+                        .snapshots(),
+                    builder: (context, snap) {
+                      final count = snap.data?.docs.length ?? 0;
+                      return Row(
+                        children: [
+                          Icon(
+                            PhosphorIcons.chatCircle(),
+                            color: const Color(0xFF6B7280),
+                            size: 24,
+                          ),
+                          const SizedBox(width: 4),
+                          Text(
+                            '$count',
+                            style: const TextStyle(
+                              fontSize: 13,
+                              color: Color(0xFF6B7280),
+                            ),
+                          ),
+                        ],
+                      );
+                    },
+                  ),
                 ),
                 const SizedBox(width: 16),
-                // Compartir
-                Icon(
-                  PhosphorIcons.paperPlaneTilt(),
-                  color: const Color(0xFF6B7280),
-                  size: 24,
+                // Compartir — ahora funcional
+                GestureDetector(
+                  onTap: _openShare,
+                  child: Icon(
+                    PhosphorIcons.paperPlaneTilt(),
+                    color: const Color(0xFF6B7280),
+                    size: 24,
+                  ),
                 ),
                 const Spacer(),
                 // Guardar
@@ -375,6 +436,160 @@ class _PostCardState extends State<PostCard> {
                 ),
               ),
             ),
+        ],
+      ),
+    );
+  }
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Mini-perfil del autor (bottom sheet al tocar avatar / nombre)
+// ─────────────────────────────────────────────────────────────────────────────
+
+class _AuthorPreviewSheet extends StatelessWidget {
+  const _AuthorPreviewSheet({
+    required this.authorId,
+    required this.username,
+    this.userCountryFlag,
+    this.userCity,
+    this.userBio,
+  });
+
+  final String authorId;
+  final String username;
+  final String? userCountryFlag;
+  final String? userCity;
+  final String? userBio;
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      decoration: const BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
+      ),
+      padding: const EdgeInsets.fromLTRB(20, 14, 20, 32),
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          // Handle
+          Container(
+            width: 36,
+            height: 4,
+            margin: const EdgeInsets.only(bottom: 20),
+            decoration: BoxDecoration(
+              color: const Color(0xFFE5E7EB),
+              borderRadius: BorderRadius.circular(2),
+            ),
+          ),
+
+          // Avatar
+          CircleAvatar(
+            radius: 32,
+            backgroundColor: const Color(0xFFD1FAE5),
+            child: Text(
+              username.isNotEmpty ? username[0].toUpperCase() : '?',
+              style: const TextStyle(
+                color: Color(0xFF0D9488),
+                fontWeight: FontWeight.bold,
+                fontSize: 26,
+              ),
+            ),
+          ),
+          const SizedBox(height: 12),
+
+          // Nombre + flag
+          Row(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              Text(
+                username,
+                style: const TextStyle(
+                  fontWeight: FontWeight.w700,
+                  fontSize: 17,
+                  color: Color(0xFF1F2937),
+                ),
+              ),
+              if (userCountryFlag != null) ...[
+                const SizedBox(width: 6),
+                Text(userCountryFlag!, style: const TextStyle(fontSize: 17)),
+              ],
+            ],
+          ),
+
+          // Ciudad
+          if (userCity != null) ...[
+            const SizedBox(height: 4),
+            Row(
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: [
+                const Icon(
+                  Icons.location_on_outlined,
+                  size: 14,
+                  color: Color(0xFF9CA3AF),
+                ),
+                const SizedBox(width: 3),
+                Text(
+                  userCity!,
+                  style: const TextStyle(
+                    fontSize: 13,
+                    color: Color(0xFF6B7280),
+                  ),
+                ),
+              ],
+            ),
+          ],
+
+          // Bio
+          if (userBio != null && userBio!.isNotEmpty) ...[
+            const SizedBox(height: 10),
+            Text(
+              userBio!,
+              textAlign: TextAlign.center,
+              maxLines: 3,
+              overflow: TextOverflow.ellipsis,
+              style: const TextStyle(
+                fontSize: 13,
+                color: Color(0xFF4B5563),
+                height: 1.4,
+              ),
+            ),
+          ],
+
+          const SizedBox(height: 20),
+
+          // Botón Seguir (reactivo, usa FollowButton)
+          FollowButton(targetUserId: authorId),
+
+          const SizedBox(height: 12),
+
+          // Ir al perfil completo
+          TextButton(
+            onPressed: () {
+              Navigator.pop(context);
+              Navigator.push(
+                context,
+                MaterialPageRoute(
+                  builder: (_) => VisitorProfileScreen(targetUserId: authorId),
+                ),
+              );
+            },
+            style: TextButton.styleFrom(
+              minimumSize: const Size(double.infinity, 44),
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(10),
+                side: const BorderSide(color: Color(0xFFE5E7EB)),
+              ),
+            ),
+            child: const Text(
+              'Ver perfil completo',
+              style: TextStyle(
+                color: Color(0xFF374151),
+                fontWeight: FontWeight.w600,
+                fontSize: 14,
+              ),
+            ),
+          ),
         ],
       ),
     );

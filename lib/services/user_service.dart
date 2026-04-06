@@ -383,6 +383,29 @@ class UserService {
     }
   }
 
+  /// Actualizacion tras cambio en tipo de perfil.
+  static Future syncPostsVisibility({
+    required String userId,
+    required bool esPrivada,
+  }) async {
+    final db = FirebaseFirestore.instance;
+
+    final posts = await db
+        .collection('posts')
+        .where('authorId', isEqualTo: userId)
+        .get();
+
+    final batch = db.batch();
+
+    final newVisibility = esPrivada ? 'followers' : 'public';
+
+    for (final doc in posts.docs) {
+      batch.update(doc.reference, {'visibility': newVisibility});
+    }
+
+    await batch.commit();
+  }
+
   /// Derecho de acceso — Art. 15 GDPR.
   ///
   /// Devuelve todos los datos del usuario en un Map exportable.
