@@ -84,8 +84,15 @@ class _LegalScreenState extends State<LegalScreen> {
           _guides = guides;
           _loading = false;
           _showWizard = false;
+          _activeCategory = _mapObjetivoToCategory(filter.objetivo);
         });
         _applyFilters();
+        if (_filtered.isEmpty) {
+          setState(() {
+            _activeCategory = null; // null = chip "Todas"
+          });
+          _applyFilters();
+        }
       }
     } catch (e) {
       if (mounted)
@@ -101,7 +108,15 @@ class _LegalScreenState extends State<LegalScreen> {
 
     // Filtro por categoría
     if (_activeCategory != null) {
-      result = result.where((g) => g.categoria == _activeCategory).toList();
+      result = result.where((g) {
+        // si el usuario eligió Familia, incluir menores
+        if (_activeCategory == GuideCategory.familiar) {
+          return g.categoria == GuideCategory.familiar ||
+              g.categoria == GuideCategory.menores;
+        }
+
+        return g.categoria == _activeCategory;
+      }).toList();
     }
 
     // Filtro por búsqueda
@@ -140,6 +155,31 @@ class _LegalScreenState extends State<LegalScreen> {
     }
     // forceWizard:false para ir directo a los resultados después de completar el wizard
     await _load(forceWizard: false);
+  }
+
+  GuideCategory? _mapObjetivoToCategory(String? objetivo) {
+    switch (objetivo) {
+      case "familia":
+        return GuideCategory.familiar;
+
+      case "trabajar":
+        return GuideCategory.trabajo;
+
+      case "estudiar":
+        return GuideCategory.estudios;
+
+      case "residir":
+        return GuideCategory.residencia;
+
+      case "emprender":
+        return GuideCategory.emprender;
+
+      case "nomada":
+        return GuideCategory.nomadaDigital;
+
+      default:
+        return null;
+    }
   }
 
   // ─────────────────────────────────────────────────────────────────────────
@@ -291,39 +331,15 @@ class _LegalScreenState extends State<LegalScreen> {
                   const SizedBox(height: 16),
 
                   // Conteo de resultados
-                  Row(
-                    children: [
-                      Text(
-                        '${_filtered.length} guía${_filtered.length != 1 ? 's' : ''} '
-                        'para ${f.paisDestinoIso}',
-                        style: const TextStyle(
-                          fontSize: 13,
-                          fontWeight: FontWeight.w600,
-                          color: NomadColors.feedIconColor,
-                        ),
-                      ),
-                      if (_activeCategory != null) ...[
-                        const SizedBox(width: 6),
-                        Container(
-                          padding: const EdgeInsets.symmetric(
-                            horizontal: 8,
-                            vertical: 2,
-                          ),
-                          decoration: BoxDecoration(
-                            color: NomadColors.primary.withOpacity(0.1),
-                            borderRadius: BorderRadius.circular(10),
-                          ),
-                          child: Text(
-                            _activeCategory!.label,
-                            style: const TextStyle(
-                              fontSize: 11,
-                              fontWeight: FontWeight.w700,
-                              color: NomadColors.primary,
-                            ),
-                          ),
-                        ),
-                      ],
-                    ],
+                  Text(
+                    _activeCategory != null
+                        ? '${_filtered.length} guías · ${_activeCategory!.label}'
+                        : '${_filtered.length} guías para ${f.paisDestinoIso}',
+                    style: TextStyle(
+                      fontSize: 12,
+                      fontWeight: FontWeight.w600,
+                      color: Colors.grey.shade500,
+                    ),
                   ),
                   const SizedBox(height: 12),
                 ],
@@ -758,135 +774,8 @@ class _GuideCard extends StatelessWidget {
     required this.onTap,
   });
 
-  @override
-  Widget build(BuildContext context) {
-    final isRelevant =
-        filter.objetivo != null && guide.objetivos.contains(filter.objetivo);
-
-    return GestureDetector(
-      onTap: onTap,
-      child: Container(
-        margin: const EdgeInsets.only(bottom: 10),
-        decoration: BoxDecoration(
-          color: Colors.white,
-          borderRadius: BorderRadius.circular(14),
-          border: Border.all(
-            color: isRelevant
-                ? NomadColors.primary.withOpacity(0.3)
-                : Colors.black.withOpacity(0.06),
-            width: isRelevant ? 1.5 : 0.5,
-          ),
-        ),
-        child: Padding(
-          padding: const EdgeInsets.all(14),
-          child: Row(
-            children: [
-              // Ícono de categoría
-              Container(
-                width: 46,
-                height: 46,
-                decoration: BoxDecoration(
-                  color: _categoryColor(guide.categoria).withOpacity(0.1),
-                  borderRadius: BorderRadius.circular(12),
-                ),
-                child: Center(
-                  child: Text(
-                    guide.categoria.emoji,
-                    style: const TextStyle(fontSize: 22),
-                  ),
-                ),
-              ),
-              const SizedBox(width: 12),
-
-              // Texto
-              Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    // Título
-                    Text(
-                      _shortenTitle(guide.titulo),
-                      style: const TextStyle(
-                        fontSize: 13,
-                        fontWeight: FontWeight.w600,
-                        color: NomadColors.feedIconColor,
-                        height: 1.3,
-                      ),
-                      maxLines: 2,
-                      overflow: TextOverflow.ellipsis,
-                    ),
-                    const SizedBox(height: 4),
-
-                    // Badges: categoría + duración + renovable
-                    Wrap(
-                      spacing: 5,
-                      runSpacing: 4,
-                      children: [
-                        _Badge(
-                          label: guide.categoria.label,
-                          color: _categoryColor(guide.categoria),
-                        ),
-                        if (guide.duracion != null)
-                          _Badge(
-                            label: guide.duracion!,
-                            color: Colors.grey.shade600,
-                          ),
-                        if (guide.renovable == true)
-                          const _Badge(
-                            label: 'Renovable',
-                            color: Color(0xFF059669),
-                          ),
-                        if (guide.soloPasaporteUe)
-                          const _Badge(
-                            label: '🇪🇺 Solo UE',
-                            color: Color(0xFF1D4ED8),
-                          ),
-                      ],
-                    ),
-
-                    // Requisitos count
-                    if (guide.requisitos.isNotEmpty) ...[
-                      const SizedBox(height: 6),
-                      Text(
-                        '${guide.requisitos.length} requisitos · '
-                        '${guide.documentacionExigible.length} documentos',
-                        style: TextStyle(
-                          fontSize: 11,
-                          color: Colors.grey.shade400,
-                        ),
-                      ),
-                    ],
-                  ],
-                ),
-              ),
-
-              Icon(
-                Icons.chevron_right_rounded,
-                size: 18,
-                color: Colors.grey.shade300,
-              ),
-            ],
-          ),
-        ),
-      ),
-    );
-  }
-
-  String _shortenTitle(String titulo) {
-    // Eliminar prefijos repetitivos
-    final prefixes = ['Hoja 1 - ', 'Hoja 2 - ', 'Hoja 3 - '];
-    for (final p in prefixes) {
-      if (titulo.startsWith(p)) return titulo.substring(p.length);
-    }
-    // Capitalizar primera letra si está en mayúsculas
-    if (titulo.length > 2 && titulo == titulo.toUpperCase()) {
-      return titulo[0].toUpperCase() + titulo.substring(1).toLowerCase();
-    }
-    return titulo;
-  }
-
-  Color _categoryColor(GuideCategory cat) {
-    switch (cat) {
+  Color get _catColor {
+    switch (guide.categoria) {
       case GuideCategory.estudios:
         return const Color(0xFF7C3AED);
       case GuideCategory.trabajo:
@@ -903,11 +792,165 @@ class _GuideCard extends StatelessWidget {
         return Colors.grey.shade600;
     }
   }
+
+  String _iconForGuide(MigrationGuide g) {
+    final text = (g.subtitulo + " " + g.titulo).toLowerCase();
+
+    if (text.contains("tutela")) return "🛡️";
+    if (text.contains("viaja")) return "✈️";
+    if (text.contains("carta poder")) return "✍️";
+    if (text.contains("fallecido")) return "⚖️";
+    if (text.contains("exterior")) return "🌍";
+    if (text.contains("mercosur")) return "🧭";
+    if (text.contains("permanente")) return "🏠";
+
+    return g.categoria.emoji;
+  }
+
+  String get _cleanTitle {
+    var t = guide.titulo;
+    for (final p in ['Hoja 1 - ', 'Hoja 2 - ', 'Hoja 3 - ', 'Hoja 4 - ']) {
+      if (t.startsWith(p)) t = t.substring(p.length);
+    }
+    return t;
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    // Si el doc tiene subtitulo diferente al titulo, el subtitulo es el texto
+    // principal (más descriptivo) y el titulo se muestra como aclaración.
+    bool _isGenericTitle(String t) {
+      final x = t.toLowerCase();
+
+      return x.contains("permiso para menor") ||
+          x == "residencia legal" ||
+          x == "residencia" ||
+          x == "visado";
+    }
+
+    final subtitle = guide.subtitulo.trim();
+    final title = _cleanTitle.trim();
+
+    final useSubtitleAsMain = subtitle.isNotEmpty && !_isGenericTitle(subtitle);
+
+    final mainText = useSubtitleAsMain ? subtitle : title;
+
+    final secondText = useSubtitleAsMain ? title : null;
+
+    return GestureDetector(
+      onTap: onTap,
+      child: Container(
+        margin: const EdgeInsets.only(bottom: 8),
+        decoration: BoxDecoration(
+          color: Colors.white,
+          borderRadius: BorderRadius.circular(14),
+          border: Border.all(color: Colors.black.withOpacity(0.06), width: 0.5),
+        ),
+        child: Padding(
+          padding: const EdgeInsets.fromLTRB(14, 13, 12, 13),
+          child: Row(
+            crossAxisAlignment: CrossAxisAlignment.center,
+            children: [
+              // Ícono de categoría
+              Container(
+                width: 44,
+                height: 44,
+                decoration: BoxDecoration(
+                  color: _catColor.withOpacity(0.09),
+                  borderRadius: BorderRadius.circular(11),
+                ),
+                child: Center(
+                  child: Text(
+                    _iconForGuide(guide),
+                    style: const TextStyle(fontSize: 21),
+                  ),
+                ),
+              ),
+              const SizedBox(width: 12),
+
+              // Bloque de texto
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    _InlineBadge(
+                      label: guide.categoria.label,
+                      color: _catColor,
+                    ),
+
+                    const SizedBox(height: 4),
+
+                    Text(
+                      mainText,
+                      style: const TextStyle(
+                        fontSize: 15.5,
+                        fontWeight: FontWeight.w800,
+                        color: NomadColors.feedIconColor,
+                        height: 1.2,
+                      ),
+                      maxLines: 2,
+                      overflow: TextOverflow.ellipsis,
+                    ),
+
+                    if (secondText != null) ...[
+                      const SizedBox(height: 3),
+                      Text(
+                        secondText,
+                        style: TextStyle(
+                          fontSize: 11,
+                          fontWeight: FontWeight.w500,
+                          color: Colors.grey.shade400,
+                        ),
+                      ),
+                    ],
+                  ],
+                ),
+              ),
+
+              const SizedBox(width: 4),
+              Icon(
+                Icons.chevron_right_rounded,
+                size: 18,
+                color: Colors.grey.shade300,
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
 }
 
-// ─────────────────────────────────────────────────────────────────────────────
-// LegalGuideDetailScreen — Ficha detalle de una guía
-// ─────────────────────────────────────────────────────────────────────────────
+/// Badge de una línea: punto de color + label
+class _InlineBadge extends StatelessWidget {
+  final String label;
+  final Color color;
+  const _InlineBadge({required this.label, required this.color});
+
+  @override
+  Widget build(BuildContext context) {
+    return Row(
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        Container(
+          width: 5,
+          height: 5,
+          decoration: BoxDecoration(color: color, shape: BoxShape.circle),
+        ),
+        const SizedBox(width: 4),
+        Text(
+          label,
+          style: TextStyle(
+            fontSize: 10.5,
+            fontWeight: FontWeight.w700,
+            color: color,
+            letterSpacing: 0.2,
+          ),
+        ),
+      ],
+    );
+  }
+}
 
 class LegalGuideDetailScreen extends StatelessWidget {
   final MigrationGuide guide;

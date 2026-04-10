@@ -5,11 +5,14 @@ import 'package:firebase_auth/firebase_auth.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:phosphor_flutter/phosphor_flutter.dart';
 import 'package:share_plus/share_plus.dart';
+import 'package:flutter/rendering.dart';
 
 import '../feed/widgets/post_card.dart';
 import '../feed/widgets/share_sheet.dart';
 import '../feed/widgets/comments_screen.dart';
 import '../../services/social_service.dart';
+import '../chat/chat_screen.dart';
+import '../feed/widgets/bottom_nav.dart';
 
 // ─────────────────────────────────────────────────────────────────────────────
 // visitor_profile_screen.dart  –  Nomad App
@@ -81,6 +84,8 @@ class _VisitorProfileScreenState extends State<VisitorProfileScreen>
 
   // Contexto dinámico
   String? _bannerContexto;
+  final ScrollController _scrollController = ScrollController();
+  bool _showBottomBar = true;
 
   // Contactos en común
   List<Map<String, String>> _contactosComun = [];
@@ -90,7 +95,24 @@ class _VisitorProfileScreenState extends State<VisitorProfileScreen>
     super.initState();
     _tabController = TabController(length: 3, vsync: this)
       ..addListener(() => setState(() {}));
+    _scrollController.addListener(_onScroll);
     _cargarTodo();
+  }
+
+  void _onScroll() {
+    final direction = _scrollController.position.userScrollDirection;
+
+    if (direction == ScrollDirection.reverse) {
+      if (_showBottomBar) {
+        setState(() => _showBottomBar = false);
+      }
+    }
+
+    if (direction == ScrollDirection.forward) {
+      if (!_showBottomBar) {
+        setState(() => _showBottomBar = true);
+      }
+    }
   }
 
   @override
@@ -533,15 +555,44 @@ class _VisitorProfileScreenState extends State<VisitorProfileScreen>
   // ── Mensaje directo ─────────────────────────────────────────────────────────
 
   void _abrirMensaje() {
-    // TODO: navegar a la pantalla de chat con targetUserId
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(
-        content: Text('Abriendo chat con @$_username…'),
-        backgroundColor: _teal,
-        behavior: SnackBarBehavior.floating,
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+    final myUid = _auth.currentUser?.uid;
+    if (myUid == null) return;
+
+    // chatId determinístico: los dos UIDs ordenados alfabéticamente, unidos con "_"
+    // Garantiza que ambos usuarios siempre acceden al mismo chat sin duplicados.
+    final ids = [myUid, widget.targetUserId]..sort();
+    final chatId = '${ids[0]}_${ids[1]}';
+
+    // Asegurarse de que el documento del chat existe en Firestore
+    _ensureChatDoc(chatId, myUid);
+
+    Navigator.push(
+      context,
+      MaterialPageRoute(
+        builder: (_) => ChatScreen(
+          chatId: chatId,
+          otherUserId: widget.targetUserId,
+          otherUsername: _username,
+          otherAvatarUrl: _photoURL,
+          otherName: _nombre,
+        ),
       ),
     );
+  }
+
+  /// Crea el documento /chats/{chatId} si no existe todavía.
+  Future<void> _ensureChatDoc(String chatId, String myUid) async {
+    final ref = _firestore.collection('chats').doc(chatId);
+    final snap = await ref.get();
+    if (!snap.exists) {
+      await ref.set({
+        'participantIds': [myUid, widget.targetUserId],
+        'lastMessage': '',
+        'lastMessageAt': FieldValue.serverTimestamp(),
+        'unreadCount': {myUid: 0, widget.targetUserId: 0},
+        'createdAt': FieldValue.serverTimestamp(),
+      });
+    }
   }
 
   // ── Bloquear usuario ────────────────────────────────────────────────────────
@@ -608,11 +659,19 @@ class _VisitorProfileScreenState extends State<VisitorProfileScreen>
       body: _datosLoaded
           ? _buildBody()
           : const Center(child: CircularProgressIndicator(color: _teal)),
+      bottomNavigationBar: AnimatedSlide(
+        duration: const Duration(milliseconds: 300),
+        curve: Curves.easeInOut,
+        offset: _showBottomBar ? Offset.zero : const Offset(0, 1),
+
+        child: const BottomNav(currentIndex: 3),
+      ),
     );
   }
 
   Widget _buildBody() {
     return NestedScrollView(
+      controller: _scrollController,
       headerSliverBuilder: (context, innerBoxIsScrolled) => [
         _buildSliverHeader(innerBoxIsScrolled),
       ],

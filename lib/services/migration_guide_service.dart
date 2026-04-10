@@ -67,44 +67,34 @@ class MigrationGuideService {
   /// Devuelve todas las guías para el país destino del usuario,
   /// filtradas por su objetivo y si tiene pasaporte UE.
   static Future<List<MigrationGuide>> getGuidesForUser({
-    UserMigrationFilter? filter,
+    required UserMigrationFilter filter,
   }) async {
-    final f = filter ?? await loadUserFilter();
+    final snap = await FirebaseFirestore.instance
+        .collection('migration_guides')
+        .where('paisIso', isEqualTo: filter.paisDestinoIso)
+        .get();
 
-    try {
-      // Obtener todas las guías del país destino
-      final snap = await _db
-          .collection('migration_guides')
-          .where('paisIso', isEqualTo: f.paisDestinoIso)
-          .get();
+    final all = snap.docs.map(MigrationGuide.fromFirestore).toList();
 
-      final guides = snap.docs
-          .map((d) => MigrationGuide.fromFirestore(d))
-          .where(
-            (g) => g.aplicaA(
-              objetivoUsuario: f.objetivo,
-              tienePasaporteUe: f.tienePasaporteUe,
-            ),
-          )
-          .toList();
-
-      // Ordenar: primero las de la categoría que coincide con el objetivo,
-      // luego el resto. Dentro de cada grupo, por título.
-      guides.sort((a, b) {
-        final aPrimario =
-            f.objetivo != null && a.objetivos.contains(f.objetivo);
-        final bPrimario =
-            f.objetivo != null && b.objetivos.contains(f.objetivo);
-        if (aPrimario && !bPrimario) return -1;
-        if (!aPrimario && bPrimario) return 1;
-        return a.titulo.compareTo(b.titulo);
-      });
-
-      return guides;
-    } catch (e) {
-      debugPrint('[MigrationGuideService] Error: $e');
-      return [];
+    if (filter.objetivo == null) {
+      return all;
     }
+
+    // guías que coinciden con el objetivo
+    final matching = all
+        .where(
+          (g) => g.aplicaA(
+            objetivoUsuario: filter.objetivo,
+            tienePasaporteUe: filter.tienePasaporteUe,
+          ),
+        )
+        .toList();
+
+    // resto de guías
+    final others = all.where((g) => !matching.contains(g)).toList();
+
+    // primero las relevantes, luego el resto
+    return [...matching, ...others];
   }
 
   /// Devuelve guías por categoría específica
@@ -171,7 +161,7 @@ class MigrationGuideService {
       case GuideCategory.documento:
         return 'documento';
       case GuideCategory.menores:
-        return 'menores';
+        return 'Familia';
       case GuideCategory.otro:
         return 'otro';
     }

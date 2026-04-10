@@ -46,7 +46,7 @@ enum GuideCategory {
       case GuideCategory.documento:
         return 'Documentos';
       case GuideCategory.menores:
-        return 'Menores';
+        return 'Familia';
       case GuideCategory.otro:
         return 'Otro';
     }
@@ -181,6 +181,8 @@ class MigrationGuide {
   final String fuenteOficial;
   final String url;
   final String titulo;
+  final String
+  subtitulo; // subtítulo corto y descriptivo (ej: "Residencia permanente · MERCOSUR")
   final GuideCategory categoria;
   final List<String>
   objetivos; // valores: trabajar|estudiar|emprender|familia|residir|nomada
@@ -209,6 +211,7 @@ class MigrationGuide {
     required this.fuenteOficial,
     required this.url,
     required this.titulo,
+    required this.subtitulo,
     required this.categoria,
     required this.objetivos,
     required this.soloPasaporteUe,
@@ -251,6 +254,7 @@ class MigrationGuide {
       fuenteOficial: d['fuenteOficial'] as String? ?? '',
       url: d['url'] as String? ?? '',
       titulo: d['titulo'] as String? ?? '',
+      subtitulo: d['subtitulo'] as String? ?? '',
       categoria: GuideCategory.fromString(d['categoria'] as String?),
       objetivos: List<String>.from(d['objetivos'] as List? ?? []),
       soloPasaporteUe: d['soloPasaporteUe'] as bool? ?? false,
@@ -283,6 +287,7 @@ class MigrationGuide {
       fuenteOficial: d['fuenteOficial'] as String? ?? '',
       url: d['url'] as String? ?? '',
       titulo: d['titulo'] as String? ?? '',
+      subtitulo: d['subtitulo'] as String? ?? '',
       categoria: GuideCategory.fromString(d['categoria'] as String?),
       objetivos: List<String>.from(d['objetivos'] as List? ?? []),
       soloPasaporteUe: d['soloPasaporteUe'] as bool? ?? false,

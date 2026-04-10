@@ -283,44 +283,15 @@ class FeedService {
         .orderBy('createdAt', descending: true)
         .limit(_fetchBatchSize);
 
-    Query qAll = _db
-        .collection('posts')
-        .orderBy('createdAt', descending: true)
-        .limit(_fetchBatchSize);
-
     if (startAfterDoc != null) {
       qPublic = qPublic.startAfterDocument(startAfterDoc);
-      qAll = qAll.startAfterDocument(startAfterDoc);
     }
 
-    final snaps = await Future.wait([qPublic.get(), qAll.get()]);
+    final snap = await qPublic.get();
 
-    // Unir ambos resultados: excluir 'friends', deduplicar por docId
-    final seenIds = <String>{};
-    final allDocs = <DocumentSnapshot>[];
+    if (snap.docs.isEmpty) return [];
 
-    for (final snap in snaps) {
-      for (final doc in snap.docs) {
-        final vis =
-            (doc.data() as Map<String, dynamic>?)?['visibility'] as String?;
-        if (vis == 'followers') continue; // excluir privados
-        if (seenIds.add(doc.id)) allDocs.add(doc); // deduplicar
-      }
-    }
-
-    if (allDocs.isEmpty) return [];
-
-    // Reordenar por fecha desc (los dos queries pueden llegar mezclados)
-    allDocs.sort((a, b) {
-      final aTs = ((a.data() as Map)['createdAt'] as Timestamp?);
-      final bTs = ((b.data() as Map)['createdAt'] as Timestamp?);
-      if (aTs == null && bTs == null) return 0;
-      if (aTs == null) return 1;
-      if (bTs == null) return -1;
-      return bTs.compareTo(aTs);
-    });
-
-    var posts = allDocs.map(PostModel.fromDoc).toList();
+    var posts = snap.docs.map(PostModel.fromDoc).toList();
 
     // Calcular distancias si tenemos GPS
     final userLat = locationData?.lat;
@@ -386,6 +357,7 @@ class FeedService {
     final futures = chunks.map((chunk) {
       Query q = _db
           .collection('posts')
+          .where('visibility', isEqualTo: 'friends')
           .where('authorId', whereIn: chunk)
           .orderBy('createdAt', descending: true)
           .limit(_fetchBatchSize);

@@ -1,3 +1,5 @@
+import java.util.Properties
+
 plugins {
     id("com.android.application")
     // START: FlutterFire Configuration
@@ -22,6 +24,13 @@ android {
         jvmTarget = JavaVersion.VERSION_17.toString()
     }
 
+    val localProperties = Properties()
+    val localPropertiesFile = rootProject.file("local.properties")
+
+    if (localPropertiesFile.exists()) {
+        localProperties.load(localPropertiesFile.inputStream())
+    }
+
     defaultConfig {
         // TODO: Specify your own unique Application ID (https://developer.android.com/studio/build/application-id.html).
         applicationId = "com.example.cerca_de_casa"
@@ -31,6 +40,9 @@ android {
         targetSdk = flutter.targetSdkVersion
         versionCode = flutter.versionCode
         versionName = flutter.versionName
+
+        manifestPlaceholders["MAPS_API_KEY"] =
+            localProperties.getProperty("MAPS_API_KEY") ?: ""
     }
 
     buildTypes {

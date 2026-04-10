@@ -1,7 +1,8 @@
 <!DOCTYPE html>
 <html>
+
 <head>
-  
+
   <meta name="google-signin-client_id" content="828586691109-bea2c0bdd20a44bf2b0dcc.apps.googleusercontent.com">
   <base href="$FLUTTER_BASE_HREF">
 
@@ -16,14 +17,23 @@
   <link rel="apple-touch-icon" href="icons/Icon-192.png">
 
   <!-- Favicon -->
-  <link rel="icon" type="image/png" href="favicon.png"/>
+  <link rel="icon" type="image/png" href="favicon.png" />
 
   <title>cerca_de_casa</title>
   <link rel="manifest" href="manifest.json">
   <meta name="google-signin-client_id" content="828586691109-bea2c0bdd20a44bf2b0dcc.apps.googleusercontent.com">
   <script src="https://accounts.google.com/gsi/client" async defer></script>
+  <script src="env.js"></script>
+
+  <script>
+    const script = document.createElement("script");
+    script.src = `https://maps.googleapis.com/maps/api/js?key=${window.MAPS_API_KEY}`;
+    document.head.appendChild(script);
+  </script>
 </head>
+
 <body>
   <script src="flutter_bootstrap.js" async></script>
 </body>
+
 </html>

@@ -45,3 +45,7 @@ app.*.map.json
 /android/app/release
 
 data/scrapers/serviceAccountKey.json
+android/local.properties
+ios/Runner/Secrets.xcconfig
+web/env.js
+.env
