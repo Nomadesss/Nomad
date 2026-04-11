@@ -49,3 +49,4 @@ android/local.properties
 ios/Runner/Secrets.xcconfig
 web/env.js
 .env
+serviceAccountKey.json

@@ -127,6 +127,10 @@ class UserModel {
   final String? gdprVersion;                // versión de términos aceptados (ej: '1.0')
   final DateTime? dataDeletionRequestedAt;  // derecho al olvido — Art. 17 GDPR
 
+  // ── Discover ───────────────────────────────────────────────────────────────
+  final String? genero;               // 'masculino' | 'femenino' | 'no_binario'
+  final List<String>? discoverPhotos; // carrusel de fotos (hasta 6 URLs)
+
   // ── Metadata ───────────────────────────────────────────────────────────────
   final DateTime? creadoEn;
   final DateTime? actualizadoEn;
@@ -159,6 +163,8 @@ class UserModel {
     this.gdprAceptadoEn,
     this.gdprVersion,
     this.dataDeletionRequestedAt,
+    this.genero,
+    this.discoverPhotos,
     this.creadoEn,
     this.actualizadoEn,
   });
@@ -192,6 +198,10 @@ class UserModel {
       followersCount:   (map['followersCount'] as num?)?.toInt() ?? 0,
       followingCount:   (map['followingCount'] as num?)?.toInt() ?? 0,
       trustScore:       map['trustScore'] as Map<String, dynamic>?,
+      genero:           map['genero'] as String?,
+      discoverPhotos:   (map['discoverPhotos'] as List?)
+                            ?.map((e) => e as String)
+                            .toList(),
       terminosAceptados:    map['terminosAceptados'] as bool? ?? false,
       gdprAceptadoEn:       _tsToDateTime(map['gdprAceptadoEn']),
       gdprVersion:          map['gdprVersion'] as String?,
@@ -245,6 +255,8 @@ class UserModel {
       'followersCount': followersCount,
       'followingCount': followingCount,
       'trustScore':     trustScore,
+      'genero':         genero,
+      'discoverPhotos': discoverPhotos,
       'terminosAceptados':    terminosAceptados,
       'gdprAceptadoEn': gdprAceptadoEn != null
           ? Timestamp.fromDate(gdprAceptadoEn!)
@@ -319,6 +331,8 @@ class UserModel {
     DateTime? gdprAceptadoEn,
     String? gdprVersion,
     DateTime? dataDeletionRequestedAt,
+    String? genero,
+    List<String>? discoverPhotos,
     DateTime? creadoEn,
     DateTime? actualizadoEn,
   }) {
@@ -350,6 +364,8 @@ class UserModel {
       gdprAceptadoEn:       gdprAceptadoEn       ?? this.gdprAceptadoEn,
       gdprVersion:          gdprVersion          ?? this.gdprVersion,
       dataDeletionRequestedAt: dataDeletionRequestedAt ?? this.dataDeletionRequestedAt,
+      genero:           genero           ?? this.genero,
+      discoverPhotos:   discoverPhotos   ?? this.discoverPhotos,
       creadoEn:       creadoEn      ?? this.creadoEn,
       actualizadoEn:  actualizadoEn ?? this.actualizadoEn,
     );

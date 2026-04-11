@@ -6,6 +6,7 @@ import 'package:cloud_firestore/cloud_firestore.dart';
 import '../../community/community_hub_screen.dart';
 import '../../notifications/notifications_screen.dart';
 import '../../chat/chat_list_screen.dart';
+import '../../discover/discover_screen.dart';
 
 class FeedHeader extends StatelessWidget {
   const FeedHeader({super.key});
@@ -55,7 +56,13 @@ class FeedHeader extends StatelessWidget {
           Expanded(
             child: Row(
               children: [
-                _HeaderIcon(icon: PhosphorIcons.heart(), onTap: () {}),
+                _HeaderIcon(
+                  icon: PhosphorIcons.heart(),
+                  onTap: () => Navigator.push(
+                    context,
+                    MaterialPageRoute(builder: (_) => const DiscoverScreen()),
+                  ),
+                ),
                 const SizedBox(width: 6),
                 _HeaderIcon(
                   icon: PhosphorIcons.handHeart(),
