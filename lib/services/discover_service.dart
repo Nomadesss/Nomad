@@ -284,15 +284,7 @@ class DiscoverService {
     final myUid = _myUid;
     final batch = _db.batch();
 
-    batch.set(
-      _db.collection('discover_superlikes').doc('${myUid}_$targetUid'),
-      {
-        'fromUid': myUid,
-        'toUid': targetUid,
-        'createdAt': FieldValue.serverTimestamp(),
-      },
-    );
-
+    // Registrar como visto (acción superlike)
     batch.set(
       _db.collection('discover_seen').doc('${myUid}_$targetUid'),
       {
@@ -303,6 +295,7 @@ class DiscoverService {
       },
     );
 
+    // Registrar like con flag isSuperLike (reutiliza la misma colección y reglas)
     batch.set(
       _db.collection('discover_likes').doc('${myUid}_$targetUid'),
       {
