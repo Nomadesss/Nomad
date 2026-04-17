@@ -1,13 +1,59 @@
 import 'package:flutter/material.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 import '../../app_theme.dart';
 
 import 'empleo/empleo_screen.dart';
+import 'empleo/empleo_empleador_screen.dart';
+import 'empleo/empleo_role_selector.dart';
 import 'legal/legal_screen.dart';
 import 'social/social_screen.dart';
 import 'journey/destination_dashboard_screen.dart';
 
+// Clave de persistencia del rol elegido
+const _kEmpleoRole = 'empleo_role'; // 'busca' | 'ofrece'
+
 class CommunityHubScreen extends StatelessWidget {
   const CommunityHubScreen({super.key});
+
+  // ── Navegar a Empleo según rol guardado (o preguntar si no hay ninguno) ────
+  Future<void> _navigateToEmpleo(BuildContext context) async {
+    final prefs = await SharedPreferences.getInstance();
+    final savedRole = prefs.getString(_kEmpleoRole);
+
+    if (!context.mounted) return;
+
+    if (savedRole == 'busca') {
+      Navigator.push(
+        context,
+        MaterialPageRoute(builder: (_) => const EmpleoScreen()),
+      );
+      return;
+    }
+
+    if (savedRole == 'ofrece') {
+      Navigator.push(
+        context,
+        MaterialPageRoute(builder: (_) => const EmpleoEmpleadorScreen()),
+      );
+      return;
+    }
+
+    // Sin rol guardado → mostrar selector
+    final role = await showEmpleoRoleSelector(context);
+    if (role == null || !context.mounted) return;
+
+    await prefs.setString(_kEmpleoRole, role);
+
+    if (!context.mounted) return;
+    Navigator.push(
+      context,
+      MaterialPageRoute(
+        builder: (_) => role == 'busca'
+            ? const EmpleoScreen()
+            : const EmpleoEmpleadorScreen(),
+      ),
+    );
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -15,7 +61,6 @@ class CommunityHubScreen extends StatelessWidget {
       backgroundColor: NomadColors.feedBg,
       body: CustomScrollView(
         slivers: [
-
           // ── APP BAR ─────────────────────────────────────
           SliverAppBar(
             floating: true,
@@ -28,10 +73,12 @@ class CommunityHubScreen extends StatelessWidget {
               onPressed: () => Navigator.pop(context),
             ),
             title: const Text(
-              "Comunidad",
+              "Nomad",
               style: TextStyle(
-                fontSize: 18,
-                fontWeight: FontWeight.w600,
+                fontSize: 22,
+                fontWeight: FontWeight.w700,
+                color: Color(0xFF0D9488),
+                letterSpacing: -0.5,
               ),
             ),
             centerTitle: true,
@@ -40,28 +87,22 @@ class CommunityHubScreen extends StatelessWidget {
           // ── CONTENIDO ───────────────────────────────────
           SliverToBoxAdapter(
             child: Padding(
-              padding: const EdgeInsets.fromLTRB(20, 16, 20, 30),
+              padding: const EdgeInsets.fromLTRB(20, 24, 20, 30),
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-
-                  // ── PROGRESO (core del producto) ─────────
-                  const _ProgressCard(),
-
-                  const SizedBox(height: 28),
-
-                  // ── HEADER ───────────────────────────────
                   const Text(
                     "Tu actividad",
                     style: TextStyle(
-                      fontSize: 16,
-                      fontWeight: FontWeight.w600,
+                      fontSize: 20,
+                      fontWeight: FontWeight.w700,
+                      color: Color(0xFF134E4A),
                     ),
                   ),
 
-                  const SizedBox(height: 16),
+                  const SizedBox(height: 20),
 
-                  // ── 1. JOURNEY (NUEVO — PRIORIDAD ALTA) ─
+                  // ── 1. JOURNEY ───────────────────────────
                   _FeedCard(
                     icon: "🧭",
                     title: "Tu plan migratorio",
@@ -75,23 +116,20 @@ class CommunityHubScreen extends StatelessWidget {
                     ),
                   ),
 
-                  const SizedBox(height: 12),
+                  const SizedBox(height: 14),
 
-                  // ── 2. EMPLEO ───────────────────────────
+                  // ── 2. EMPLEO — abre selector de rol ─────
                   _FeedCard(
                     icon: "💼",
                     title: "Oportunidades laborales",
                     subtitle: "Trabajos adaptados a migrantes",
                     color: const Color(0xFF0D9488),
-                    onTap: () => Navigator.push(
-                      context,
-                      MaterialPageRoute(builder: (_) => const EmpleoScreen()),
-                    ),
+                    onTap: () => _navigateToEmpleo(context),
                   ),
 
-                  const SizedBox(height: 12),
+                  const SizedBox(height: 14),
 
-                  // ── 3. LEGAL ────────────────────────────
+                  // ── 3. LEGAL ─────────────────────────────
                   _FeedCard(
                     icon: "⚖️",
                     title: "Guías legales",
@@ -103,9 +141,9 @@ class CommunityHubScreen extends StatelessWidget {
                     ),
                   ),
 
-                  const SizedBox(height: 12),
+                  const SizedBox(height: 14),
 
-                  // ── 4. SOCIAL ───────────────────────────
+                  // ── 4. SOCIAL ────────────────────────────
                   _FeedCard(
                     icon: "🤝",
                     title: "Comunidad",
@@ -126,115 +164,9 @@ class CommunityHubScreen extends StatelessWidget {
   }
 }
 
-//
-// ─────────────────────────────────────────────
-// PROGRESS CARD (base para gamificación futura)
-// ─────────────────────────────────────────────
-//
-
-class _ProgressCard extends StatelessWidget {
-  const _ProgressCard();
-
-  @override
-  Widget build(BuildContext context) {
-    return Container(
-      padding: const EdgeInsets.all(18),
-      decoration: BoxDecoration(
-        gradient: const LinearGradient(
-          colors: [
-            Color(0xFF0D9488),
-            Color(0xFF14B8A6),
-          ],
-        ),
-        borderRadius: BorderRadius.circular(18),
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-
-          const Text(
-            "Tu progreso en el exterior 🌍",
-            style: TextStyle(
-              color: Colors.white,
-              fontSize: 13,
-            ),
-          ),
-
-          const SizedBox(height: 6),
-
-          const Text(
-            "Nivel 2",
-            style: TextStyle(
-              color: Colors.white,
-              fontSize: 22,
-              fontWeight: FontWeight.bold,
-            ),
-          ),
-
-          const SizedBox(height: 12),
-
-          ClipRRect(
-            borderRadius: BorderRadius.circular(10),
-            child: LinearProgressIndicator(
-              value: 0.45,
-              minHeight: 8,
-              backgroundColor: Colors.white.withOpacity(0.2),
-              valueColor: const AlwaysStoppedAnimation(Colors.white),
-            ),
-          ),
-
-          const SizedBox(height: 14),
-
-          Row(
-            mainAxisAlignment: MainAxisAlignment.spaceBetween,
-            children: const [
-              _MiniStep(label: "Trabajo"),
-              _MiniStep(label: "Legal"),
-              _MiniStep(label: "Social"),
-              _MiniStep(label: "Instalación"),
-            ],
-          ),
-        ],
-      ),
-    );
-  }
-}
-
-class _MiniStep extends StatelessWidget {
-  final String label;
-
-  const _MiniStep({required this.label});
-
-  @override
-  Widget build(BuildContext context) {
-    return Column(
-      children: [
-        Container(
-          width: 28,
-          height: 28,
-          decoration: BoxDecoration(
-            color: Colors.white.withOpacity(0.2),
-            shape: BoxShape.circle,
-          ),
-        ),
-        const SizedBox(height: 6),
-        Text(
-          label,
-          style: const TextStyle(
-            color: Colors.white,
-            fontSize: 11,
-          ),
-        )
-      ],
-    );
-  }
-}
-
-//
-// ─────────────────────────────────────────────
-// FEED CARD (UI reutilizable)
-// ─────────────────────────────────────────────
-//
+// ─────────────────────────────────────────────────────────────────────────────
+// Feed Card (sin cambios)
+// ─────────────────────────────────────────────────────────────────────────────
 
 class _FeedCard extends StatelessWidget {
   final String icon;
@@ -256,37 +188,36 @@ class _FeedCard extends StatelessWidget {
     return GestureDetector(
       onTap: onTap,
       child: Container(
-        padding: const EdgeInsets.all(16),
+        padding: const EdgeInsets.all(18),
         decoration: BoxDecoration(
           color: Colors.white,
-          borderRadius: BorderRadius.circular(14),
+          borderRadius: BorderRadius.circular(16),
           border: Border.all(
             color: Colors.black.withValues(alpha: 0.06),
             width: 0.5,
           ),
+          boxShadow: [
+            BoxShadow(
+              color: Colors.black.withValues(alpha: 0.04),
+              blurRadius: 8,
+              offset: const Offset(0, 2),
+            ),
+          ],
         ),
         child: Row(
           children: [
-
-            // Icono
             Container(
-              width: 44,
-              height: 44,
+              width: 50,
+              height: 50,
               decoration: BoxDecoration(
-                color: color.withValues(alpha: 0.1),
-                borderRadius: BorderRadius.circular(12),
+                color: color.withValues(alpha: 0.10),
+                borderRadius: BorderRadius.circular(14),
               ),
               child: Center(
-                child: Text(
-                  icon,
-                  style: const TextStyle(fontSize: 20),
-                ),
+                child: Text(icon, style: const TextStyle(fontSize: 24)),
               ),
             ),
-
-            const SizedBox(width: 14),
-
-            // Texto
+            const SizedBox(width: 16),
             Expanded(
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
@@ -294,25 +225,22 @@ class _FeedCard extends StatelessWidget {
                   Text(
                     title,
                     style: const TextStyle(
-                      fontSize: 14,
-                      fontWeight: FontWeight.w600,
+                      fontSize: 16,
+                      fontWeight: FontWeight.w700,
+                      color: Color(0xFF134E4A),
                     ),
                   ),
-                  const SizedBox(height: 4),
+                  const SizedBox(height: 5),
                   Text(
                     subtitle,
-                    style: TextStyle(
-                      fontSize: 12,
-                      color: Colors.grey.shade500,
-                    ),
+                    style: TextStyle(fontSize: 13, color: Colors.grey.shade500),
                   ),
                 ],
               ),
             ),
-
             Icon(
               Icons.arrow_forward_ios_rounded,
-              size: 14,
+              size: 15,
               color: Colors.grey.shade400,
             ),
           ],
