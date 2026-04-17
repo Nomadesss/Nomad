@@ -53,6 +53,91 @@ enum MigrantPhase {
   }
 }
 
+/// Rango de presupuesto disponible para todo el proceso migratorio (ahorros + gastos de instalación).
+enum BudgetRange {
+  low,        // Menos de USD 2.000
+  medium,     // USD 2.000–5.000
+  high,       // USD 5.000–15.000
+  veryHigh;   // Más de USD 15.000
+
+  String get label {
+    switch (this) {
+      case BudgetRange.low:      return 'Menos de USD 2.000';
+      case BudgetRange.medium:   return 'USD 2.000–5.000';
+      case BudgetRange.high:     return 'USD 5.000–15.000';
+      case BudgetRange.veryHigh: return 'Más de USD 15.000';
+    }
+  }
+
+  String get emoji {
+    switch (this) {
+      case BudgetRange.low:      return '💰';
+      case BudgetRange.medium:   return '💰💰';
+      case BudgetRange.high:     return '💰💰💰';
+      case BudgetRange.veryHigh: return '💰💰💰💰';
+    }
+  }
+
+  double get midpointUsd {
+    switch (this) {
+      case BudgetRange.low:      return 1500;
+      case BudgetRange.medium:   return 3500;
+      case BudgetRange.high:     return 10000;
+      case BudgetRange.veryHigh: return 20000;
+    }
+  }
+
+  static BudgetRange fromString(String? v) {
+    switch (v) {
+      case 'low':      return BudgetRange.low;
+      case 'medium':   return BudgetRange.medium;
+      case 'high':     return BudgetRange.high;
+      case 'veryHigh': return BudgetRange.veryHigh;
+      default:         return BudgetRange.medium;
+    }
+  }
+}
+
+/// Urgencia con la que el usuario necesita migrar.
+enum UrgencyLevel {
+  urgent,    // Menos de 3 meses
+  moderate,  // 3–6 meses
+  relaxed;   // 6–12 meses o más
+
+  String get label {
+    switch (this) {
+      case UrgencyLevel.urgent:   return 'Urgente (–3 meses)';
+      case UrgencyLevel.moderate: return 'Moderado (3–6 meses)';
+      case UrgencyLevel.relaxed:  return 'Tranquilo (6–12 meses)';
+    }
+  }
+
+  String get emoji {
+    switch (this) {
+      case UrgencyLevel.urgent:   return '⚡';
+      case UrgencyLevel.moderate: return '🗓️';
+      case UrgencyLevel.relaxed:  return '🌱';
+    }
+  }
+
+  int get totalMonths {
+    switch (this) {
+      case UrgencyLevel.urgent:   return 3;
+      case UrgencyLevel.moderate: return 5;
+      case UrgencyLevel.relaxed:  return 9;
+    }
+  }
+
+  static UrgencyLevel fromString(String? v) {
+    switch (v) {
+      case 'urgent':   return UrgencyLevel.urgent;
+      case 'moderate': return UrgencyLevel.moderate;
+      case 'relaxed':  return UrgencyLevel.relaxed;
+      default:         return UrgencyLevel.moderate;
+    }
+  }
+}
+
 /// Perfil del usuario migrante — determina qué visas y contenido se muestran.
 enum MigrantProfileType {
   professional,   // Trabajador calificado / profesional
@@ -183,6 +268,10 @@ class MigrationProfile {
   final DateTime            createdAt;
   final DateTime            updatedAt;
 
+  // Ruta Inteligente — datos del quiz
+  final BudgetRange?  budgetRange;
+  final UrgencyLevel? urgencyLevel;
+
   const MigrationProfile({
     required this.userId,
     required this.originCountry,
@@ -197,6 +286,8 @@ class MigrationProfile {
     this.profession,
     this.targetCity,
     this.plannedDepartureDate,
+    this.budgetRange,
+    this.urgencyLevel,
   });
 
   factory MigrationProfile.fromMap(Map<String, dynamic> m) {
@@ -214,6 +305,8 @@ class MigrationProfile {
       plannedDepartureDate: m['plannedDepartureDate'] != null
           ? DateTime.tryParse(m['plannedDepartureDate'] as String)
           : null,
+      budgetRange:   BudgetRange.fromString(m['budgetRange'] as String?),
+      urgencyLevel:  UrgencyLevel.fromString(m['urgencyLevel'] as String?),
       createdAt:  DateTime.tryParse(m['createdAt'] as String? ?? '') ?? DateTime.now(),
       updatedAt:  DateTime.tryParse(m['updatedAt'] as String? ?? '') ?? DateTime.now(),
     );
@@ -231,6 +324,8 @@ class MigrationProfile {
     'profession':           profession,
     'targetCity':           targetCity,
     'plannedDepartureDate': plannedDepartureDate?.toIso8601String(),
+    'budgetRange':          budgetRange?.name,
+    'urgencyLevel':         urgencyLevel?.name,
     'createdAt':            createdAt.toIso8601String(),
     'updatedAt':            DateTime.now().toIso8601String(),
   };
@@ -242,6 +337,8 @@ class MigrationProfile {
     MigrantProfileType?  profileType,
     bool?                hasChildren,
     String?              profession,
+    BudgetRange?         budgetRange,
+    UrgencyLevel?        urgencyLevel,
   }) {
     return MigrationProfile(
       userId:               userId,
@@ -255,6 +352,8 @@ class MigrationProfile {
       profession:           profession   ?? this.profession,
       targetCity:           targetCity   ?? this.targetCity,
       plannedDepartureDate: plannedDepartureDate ?? this.plannedDepartureDate,
+      budgetRange:          budgetRange   ?? this.budgetRange,
+      urgencyLevel:         urgencyLevel  ?? this.urgencyLevel,
       createdAt:            createdAt,
       updatedAt:            DateTime.now(),
     );

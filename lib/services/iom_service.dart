@@ -592,6 +592,66 @@ class IomService {
       officialUrl:      'https://www.inm.gob.mx',
       lastUpdated:      DateTime(2025, 1, 5),
     ),
+    'GB': CountryPolicy(
+      countryCode:      'GB',
+      countryName:      'Reino Unido',
+      mipexScore:       56,
+      openness:         PolicyOpenness.open,
+      summary:          'Post-Brexit, el Reino Unido opera con un sistema de puntos independiente de la UE. El Skilled Worker Visa es la vía principal para profesionales latinoamericanos.',
+      strongPoints:     ['Skilled Worker Visa bien estructurada', 'Alta demanda en salud, tech y finanzas', 'English fluency es la única barrera de idioma'],
+      weakPoints:       ['Costo de vida muy alto, especialmente Londres', 'Visa con patrocinador laboral — difícil sin oferta previa', 'Sin acuerdo de libre movimiento post-Brexit'],
+      recommendedVisas: ['Skilled Worker Visa (con oferta laboral)', 'Health and Care Worker Visa', 'Graduate Visa (post-estudios UK)', 'Youth Mobility Scheme (18–30 años)'],
+      officialUrl:      'https://www.gov.uk/browse/visas-immigration',
+      lastUpdated:      DateTime(2025, 1, 10),
+    ),
+    'AU': CountryPolicy(
+      countryCode:      'AU',
+      countryName:      'Australia',
+      mipexScore:       65,
+      openness:         PolicyOpenness.open,
+      summary:          'Australia usa un sistema de puntos (SkillSelect) con alta demanda en sectores específicos. La Working Holiday Visa es muy popular para jóvenes latinoamericanos.',
+      strongPoints:     ['Working Holiday Visa hasta 35 años', 'Sistema de puntos transparente', 'Alta demanda en enfermería, IT y construcción'],
+      weakPoints:       ['Lejanía geográfica — vuelos caros y largos', 'Proceso de residencia permanente puede tomar años', 'Costo de vida elevado en ciudades principales'],
+      recommendedVisas: ['Working Holiday Visa (18–35 años)', 'Skilled Independent Visa (subclase 189)', 'Employer Nominated Scheme (subclase 186)', 'Student Visa'],
+      officialUrl:      'https://immi.homeaffairs.gov.au',
+      lastUpdated:      DateTime(2025, 1, 12),
+    ),
+    'NL': CountryPolicy(
+      countryCode:      'NL',
+      countryName:      'Países Bajos',
+      mipexScore:       72,
+      openness:         PolicyOpenness.veryOpen,
+      summary:          'Países Bajos es un hub de empresas internacionales con alta demanda de profesionales. El 30% Ruling ofrece ventajas fiscales para migrantes calificados.',
+      strongPoints:     ['30% Ruling: beneficio fiscal para trabajadores extranjeros', 'Amsterdam tiene enorme ecosistema tech y startups', 'Alto dominio del inglés entre la población local'],
+      weakPoints:       ['Mercado de alquiler muy competitivo y caro', 'Burocracia lenta para permisos de residencia', 'Holandés requerido para integración plena'],
+      recommendedVisas: ['Highly Skilled Migrant Permit (kennismigrant)', 'European Blue Card', 'Orientation Year Visa (post-estudios)'],
+      officialUrl:      'https://ind.nl/en',
+      lastUpdated:      DateTime(2025, 1, 8),
+    ),
+    'UY': CountryPolicy(
+      countryCode:      'UY',
+      countryName:      'Uruguay',
+      mipexScore:       68,
+      openness:         PolicyOpenness.open,
+      summary:          'Uruguay tiene una de las políticas de inmigración más abiertas de América Latina. Residencia accesible con ingresos demostrables.',
+      strongPoints:     ['Residencia legal en 3–6 meses', 'Sin requisito de idioma adicional', 'Alta calidad de vida y seguridad en la región'],
+      weakPoints:       ['Mercado laboral pequeño', 'Salarios bajos en USD comparado con otros destinos', 'Economía limitada para emprendedores'],
+      recommendedVisas: ['Residencia temporal (fuente de ingresos)', 'Residencia permanente (3 años)', 'Visa de trabajo con contrato'],
+      officialUrl:      'https://www.mrree.gub.uy/migracion',
+      lastUpdated:      DateTime(2025, 1, 5),
+    ),
+    'CL': CountryPolicy(
+      countryCode:      'CL',
+      countryName:      'Chile',
+      mipexScore:       55,
+      openness:         PolicyOpenness.open,
+      summary:          'Chile es el destino más buscado en Sudamérica para migrantes latinoamericanos. La Visa Temporaria es accesible con contrato laboral.',
+      strongPoints:     ['Economía estable y creciente en la región', 'Residencia accesible con contrato de trabajo', 'Buena infraestructura y calidad de vida'],
+      weakPoints:       ['Sistema de salud público sobrecargado', 'Burocracia en el Departamento de Extranjería (SERMIG)', 'Tensiones sociales con comunidad migrante en algunas zonas'],
+      recommendedVisas: ['Visa temporaria (contrato de trabajo)', 'Visa de residencia (2 años en Chile)', 'Visa Mercosur (para argentinos, brasileños, paraguayos, uruguayos)'],
+      officialUrl:      'https://www.extranjeria.gob.cl',
+      lastUpdated:      DateTime(2025, 1, 3),
+    ),
     'DEFAULT': CountryPolicy(
       countryCode:      'XX',
       countryName:      'País destino',
@@ -703,6 +763,174 @@ class IomService {
       internetMonthly:       22,
       avgSalaryNet:          900,
       costIndexVsNYC:        38,
+      lastUpdated:           DateTime(2025, 1, 1),
+    ),
+    'GB': CostOfLivingSnapshot(
+      countryCode:           'GB',
+      countryName:           'Reino Unido',
+      city:                  'Londres',
+      rentOneBedroomCenter:  2100,
+      rentOneBedroomSuburb:  1500,
+      groceriesMonthly:      380,
+      transportMonthly:      180,
+      mealRestaurant:        18,
+      internetMonthly:       42,
+      avgSalaryNet:          3200,
+      costIndexVsNYC:        88,
+      lastUpdated:           DateTime(2025, 1, 1),
+    ),
+    'GB_manchester': CostOfLivingSnapshot(
+      countryCode:           'GB',
+      countryName:           'Reino Unido',
+      city:                  'Manchester',
+      rentOneBedroomCenter:  1200,
+      rentOneBedroomSuburb:  950,
+      groceriesMonthly:      320,
+      transportMonthly:      110,
+      mealRestaurant:        15,
+      internetMonthly:       38,
+      avgSalaryNet:          2600,
+      costIndexVsNYC:        68,
+      lastUpdated:           DateTime(2025, 1, 1),
+    ),
+    'GB_edimburgo': CostOfLivingSnapshot(
+      countryCode:           'GB',
+      countryName:           'Reino Unido',
+      city:                  'Edimburgo',
+      rentOneBedroomCenter:  1300,
+      rentOneBedroomSuburb:  1000,
+      groceriesMonthly:      330,
+      transportMonthly:      120,
+      mealRestaurant:        16,
+      internetMonthly:       38,
+      avgSalaryNet:          2700,
+      costIndexVsNYC:        72,
+      lastUpdated:           DateTime(2025, 1, 1),
+    ),
+    'AU': CostOfLivingSnapshot(
+      countryCode:           'AU',
+      countryName:           'Australia',
+      city:                  'Sídney',
+      rentOneBedroomCenter:  2200,
+      rentOneBedroomSuburb:  1600,
+      groceriesMonthly:      400,
+      transportMonthly:      160,
+      mealRestaurant:        20,
+      internetMonthly:       60,
+      avgSalaryNet:          4000,
+      costIndexVsNYC:        90,
+      lastUpdated:           DateTime(2025, 1, 1),
+    ),
+    'AU_melbourne': CostOfLivingSnapshot(
+      countryCode:           'AU',
+      countryName:           'Australia',
+      city:                  'Melbourne',
+      rentOneBedroomCenter:  1800,
+      rentOneBedroomSuburb:  1400,
+      groceriesMonthly:      380,
+      transportMonthly:      150,
+      mealRestaurant:        18,
+      internetMonthly:       55,
+      avgSalaryNet:          3800,
+      costIndexVsNYC:        82,
+      lastUpdated:           DateTime(2025, 1, 1),
+    ),
+    'AU_brisbane': CostOfLivingSnapshot(
+      countryCode:           'AU',
+      countryName:           'Australia',
+      city:                  'Brisbane',
+      rentOneBedroomCenter:  1600,
+      rentOneBedroomSuburb:  1200,
+      groceriesMonthly:      360,
+      transportMonthly:      130,
+      mealRestaurant:        17,
+      internetMonthly:       55,
+      avgSalaryNet:          3500,
+      costIndexVsNYC:        76,
+      lastUpdated:           DateTime(2025, 1, 1),
+    ),
+    'AU_perth': CostOfLivingSnapshot(
+      countryCode:           'AU',
+      countryName:           'Australia',
+      city:                  'Perth',
+      rentOneBedroomCenter:  1500,
+      rentOneBedroomSuburb:  1100,
+      groceriesMonthly:      350,
+      transportMonthly:      120,
+      mealRestaurant:        17,
+      internetMonthly:       52,
+      avgSalaryNet:          3600,
+      costIndexVsNYC:        72,
+      lastUpdated:           DateTime(2025, 1, 1),
+    ),
+    'NL': CostOfLivingSnapshot(
+      countryCode:           'NL',
+      countryName:           'Países Bajos',
+      city:                  'Ámsterdam',
+      rentOneBedroomCenter:  1900,
+      rentOneBedroomSuburb:  1400,
+      groceriesMonthly:      350,
+      transportMonthly:      100,
+      mealRestaurant:        15,
+      internetMonthly:       45,
+      avgSalaryNet:          3000,
+      costIndexVsNYC:        82,
+      lastUpdated:           DateTime(2025, 1, 1),
+    ),
+    'UY': CostOfLivingSnapshot(
+      countryCode:           'UY',
+      countryName:           'Uruguay',
+      city:                  'Montevideo',
+      rentOneBedroomCenter:  700,
+      rentOneBedroomSuburb:  500,
+      groceriesMonthly:      220,
+      transportMonthly:      35,
+      mealRestaurant:        8,
+      internetMonthly:       25,
+      avgSalaryNet:          1100,
+      costIndexVsNYC:        42,
+      lastUpdated:           DateTime(2025, 1, 1),
+    ),
+    'CL': CostOfLivingSnapshot(
+      countryCode:           'CL',
+      countryName:           'Chile',
+      city:                  'Santiago',
+      rentOneBedroomCenter:  750,
+      rentOneBedroomSuburb:  550,
+      groceriesMonthly:      200,
+      transportMonthly:      45,
+      mealRestaurant:        7,
+      internetMonthly:       28,
+      avgSalaryNet:          1200,
+      costIndexVsNYC:        44,
+      lastUpdated:           DateTime(2025, 1, 1),
+    ),
+    'DE_múnich': CostOfLivingSnapshot(
+      countryCode:           'DE',
+      countryName:           'Alemania',
+      city:                  'Múnich',
+      rentOneBedroomCenter:  1800,
+      rentOneBedroomSuburb:  1300,
+      groceriesMonthly:      360,
+      transportMonthly:      57,
+      mealRestaurant:        16,
+      internetMonthly:       40,
+      avgSalaryNet:          3200,
+      costIndexVsNYC:        80,
+      lastUpdated:           DateTime(2025, 1, 1),
+    ),
+    'DE_hamburgo': CostOfLivingSnapshot(
+      countryCode:           'DE',
+      countryName:           'Alemania',
+      city:                  'Hamburgo',
+      rentOneBedroomCenter:  1400,
+      rentOneBedroomSuburb:  1050,
+      groceriesMonthly:      330,
+      transportMonthly:      105,
+      mealRestaurant:        14,
+      internetMonthly:       40,
+      avgSalaryNet:          2900,
+      costIndexVsNYC:        70,
       lastUpdated:           DateTime(2025, 1, 1),
     ),
     'DEFAULT': CostOfLivingSnapshot(
@@ -839,6 +1067,18 @@ class IomService {
       '🇩🇪 Chancenkarte: ampliación del programa hasta 2026',
       '📚 Reconocimiento de títulos: nuevos centros de evaluación abiertos',
     ],
+    'GB': [
+      '🇬🇧 Skilled Worker Visa: nuevas ocupaciones elegibles desde enero 2025',
+      '💷 Graduate Visa: permite buscar trabajo hasta 2 años post-graduación',
+    ],
+    'AU': [
+      '🇦🇺 Working Holiday Visa: nueva cuota 2025 disponible',
+      '🏥 Vacantes críticas en enfermería y salud para migrantes',
+    ],
+    'NL': [
+      '🇳🇱 30% Ruling: período reducido a 5 años a partir de 2024',
+      '🏠 Ámsterdam: nuevas restricciones al mercado de alquiler',
+    ],
   };
 
   static final Map<String, WelcomePack> _mockWelcomePacks = {
@@ -918,6 +1158,11 @@ class IomService {
       case 'PT': return 'Tramitar NIF y Autorización de Residencia';
       case 'DE': return 'Registro de residencia (Anmeldung)';
       case 'MX': return 'Tramitar CURP y tarjeta de residente';
+      case 'GB': return 'Tramitar BRP (Biometric Residence Permit)';
+      case 'AU': return 'Tramitar Tax File Number (TFN)';
+      case 'NL': return 'Registro en el BSN (Burgerservicenummer)';
+      case 'UY': return 'Tramitar Cédula de Identidad uruguaya';
+      case 'CL': return 'Tramitar RUT y cédula de residente';
       default:   return 'Tramitar documento de identidad local';
     }
   }
@@ -928,6 +1173,11 @@ class IomService {
       case 'ES': return 'Cita en extranjeros.inclusion.gob.es. Llevá pasaporte + foto + tasa (€15) + documentos de la visa.';
       case 'PT': return 'Cita en AIMA (Agência para a Integração, Migrações e Asilo). Llevá pasaporte + comprobante de alojamiento.';
       case 'DE': return 'Anmeldung en el Bürgeramt de tu barrio. Gratis. Llevá pasaporte + contrato de alquiler.';
+      case 'GB': return 'El BRP llega por correo a los 10 días de activar la visa. Recogelo en la Post Office indicada.';
+      case 'AU': return 'TFN gratis online en ato.gov.au. Necesario para trabajar y declarar impuestos.';
+      case 'NL': return 'El BSN te lo asignan al registrarte en el gemeente (municipio). Llevá pasaporte y contrato de alquiler.';
+      case 'UY': return 'Cita en el Ministerio del Interior. Llevá pasaporte + comprobante de domicilio.';
+      case 'CL': return 'Trámite en el SERMIG (ex Extranjería). El RUT te lo asignan al obtener la visa.';
       default:   return 'Consultá el organismo de inmigración local para instrucciones específicas.';
     }
   }
@@ -938,6 +1188,11 @@ class IomService {
       case 'ES': return '2–4 semanas (cita + resolución)';
       case 'PT': return '4–8 semanas';
       case 'DE': return 'Día 1 (necesitás cita previa)';
+      case 'GB': return '7–10 días (correo)';
+      case 'AU': return '1–3 días (online)';
+      case 'NL': return '1–2 semanas';
+      case 'UY': return '2–4 semanas';
+      case 'CL': return '2–6 semanas';
       default:   return '1–4 semanas';
     }
   }
@@ -948,7 +1203,12 @@ class IomService {
       case 'ES': return 'N26 y Revolut no requieren NIE. Después podés ir a BBVA o CaixaBank con el TIE.';
       case 'PT': return 'Millennium BCP y Caixa Geral atienden a residentes extranjeros. Necesitás NIF + comprobante de dirección.';
       case 'DE': return 'N26 (100% online, sin requisitos) es la opción más fácil para recién llegados. Deutsche Bank requiere Anmeldung.';
-      default:   return 'Consultá los bancos locales sobre requisitos para no residentes.';
+      case 'GB': return 'Monzo y Starling Bank no requieren BRP y se abren en minutos. Los bancos tradicionales requieren comprobante de domicilio.';
+      case 'AU': return 'Los cuatro grandes bancos (Commonwealth, ANZ, Westpac, NAB) tienen paquetes para nuevos residentes. Abrís online antes de llegar.';
+      case 'NL': return 'Bunq o N26 son las opciones más fáciles para recién llegados. ING y Rabobank requieren BSN.';
+      case 'UY': return 'BROU y Santander aceptan residentes con cédula en trámite. Wise funciona como puente en los primeros meses.';
+      case 'CL': return 'BancoEstado es la opción más accesible para migrantes. Santander y Banco de Chile también atienden extranjeros.';
+      default:   return 'Wise y Revolut son opciones globales mientras abrís cuenta local. Consultá los bancos locales sobre requisitos.';
     }
   }
 
@@ -978,10 +1238,13 @@ class IomService {
     'CA': 'toronto',
     'ES': 'madrid',
     'PT': 'lisboa',
-    'DE': 'berlin',
+    'DE': 'berlín',
     'MX': 'ciudad de méxico',
-    'AU': 'sydney',
-    'GB': 'london',
+    'AU': 'sídney',
+    'GB': 'londres',
+    'NL': 'ámsterdam',
+    'UY': 'montevideo',
+    'CL': 'santiago',
   };
 
   static const Map<String, String> _officialImmigrationUrl = {

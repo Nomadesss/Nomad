@@ -5,6 +5,7 @@ import '../../../services/migration_data_model.dart';
 import '../../../services/iom_service.dart';
 import '../../../services/user_service.dart';
 import 'welcome_pack_screen.dart';
+import 'ruta_quiz_screen.dart';
 
 // ─────────────────────────────────────────────────────────────────────────────
 // DestinationDashboardScreen — Fases 1 y 2 del User Journey del migrante
@@ -611,6 +612,10 @@ class _TabResumen extends StatelessWidget {
       padding: const EdgeInsets.fromLTRB(20, 16, 20, 80),
       children: [
 
+        // Ruta Inteligente — CTA principal
+        _RutaInteligenteCard(dashboard: d),
+        const SizedBox(height: 20),
+
         // Política migratoria
         _SectionTitle(title: '🏛️  Política migratoria'),
         const SizedBox(height: 10),
@@ -974,42 +979,48 @@ class _DashboardHero extends StatelessWidget {
           end:   Alignment.bottomRight,
         ),
       ),
-      padding: const EdgeInsets.fromLTRB(20, 70, 20, 16),
+      padding: const EdgeInsets.fromLTRB(20, 70, 20, 8),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
+        mainAxisSize: MainAxisSize.min,
         children: [
           Row(
             children: [
               Text(d.profile.profileType.emoji,
-                style: const TextStyle(fontSize: 20)),
-              const SizedBox(width: 8),
-              Text(d.profile.profileType.label,
-                style: const TextStyle(fontSize: 13,
-                  color: Colors.white70, fontWeight: FontWeight.w400)),
+                style: const TextStyle(fontSize: 18)),
+              const SizedBox(width: 6),
+              Flexible(
+                child: Text(d.profile.profileType.label,
+                  overflow: TextOverflow.ellipsis,
+                  style: const TextStyle(fontSize: 12,
+                    color: Colors.white70, fontWeight: FontWeight.w400)),
+              ),
               const Spacer(),
               Container(
                 padding: const EdgeInsets.symmetric(
-                  horizontal: 10, vertical: 4),
+                  horizontal: 10, vertical: 3),
                 decoration: BoxDecoration(
                   color:        Colors.white.withValues(alpha: 0.15),
                   borderRadius: BorderRadius.circular(99)),
                 child: Text(
-                  '${d.policy.openness.label}',
+                  d.policy.openness.label,
                   style: const TextStyle(fontSize: 11,
                     color: Colors.white, fontWeight: FontWeight.w500)),
               ),
             ],
           ),
-          const SizedBox(height: 8),
+          const SizedBox(height: 5),
           Text(
             '${d.profile.originCountryName} → ${d.profile.destinationCountryName}',
-            style: const TextStyle(fontFamily: 'Georgia', fontSize: 22,
+            maxLines: 1,
+            overflow: TextOverflow.ellipsis,
+            style: const TextStyle(fontFamily: 'Georgia', fontSize: 20,
               fontWeight: FontWeight.w700, color: Colors.white, height: 1.2),
           ),
           if (d.profile.targetCity != null)
             Text(d.profile.targetCity!,
-              style: const TextStyle(fontSize: 14, color: Colors.white70)),
-          const SizedBox(height: 12),
+              style: const TextStyle(fontSize: 13, color: Colors.white70)),
+          const SizedBox(height: 8),
           Row(
             children: [
               _HeroStat(
@@ -1863,5 +1874,96 @@ class _SectionTitle extends StatelessWidget {
       style: TextStyle(fontSize: 13, fontWeight: FontWeight.w600,
         color: Colors.grey.shade500,
         letterSpacing: .04));
+  }
+}
+
+// ── Tarjeta de acceso a Ruta Inteligente ─────────────────────────────────────
+
+class _RutaInteligenteCard extends StatelessWidget {
+  final DestinationDashboard dashboard;
+  const _RutaInteligenteCard({required this.dashboard});
+
+  @override
+  Widget build(BuildContext context) {
+    final tieneRutaCompleta =
+        dashboard.profile.budgetRange != null &&
+        dashboard.profile.urgencyLevel != null;
+
+    return GestureDetector(
+      onTap: () => Navigator.push(
+        context,
+        MaterialPageRoute(
+          builder: (_) => RutaQuizScreen(perfilBase: dashboard.profile),
+        ),
+      ),
+      child: Container(
+        padding: const EdgeInsets.all(18),
+        decoration: BoxDecoration(
+          gradient: const LinearGradient(
+            colors: [NomadColors.primary, NomadColors.primaryDark],
+            begin:  Alignment.topLeft,
+            end:    Alignment.bottomRight,
+          ),
+          borderRadius: BorderRadius.circular(16),
+          boxShadow: [
+            BoxShadow(
+              color:      NomadColors.primary.withValues(alpha: 0.25),
+              blurRadius: 12, offset: const Offset(0, 4)),
+          ],
+        ),
+        child: Row(
+          children: [
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Row(
+                    children: [
+                      const Text('🧭', style: TextStyle(fontSize: 18)),
+                      const SizedBox(width: 8),
+                      const Text('Ruta Inteligente',
+                        style: TextStyle(fontSize: 16,
+                          fontWeight: FontWeight.w700, color: Colors.white)),
+                      if (tieneRutaCompleta) ...[
+                        const SizedBox(width: 6),
+                        Container(
+                          padding: const EdgeInsets.symmetric(
+                            horizontal: 7, vertical: 2),
+                          decoration: BoxDecoration(
+                            color:        Colors.white.withValues(alpha: 0.2),
+                            borderRadius: BorderRadius.circular(99),
+                          ),
+                          child: const Text('Lista',
+                            style: TextStyle(fontSize: 9,
+                              color: Colors.white, fontWeight: FontWeight.w600)),
+                        ),
+                      ],
+                    ],
+                  ),
+                  const SizedBox(height: 6),
+                  Text(
+                    tieneRutaCompleta
+                        ? 'Tu plan personalizado está listo. Tocá para verlo.'
+                        : 'Tu ruta personalizada a ${dashboard.profile.destinationCountryName} con timeline, presupuesto y próximos pasos.',
+                    style: const TextStyle(fontSize: 12,
+                      color: Colors.white70, height: 1.4),
+                  ),
+                ],
+              ),
+            ),
+            const SizedBox(width: 14),
+            Container(
+              width: 40, height: 40,
+              decoration: BoxDecoration(
+                color:        Colors.white.withValues(alpha: 0.15),
+                borderRadius: BorderRadius.circular(12),
+              ),
+              child: const Icon(Icons.arrow_forward_ios_rounded,
+                color: Colors.white, size: 16),
+            ),
+          ],
+        ),
+      ),
+    );
   }
 }
