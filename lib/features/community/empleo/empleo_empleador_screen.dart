@@ -8,7 +8,6 @@ import 'package:intl/intl.dart';
 // ─────────────────────────────────────────────────────────────────────────────
 const _teal = Color(0xFF0D9488);
 const _tealDark = Color(0xFF134E4A);
-const _tealBg = Color(0xFFF0FAF9);
 const _purple = Color(0xFF7C3AED);
 const _purpleBg = Color(0xFFF5F0FF);
 
@@ -283,23 +282,15 @@ class _OfertaCard extends StatelessWidget {
     final createdAt = data['createdAt'] as Timestamp?;
 
     // Conteo de postulantes en tiempo real
-    return StreamBuilder<AggregateQuerySnapshot>(
+    return StreamBuilder<QuerySnapshot>(
       stream: FirebaseFirestore.instance
           .collection('job_applications')
           .where('offerId', isEqualTo: docId)
-          .snapshots()
-          .map((_) => _ as AggregateQuerySnapshot),
-      builder: (context, _) {
-        return FutureBuilder<AggregateQuerySnapshot>(
-          future: FirebaseFirestore.instance
-              .collection('job_applications')
-              .where('offerId', isEqualTo: docId)
-              .count()
-              .get(),
-          builder: (context, countSnap) {
-            final applicantsCount = countSnap.data?.count ?? 0;
+          .snapshots(),
+      builder: (context, countSnap) {
+        final applicantsCount = countSnap.data?.docs.length ?? 0;
 
-            return Container(
+        return Container(
               margin: const EdgeInsets.only(bottom: 14),
               padding: const EdgeInsets.all(16),
               decoration: BoxDecoration(
@@ -503,8 +494,6 @@ class _OfertaCard extends StatelessWidget {
                 ],
               ),
             );
-          },
-        );
       },
     );
   }
