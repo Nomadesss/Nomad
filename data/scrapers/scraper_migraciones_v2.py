@@ -27,6 +27,7 @@ Uso:
 import json
 import re
 import sys
+sys.stdout.reconfigure(encoding="utf-8")
 import time
 import hashlib
 import argparse
@@ -152,6 +153,144 @@ PAISES = {
             "div.m-genericContent__html",
             "div.journal-content-article",
             "main",
+        ],
+    },
+
+    "AR": {
+        "nombre": "Argentina",
+        "flag": "🇦🇷",
+        "moneda": "ARS",
+        "idioma_oficial": "es",
+        "regimen_ue": False,
+        "fuente_oficial": "argentina.gob.ar/interior/migraciones",
+        "urls": [
+            # ── RESIDENCIA / MERCOSUR ─────────────────────────────────────────
+            "https://www.argentina.gob.ar/servicio/obtener-una-prorroga-de-residencia-temporaria-como-refugiado",
+            "https://www.argentina.gob.ar/servicio/obtener-una-prorroga-de-residencia-temporaria-como-estudiante",
+            "https://www.argentina.gob.ar/servicio/obtener-una-prorroga-de-residencia-temporaria-como-academico",
+            "https://www.argentina.gob.ar/servicio/obtener-una-prorroga-de-residencia-temporaria-por-tratamiento-medico",
+            "https://www.argentina.gob.ar/servicio/obtener-una-prorroga-de-residencia-temporaria-como-religioso",
+            "https://www.argentina.gob.ar/servicio/obtener-una-prorroga-de-residencia-temporaria-como-deportista",
+            "https://www.argentina.gob.ar/servicio/obtener-una-prorroga-de-residencia-temporaria-temporaria-como-cientifico-yo-personal",
+            "https://www.argentina.gob.ar/servicio/obtener-una-prorroga-de-residencia-temporaria-como-pensionado",
+            "https://www.argentina.gob.ar/servicio/obtener-una-prorroga-de-residencia-temporaria-como-rentista",
+            "https://www.argentina.gob.ar/servicio/obtener-una-prorroga-de-residencia-temporaria-como-trabajador-migrante",
+            "https://www.argentina.gob.ar/servicio/obtener-una-residencia-temporaria-por-nacionalidad-mercosur",
+            "https://www.argentina.gob.ar/servicio/obtener-una-residencia-temporaria-como-rentista",
+            "https://www.argentina.gob.ar/servicio/obtener-una-residencia-temporaria-como-pensionado",
+            "https://www.argentina.gob.ar/servicio/obtener-una-residencia-temporaria-como-trabajador-migrante",
+            "https://www.argentina.gob.ar/servicio/obtener-una-residencia-temporaria-como-cientifico-yo-personal-especializado-yo-personal-de",
+            "https://www.argentina.gob.ar/servicio/obtener-una-residencia-temporaria-como-deportista-yo-artista",
+            "https://www.argentina.gob.ar/servicio/obtener-una-residencia-temporaria-como-religioso",
+            "https://www.argentina.gob.ar/servicio/obtener-una-residencia-temporaria-como-paciente-bajo-tratamiento-medico",
+            "https://www.argentina.gob.ar/servicio/obtener-una-residencia-temporaria-como-academicos",
+            "https://www.argentina.gob.ar/servicio/obtener-una-residencia-temporaria-como-estudiante",
+            "https://www.argentina.gob.ar/servicio/obtener-una-residencia-temporaria-como-asiladoa-y-refugiadoa",
+            "https://www.argentina.gob.ar/servicio/obtener-una-residencia-temporaria-por-razones-humanitarias",
+            "https://www.argentina.gob.ar/servicio/obtener-una-residencia-temporaria-por-reunificacion-familiar",
+            "https://www.argentina.gob.ar/servicio/obtener-una-residencia-transitoria-como-academico",
+            "https://www.argentina.gob.ar/servicio/obtener-una-residencia-transitoria-por-tratamiento-medico",
+            "https://www.argentina.gob.ar/servicio/obtener-una-residencia-transitoria-como-estudiante",
+            "https://www.argentina.gob.ar/servicio/obtener-una-residencia-transitoria-especial-para-trabajar-en-la-industria-del-cine",
+            "https://www.argentina.gob.ar/servicio/obtener-una-autorizacion-de-trabajo-transitoria",
+            "https://www.argentina.gob.ar/servicio/obtener-una-residencia-transitoria-como-nomada-digital",
+            # ── TURISMO ──────────────────────────────────────────────────────
+            "https://www.argentina.gob.ar/migraciones/turistas",
+            "https://www.argentina.gob.ar/servicio/obtener-un-permiso-de-ingreso-temporario-para-nacionalidades-mercosur",
+            # ── TRABAJO ──────────────────────────────────────────────────────
+            "https://www.argentina.gob.ar/servicio/tramitacion-de-ingreso-electronica-negocios",
+            "https://www.argentina.gob.ar/servicio/tramitacion-de-ingreso-electronica-nomadas-digitales",
+            "https://www.argentina.gob.ar/servicio/tramitacion-de-ingreso-electronica-participantes-de-programas-de-intercambio-cultural-o-de",
+            "https://www.argentina.gob.ar/servicio/obtener-un-permiso-de-ingreso-transitorio-para-realizar-tareas-remuneradas-o-no-en",
+            "https://www.argentina.gob.ar/servicio/obtener-un-permiso-de-ingreso-transitorio-para-realizar-negocios",
+            "https://www.argentina.gob.ar/servicio/obtener-un-permiso-de-ingreso-transitorio-para-participantes-de-programas-de-intercambio",
+            "https://www.argentina.gob.ar/servicio/obtener-un-permiso-de-ingreso-temporario-como-cientifico-personal-especializado-y-personal",
+            "https://www.argentina.gob.ar/servicio/obtener-un-permiso-de-ingreso-temporario-como-artista-yo-deportista",
+            "https://www.argentina.gob.ar/servicio/obtener-un-permiso-de-ingreso-temporario-como-religioso",
+            "https://www.argentina.gob.ar/servicio/obtener-un-permiso-de-ingreso-temporario-como-trabajadores-contratados",
+            "https://www.argentina.gob.ar/servicio/obtener-una-prorroga-de-residencia-transitoria-como-nomada-digital",
+            "https://www.argentina.gob.ar/servicio/obtener-una-prorroga-de-residencia-transitoria-especial-para-desarrollar-actividades",
+            "https://www.argentina.gob.ar/servicio/obtener-una-prorroga-de-residencia-transitoria-especial-para-realizar-tareas-remuneradas-o",
+            "https://www.argentina.gob.ar/servicio/obtener-una-prorroga-de-residencia-transitoria-especial-para-realizar-negocios-inversiones",
+            "https://www.argentina.gob.ar/servicio/obtener-una-una-prorroga-de-residencia-transitoria-especial-para-trabajar-en-la-industria",
+            # ── ESTUDIOS ─────────────────────────────────────────────────────
+            "https://www.argentina.gob.ar/servicio/tramitacion-de-ingreso-electronica-ferias-y-estudio-de-mercado",
+            "https://www.argentina.gob.ar/servicio/tramitacion-de-ingreso-electronica-tareas-remuneradas-o-no-en-el-campo-cientifico",
+            "https://www.argentina.gob.ar/servicio/tramitacion-de-ingreso-electronica-participantes-de-programas-de-intercambio-estudiantil",
+            "https://www.argentina.gob.ar/servicio/tramitacion-de-ingreso-electronica-estudiante-internacional-de-movilidad",
+            "https://www.argentina.gob.ar/servicio/tramitacion-de-ingreso-electronica-becarios",
+            "https://www.argentina.gob.ar/servicio/tramitacion-de-ingreso-electronica-pasantes",
+            "https://www.argentina.gob.ar/servicio/tramitacion-de-ingreso-electronica-estudiantes-de-ensenanza-no-oficial",
+            "https://www.argentina.gob.ar/servicio/obtener-un-permiso-de-ingreso-transitorio-para-academicos",
+            "https://www.argentina.gob.ar/servicio/obtener-un-permiso-de-ingreso-transitorio-como-becario",
+            "https://www.argentina.gob.ar/servicio/obtener-un-permiso-de-ingreso-transitorio-como-pasante",
+            "https://www.argentina.gob.ar/servicio/obtener-un-permiso-de-ingreso-transitorio-para-estudiantes-del-sistema-de-ensenanza-no",
+            "https://www.argentina.gob.ar/servicio/obtener-un-permiso-de-ingreso-transitorio-para-miembros-de-un-programa-de-intercambio",
+            "https://www.argentina.gob.ar/servicio/obtener-un-permiso-de-ingreso-transitorio-como-estudiante-internacional-de-movilidad",
+            "https://www.argentina.gob.ar/servicio/obtener-un-permiso-de-ingreso-temporario-como-estudiante-de-ensenanza-oficial",
+            "https://www.argentina.gob.ar/servicio/obtener-prorroga-de-residencia-transitoria-como-estudiante",
+            "https://www.argentina.gob.ar/servicio/obtener-una-prorroga-de-una-residencia-transitoria-por-tratamiento-medico",
+            "https://www.argentina.gob.ar/servicio/obtener-una-prorroga-de-una-residencia-transitoria-como-academico",
+            # ── FAMILIA ──────────────────────────────────────────────────────
+            "https://www.argentina.gob.ar/servicio/obtener-un-permiso-de-ingreso-temporario-por-reunificacion-familiar-padre-hijo-conyuge",
+            "https://www.argentina.gob.ar/servicio/permiso-de-ingreso-permanente",
+            "https://www.argentina.gob.ar/servicio/obtener-una-prorroga-de-residencia-temporaria-por-reunificacion-familiar",
+            "https://www.argentina.gob.ar/servicio/radicaciones-residencia-permanente",
+            "https://www.argentina.gob.ar/servicio/autorizacion-de-viaje-para-menores-de-edad",
+            # ── RENTISTA / PENSIONADO ────────────────────────────────────────
+            "https://www.argentina.gob.ar/servicio/obtener-un-permiso-de-ingreso-temporario-como-rentista-o-pensionado",
+        ],
+        # argentina.gob.ar/servicio/ usa headings: ¿Qué necesito? ¿Cómo hago? ¿Cuál es el costo? Vigencia
+        "secciones": [
+            "REQUISITOS",
+            "¿QUÉ NECESITO?",
+            "QUÉ NECESITO",
+            "¿CÓMO HAGO?",
+            "CÓMO HAGO",
+            "¿CÓMO SE HACE?",
+            "CÓMO SE HACE",
+            "PASOS",
+            "¿CUÁL ES EL COSTO?",
+            "CUÁL ES EL COSTO",
+            "COSTOS",
+            "VIGENCIA",
+            "PLAZOS",
+            "¿A QUIÉN ESTÁ DIRIGIDO?",
+            "A QUIÉN ESTÁ DIRIGIDO",
+            "¿DÓNDE Y CUÁNDO SE REALIZA?",
+            "DÓNDE Y CUÁNDO SE REALIZA",
+            "ORGANISMOS INTERVINIENTES",
+            "FAMILIAS",
+        ],
+        "alias": {
+            "REQUISITOS":                           "requisitos",
+            "¿QUÉ NECESITO?":                       "documentacion_exigible",
+            "QUÉ NECESITO":                         "documentacion_exigible",
+            "¿CÓMO HAGO?":                          "procedimiento",
+            "CÓMO HAGO":                            "procedimiento",
+            "¿CÓMO SE HACE?":                       "procedimiento",
+            "CÓMO SE HACE":                         "procedimiento",
+            "PASOS":                                "procedimiento",
+            "¿CUÁL ES EL COSTO?":                   "tasas",
+            "CUÁL ES EL COSTO":                     "tasas",
+            "COSTOS":                               "tasas",
+            "VIGENCIA":                             "plazo_resolucion",
+            "PLAZOS":                               "plazo_resolucion",
+            "¿A QUIÉN ESTÁ DIRIGIDO?":              "descripcion",
+            "A QUIÉN ESTÁ DIRIGIDO":                "descripcion",
+            "¿DÓNDE Y CUÁNDO SE REALIZA?":          "procedimiento",
+            "DÓNDE Y CUÁNDO SE REALIZA":            "procedimiento",
+            "ORGANISMOS INTERVINIENTES":            "notas_importantes",
+            "FAMILIAS":                             "familiares",
+        },
+        "como_texto": {"¿CUÁL ES EL COSTO?", "CUÁL ES EL COSTO", "COSTOS", "VIGENCIA", "PLAZOS"},
+        "contenedor_css": [
+            "main#contenido",
+            "div.entry-content",
+            "article",
+            "main",
+            "div.portlet-body",
+            "div.journal-content-article",
         ],
     },
 
@@ -341,6 +480,16 @@ def descargar(url: str) -> str:
 # ─────────────────────────────────────────────────────────────────────────────
 
 def extraer_titulo(soup: BeautifulSoup) -> str:
+    # og:title is the most specific (contains the actual page title, not site-wide header)
+    og = soup.find("meta", property="og:title")
+    if og and og.get("content"):
+        t = limpiar(og["content"])
+        # Strip trailing site name (e.g. "Obtener residencia | Argentina.gob.ar")
+        for sep in [" | ", " - "]:
+            if sep in t:
+                t = t.split(sep)[0].strip()
+        if t:
+            return t
     for selector in [
         ("div", {"class": "m-genericContent__containerTitle"}),
         ("h2", {"class": "Page-title"}),
@@ -352,9 +501,6 @@ def extraer_titulo(soup: BeautifulSoup) -> str:
             t = limpiar(el.get_text())
             if t:
                 return t
-    og = soup.find("meta", property="og:title")
-    if og and og.get("content"):
-        return limpiar(og["content"])
     return limpiar(soup.title.string) if soup.title else ""
 
 def encontrar_contenedor(soup: BeautifulSoup, selectores_css: list) -> Tag | None:
@@ -431,6 +577,61 @@ def parsear_secciones_genericas(contenedor: Tag, config: dict) -> dict:
                     if t and not es_encabezado_seccion(t, secciones) and es_texto_util(t):
                         items.append(t)
             resultado[clave] = deduplicar(items) if items else None
+
+    return resultado
+
+def parsear_secciones_argentina(contenedor: Tag, config: dict) -> dict:
+    """
+    Parser específico para argentina.gob.ar/servicio/.
+    Estructura: article > div.row > div.col-md-12 > div.media.m-y-4
+    Cada div.media.m-y-4 contiene un <h2> seguido del contenido de esa sección.
+    """
+    alias      = config["alias"]
+    como_texto = config["como_texto"]
+    secciones  = config["secciones"]
+    resultado  = {v: None for v in alias.values()}
+
+    # Buscar las secciones media dentro de cualquier nivel del contenedor
+    media_divs = contenedor.select("div.media.m-y-4")
+    if not media_divs:
+        # Fallback: buscar todos los h2 directamente
+        return parsear_secciones_genericas(contenedor, config)
+
+    for div in media_divs:
+        h2 = div.find("h2")
+        if not h2:
+            continue
+        nombre = es_encabezado_seccion(h2.get_text(), secciones)
+        if not nombre:
+            continue
+        clave = alias.get(nombre)
+        if not clave:
+            continue
+
+        # Extraer contenido del div (sin el h2 ni iconos <i>)
+        items = []
+        for child in div.children:
+            if not isinstance(child, Tag):
+                continue
+            if child.name in ("h2", "i"):
+                continue
+            if child.name in ("ul", "ol"):
+                for li in child.find_all("li"):
+                    t = limpiar(li.get_text(separator=" "))
+                    if t and es_texto_util(t):
+                        items.append(t)
+            elif child.name in ("p", "div"):
+                # Recurse into nested divs/p for text
+                for seg in child.find_all(["p", "li"]) or [child]:
+                    t = limpiar(seg.get_text(separator=" "))
+                    if t and es_texto_util(t) and not es_encabezado_seccion(t, secciones):
+                        items.append(t)
+
+        items = deduplicar(items)
+        if nombre in como_texto:
+            resultado[clave] = "\n".join(items) or None
+        else:
+            resultado[clave] = items or None
 
     return resultado
 
@@ -558,6 +759,8 @@ def parsear(html: str, url: str, pais_iso: str, config: dict) -> dict:
 
     if pais_iso == "UY":
         secciones = parsear_secciones_uruguay(contenedor, config)
+    elif pais_iso == "AR":
+        secciones = parsear_secciones_argentina(contenedor, config)
     else:
         secciones = parsear_secciones_genericas(contenedor, config)
 
@@ -660,7 +863,7 @@ def guardar_progreso(completadas: set):
 
 def main():
     parser = argparse.ArgumentParser(description="Scraper de información migratoria v2")
-    parser.add_argument("--pais",            type=str, help="Código ISO del país (ES, UY)")
+    parser.add_argument("--pais",            type=str, help="Código ISO del país (AR, ES, UY)")
     parser.add_argument("--limit",           type=int, help="Procesar solo las primeras N URLs")
     parser.add_argument("--resume",          action="store_true")
     parser.add_argument("--dry-run",         action="store_true", help="No guardar nada")
@@ -719,7 +922,7 @@ def main():
             cat       = data.get("categoria", "?")
             titulo    = (data.get("titulo") or "Sin título")[:60]
             objetivos = ", ".join(data.get("objetivos") or [])
-            n_req     = len(data.get("requisitos") or [])
+            n_req     = len(data.get("requisitos") or data.get("documentacion_exigible") or [])
             ue_only   = "🇪🇺 solo UE" if data.get("solo_pasaporte_ue") else ""
             log(f"  ✅ [{cat}] [{objetivos}] {titulo} — {n_req} req {ue_only}")
 

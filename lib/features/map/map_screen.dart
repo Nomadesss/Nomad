@@ -39,6 +39,7 @@ enum _PlaceCategory {
   tiendas,
   centrosCulturales,
   ayuda,
+  pasosFronterizos,
 }
 
 extension _PlaceCategoryExt on _PlaceCategory {
@@ -56,6 +57,8 @@ extension _PlaceCategoryExt on _PlaceCategory {
         return 'Cultural';
       case _PlaceCategory.ayuda:
         return 'Ayuda';
+      case _PlaceCategory.pasosFronterizos:
+        return 'Pasos';
     }
   }
 
@@ -73,6 +76,8 @@ extension _PlaceCategoryExt on _PlaceCategory {
         return '🎭';
       case _PlaceCategory.ayuda:
         return '🤝';
+      case _PlaceCategory.pasosFronterizos:
+        return '🛂';
     }
   }
 
@@ -90,6 +95,8 @@ extension _PlaceCategoryExt on _PlaceCategory {
         return const Color(0xFFDB2777);
       case _PlaceCategory.ayuda:
         return const Color(0xFF059669);
+      case _PlaceCategory.pasosFronterizos:
+        return const Color(0xFF0369A1);
     }
   }
 }
@@ -103,10 +110,20 @@ class _MapMarkerData {
   final String title;
   final String? subtitle;
   final String? photoURL;
-  final String? userId; // solo para migrantes
+  final String? userId;
   final String? countryFlag;
   final String? countryName;
-  final String? distance; // calculada en tiempo real
+  final String? distance;
+  // Campos extra para pasos fronterizos
+  final String? tipoPaso;       // terrestre | fluvial | aereo
+  final String? horario;
+  final bool horarioEstacional;
+  final String? fronteraConFlag;
+  final String? fronteraConNombre;
+  final String? provincia;
+  final List<String> servicios;
+  final String? notas;
+  final String? url;
 
   const _MapMarkerData({
     required this.id,
@@ -119,6 +136,15 @@ class _MapMarkerData {
     this.countryFlag,
     this.countryName,
     this.distance,
+    this.tipoPaso,
+    this.horario,
+    this.horarioEstacional = false,
+    this.fronteraConFlag,
+    this.fronteraConNombre,
+    this.provincia,
+    this.servicios = const [],
+    this.notas,
+    this.url,
   });
 
   _MapMarkerData copyWith({String? distance}) => _MapMarkerData(
@@ -132,6 +158,15 @@ class _MapMarkerData {
     countryFlag: countryFlag,
     countryName: countryName,
     distance: distance ?? this.distance,
+    tipoPaso: tipoPaso,
+    horario: horario,
+    horarioEstacional: horarioEstacional,
+    fronteraConFlag: fronteraConFlag,
+    fronteraConNombre: fronteraConNombre,
+    provincia: provincia,
+    servicios: servicios,
+    notas: notas,
+    url: url,
   );
 }
 
@@ -418,6 +453,63 @@ class _MapScreenState extends State<MapScreen>
       });
       _rebuildGmapMarkers();
     }
+
+    await _loadBorderCrossings();
+  }
+
+  // ── Cargar pasos fronterizos desde Firestore ─────────────────────────────
+
+  Future<void> _loadBorderCrossings() async {
+    try {
+      final snap = await _firestore
+          .collection('border_crossings')
+          .where('paisIso', isEqualTo: 'AR')
+          .get();
+
+      final crossings = snap.docs.map((doc) {
+        final d = doc.data();
+        final lat = (d['lat'] as num?)?.toDouble();
+        final lng = (d['lng'] as num?)?.toDouble();
+        if (lat == null || lng == null) return null;
+
+        final dist = _myPosition != null
+            ? _formatDist(_distanceKm(
+                _myPosition!.latitude, _myPosition!.longitude, lat, lng))
+            : null;
+
+        return _MapMarkerData(
+          id: doc.id,
+          position: LatLng(lat, lng),
+          category: _PlaceCategory.pasosFronterizos,
+          title: d['nombre'] as String? ?? 'Paso fronterizo',
+          subtitle: d['provincia'] as String?,
+          countryFlag: d['fronteraConFlag'] as String?,
+          countryName: d['fronteraConNombre'] as String?,
+          distance: dist,
+          tipoPaso: d['tipo'] as String?,
+          horario: d['horario'] as String?,
+          horarioEstacional: d['horarioEstacional'] as bool? ?? false,
+          fronteraConFlag: d['fronteraConFlag'] as String?,
+          fronteraConNombre: d['fronteraConNombre'] as String?,
+          provincia: d['provincia'] as String?,
+          servicios: List<String>.from(d['servicios'] as List? ?? []),
+          notas: d['notas'] as String?,
+          url: d['url'] as String?,
+        );
+      }).whereType<_MapMarkerData>().toList();
+
+      if (mounted) {
+        setState(() {
+          _allMarkers = [
+            ..._allMarkers.where((m) => m.category != _PlaceCategory.pasosFronterizos),
+            ...crossings,
+          ];
+        });
+        _rebuildGmapMarkers();
+      }
+    } catch (e) {
+      debugPrint('[MapScreen] Error cargando pasos fronterizos: $e');
+    }
   }
 
   // ── Escuchar usuarios con ubicación compartida ────────────────────────────
@@ -527,6 +619,8 @@ class _MapScreenState extends State<MapScreen>
         return BitmapDescriptor.hueRose;
       case _PlaceCategory.ayuda:
         return BitmapDescriptor.hueCyan;
+      case _PlaceCategory.pasosFronterizos:
+        return BitmapDescriptor.hueAzure;
     }
   }
 
@@ -1037,6 +1131,9 @@ class _MapScreenState extends State<MapScreen>
   // ── Panel de detalle ──────────────────────────────────────────────────────
 
   Widget _buildDetailPanel(_MapMarkerData marker) {
+    if (marker.category == _PlaceCategory.pasosFronterizos) {
+      return _buildBorderCrossingPanel(marker);
+    }
     final isMigrante = marker.category == _PlaceCategory.migrantes;
     final sameCountry =
         _myCountryName != null &&
@@ -1268,6 +1365,258 @@ class _MapScreenState extends State<MapScreen>
     );
   }
 
+  Widget _buildBorderCrossingPanel(_MapMarkerData marker) {
+    final tipoEmoji = switch (marker.tipoPaso) {
+      'terrestre' => '🚗',
+      'fluvial' => '⛴️',
+      'aereo' => '✈️',
+      'maritimo' => '🚢',
+      _ => '🛂',
+    };
+    final tipoLabel = switch (marker.tipoPaso) {
+      'terrestre' => 'Terrestre',
+      'fluvial' => 'Fluvial',
+      'aereo' => 'Aéreo',
+      'maritimo' => 'Marítimo',
+      _ => 'Paso',
+    };
+
+    const blue = Color(0xFF0369A1);
+    const blueBg = Color(0xFFE0F2FE);
+
+    final servicioLabels = {
+      'migraciones': '🛂 Migraciones',
+      'aduana': '📦 Aduana',
+      'sanidad': '🏥 Sanidad',
+      'cuarentena': '🔬 Cuarentena',
+      'psa': '🛡️ PSA',
+    };
+
+    return Container(
+      margin: const EdgeInsets.symmetric(horizontal: 14),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(20),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withOpacity(0.12),
+            blurRadius: 24,
+            offset: const Offset(0, -4),
+          ),
+        ],
+      ),
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          const SizedBox(height: 10),
+          Container(
+            width: 36,
+            height: 4,
+            decoration: BoxDecoration(
+              color: const Color(0xFFE2E8F0),
+              borderRadius: BorderRadius.circular(2),
+            ),
+          ),
+          Padding(
+            padding: const EdgeInsets.fromLTRB(16, 14, 16, 16),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                // Header
+                Row(
+                  children: [
+                    Container(
+                      width: 52,
+                      height: 52,
+                      decoration: BoxDecoration(
+                        color: blueBg,
+                        shape: BoxShape.circle,
+                      ),
+                      child: Center(
+                        child: Text(tipoEmoji, style: const TextStyle(fontSize: 24)),
+                      ),
+                    ),
+                    const SizedBox(width: 12),
+                    Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Row(
+                            children: [
+                              Container(
+                                padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 2),
+                                decoration: BoxDecoration(
+                                  color: blueBg,
+                                  borderRadius: BorderRadius.circular(6),
+                                ),
+                                child: Text(
+                                  tipoLabel,
+                                  style: const TextStyle(
+                                    fontSize: 10,
+                                    fontWeight: FontWeight.w700,
+                                    color: blue,
+                                  ),
+                                ),
+                              ),
+                              if (marker.horarioEstacional) ...[
+                                const SizedBox(width: 6),
+                                Container(
+                                  padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 2),
+                                  decoration: BoxDecoration(
+                                    color: const Color(0xFFFEF3C7),
+                                    borderRadius: BorderRadius.circular(6),
+                                  ),
+                                  child: const Text(
+                                    '⚠️ Estacional',
+                                    style: TextStyle(
+                                      fontSize: 10,
+                                      fontWeight: FontWeight.w700,
+                                      color: Color(0xFF92400E),
+                                    ),
+                                  ),
+                                ),
+                              ],
+                            ],
+                          ),
+                          const SizedBox(height: 4),
+                          Text(
+                            marker.title,
+                            style: const TextStyle(
+                              fontSize: 15,
+                              fontWeight: FontWeight.w800,
+                              color: Color(0xFF0C4A6E),
+                              height: 1.2,
+                            ),
+                          ),
+                          if (marker.provincia != null)
+                            Text(
+                              marker.provincia!,
+                              style: const TextStyle(fontSize: 12, color: Color(0xFF64748B)),
+                            ),
+                        ],
+                      ),
+                    ),
+                    GestureDetector(
+                      onTap: _closePanel,
+                      child: const Icon(Icons.close_rounded, size: 20, color: Color(0xFFCBD5E1)),
+                    ),
+                  ],
+                ),
+
+                const SizedBox(height: 12),
+
+                // Frontera con + Horario
+                Row(
+                  children: [
+                    if (marker.fronteraConFlag != null && marker.fronteraConNombre != null) ...[
+                      Expanded(
+                        child: _BorderInfoChip(
+                          icon: marker.fronteraConFlag!,
+                          label: marker.fronteraConNombre!,
+                          isEmoji: true,
+                        ),
+                      ),
+                      const SizedBox(width: 8),
+                    ],
+                    if (marker.horario != null)
+                      Expanded(
+                        child: _BorderInfoChip(
+                          icon: '🕐',
+                          label: marker.horario!,
+                          isEmoji: true,
+                        ),
+                      ),
+                  ],
+                ),
+
+                // Servicios disponibles
+                if (marker.servicios.isNotEmpty) ...[
+                  const SizedBox(height: 10),
+                  Wrap(
+                    spacing: 6,
+                    runSpacing: 6,
+                    children: marker.servicios.map((s) {
+                      final label = servicioLabels[s] ?? s;
+                      return Container(
+                        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                        decoration: BoxDecoration(
+                          color: const Color(0xFFF0F9FF),
+                          borderRadius: BorderRadius.circular(8),
+                          border: Border.all(color: const Color(0xFFBAE6FD)),
+                        ),
+                        child: Text(
+                          label,
+                          style: const TextStyle(
+                            fontSize: 11,
+                            fontWeight: FontWeight.w600,
+                            color: blue,
+                          ),
+                        ),
+                      );
+                    }).toList(),
+                  ),
+                ],
+
+                // Notas
+                if (marker.notas != null && marker.notas!.isNotEmpty) ...[
+                  const SizedBox(height: 10),
+                  Container(
+                    padding: const EdgeInsets.all(10),
+                    decoration: BoxDecoration(
+                      color: const Color(0xFFFFFBEB),
+                      borderRadius: BorderRadius.circular(10),
+                      border: Border.all(color: const Color(0xFFFDE68A)),
+                    ),
+                    child: Row(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        const Text('💡', style: TextStyle(fontSize: 13)),
+                        const SizedBox(width: 6),
+                        Expanded(
+                          child: Text(
+                            marker.notas!,
+                            style: const TextStyle(
+                              fontSize: 12,
+                              color: Color(0xFF78350F),
+                              height: 1.4,
+                            ),
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                ],
+
+                const SizedBox(height: 14),
+
+                // Acción: fuente oficial
+                SizedBox(
+                  width: double.infinity,
+                  child: _PanelAction(
+                    icon: Icons.open_in_browser_rounded,
+                    label: 'Ver en Migraciones AR',
+                    color: blue,
+                    filled: true,
+                    onTap: () async {
+                      _closePanel();
+                      final uri = Uri.tryParse(
+                        marker.url ?? 'https://www.argentina.gob.ar/interior/migraciones',
+                      );
+                      if (uri != null) {
+                        // url_launcher ya está en el proyecto
+                        // ignore: deprecated_member_use
+                      }
+                    },
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
   Widget _buildUserAvatar(_MapMarkerData marker) {
     return Container(
       padding: const EdgeInsets.all(2),
@@ -1342,6 +1691,48 @@ class _FloatBtn extends StatelessWidget {
           ],
         ),
         child: Icon(icon, size: 20, color: _tealDark),
+      ),
+    );
+  }
+}
+
+class _BorderInfoChip extends StatelessWidget {
+  final String icon;
+  final String label;
+  final bool isEmoji;
+
+  const _BorderInfoChip({
+    required this.icon,
+    required this.label,
+    this.isEmoji = false,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 7),
+      decoration: BoxDecoration(
+        color: const Color(0xFFF0F9FF),
+        borderRadius: BorderRadius.circular(10),
+        border: Border.all(color: const Color(0xFFBAE6FD)),
+      ),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Text(icon, style: TextStyle(fontSize: isEmoji ? 14 : 12)),
+          const SizedBox(width: 5),
+          Flexible(
+            child: Text(
+              label,
+              style: const TextStyle(
+                fontSize: 11,
+                fontWeight: FontWeight.w600,
+                color: Color(0xFF0369A1),
+              ),
+              overflow: TextOverflow.ellipsis,
+            ),
+          ),
+        ],
       ),
     );
   }

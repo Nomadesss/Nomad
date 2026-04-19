@@ -523,6 +523,7 @@ class _LegalWizardState extends State<_LegalWizard> {
   String _paisDestino = 'ES';
 
   static const _paises = [
+    {'iso': 'AR', 'nombre': 'Argentina', 'flag': '🇦🇷'},
     {'iso': 'ES', 'nombre': 'España', 'flag': '🇪🇸'},
     {'iso': 'UY', 'nombre': 'Uruguay', 'flag': '🇺🇾'},
     // Escalable: agregar más países aquí cuando estén scrapeados

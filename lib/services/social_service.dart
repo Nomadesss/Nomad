@@ -142,28 +142,61 @@ class GroupModel {
   bool get hasCapacity => maxMembers == null || memberCount < maxMembers!;
 }
 
+// 'member' | 'moderator' | 'admin'
+enum GroupRole {
+  member,
+  moderator,
+  admin;
+
+  static GroupRole fromString(String? v) {
+    switch (v) {
+      case 'admin':     return GroupRole.admin;
+      case 'moderator': return GroupRole.moderator;
+      default:          return GroupRole.member;
+    }
+  }
+
+  String get label {
+    switch (this) {
+      case GroupRole.admin:     return 'Admin';
+      case GroupRole.moderator: return 'Moderador';
+      case GroupRole.member:    return 'Miembro';
+    }
+  }
+
+  bool get canManage => this == GroupRole.admin || this == GroupRole.moderator;
+}
+
 class GroupMemberModel {
   final String docId;
   final String groupId;
   final String userId;
-  final bool isAdmin;
+  final GroupRole role;
   final DateTime? joinedAt;
+
+  bool get isAdmin => role == GroupRole.admin;
 
   const GroupMemberModel({
     required this.docId,
     required this.groupId,
     required this.userId,
-    this.isAdmin = false,
+    this.role = GroupRole.member,
     this.joinedAt,
   });
 
   factory GroupMemberModel.fromDoc(QueryDocumentSnapshot doc) {
     final d = doc.data() as Map<String, dynamic>;
+    // backward compat: if no 'role' field, derive from isAdmin
+    final roleStr = d['role'] as String?;
+    final legacyAdmin = d['isAdmin'] as bool? ?? false;
+    final role = roleStr != null
+        ? GroupRole.fromString(roleStr)
+        : (legacyAdmin ? GroupRole.admin : GroupRole.member);
     return GroupMemberModel(
-      docId: doc.id,
+      docId:   doc.id,
       groupId: d['groupId'] as String? ?? '',
-      userId: d['userId'] as String? ?? '',
-      isAdmin: d['isAdmin'] as bool? ?? false,
+      userId:  d['userId']  as String? ?? '',
+      role:    role,
       joinedAt: _ts(d['joinedAt']),
     );
   }
@@ -644,23 +677,36 @@ class SocialService {
   }
 
   static Stream<List<GroupModel>> streamGroups({
-    required String city,
+    String? city,
     GroupCategory? category,
     int limit = 20,
   }) {
-    var query = _db
-        .collection('groups')
-        .where('city', isEqualTo: city.trim().toLowerCase())
-        .orderBy('createdAt', descending: true)
-        .limit(limit);
+    var query = city != null && city.isNotEmpty
+        ? _db
+            .collection('groups')
+            .where('city', isEqualTo: city.trim().toLowerCase())
+            .orderBy('createdAt', descending: true)
+            .limit(limit)
+        : _db
+            .collection('groups')
+            .orderBy('createdAt', descending: true)
+            .limit(limit);
 
     if (category != null) {
-      query = _db
+      var q = _db
           .collection('groups')
-          .where('city', isEqualTo: city.trim().toLowerCase())
           .where('category', isEqualTo: category.toFirestoreString())
           .orderBy('createdAt', descending: true)
           .limit(limit);
+      if (city != null && city.isNotEmpty) {
+        q = _db
+            .collection('groups')
+            .where('city', isEqualTo: city.trim().toLowerCase())
+            .where('category', isEqualTo: category.toFirestoreString())
+            .orderBy('createdAt', descending: true)
+            .limit(limit);
+      }
+      query = q;
     }
 
     return query.snapshots().map(
@@ -950,6 +996,192 @@ class SocialService {
         .snapshots()
         .map((snap) => snap.exists);
   }
+
+  // ── Roles ──────────────────────────────────────────────────────────────────
+
+  static Stream<GroupRole> myRoleStream(String groupId) {
+    final me = _requireMe();
+    return _db
+        .collection('group_members')
+        .doc('${groupId}_$me')
+        .snapshots()
+        .map((snap) {
+          if (!snap.exists) return GroupRole.member;
+          final d = snap.data()!;
+          return GroupRole.fromString(d['role'] as String?);
+        });
+  }
+
+  static Future<String?> setMemberRole(
+      String groupId, String targetUserId, GroupRole role) async {
+    try {
+      final me = _requireMe();
+      final myDoc = await _db
+          .collection('group_members')
+          .doc('${groupId}_$me')
+          .get();
+      if (!myDoc.exists) return 'No sos miembro de este grupo';
+      final myRole = GroupRole.fromString(myDoc.data()?['role'] as String?);
+      if (myRole != GroupRole.admin) return 'Solo los admins pueden cambiar roles';
+
+      await _db.collection('group_members').doc('${groupId}_$targetUserId').update({
+        'role':    role.name,
+        'isAdmin': role == GroupRole.admin,
+      });
+      return null;
+    } catch (e) {
+      return 'No se pudo cambiar el rol.';
+    }
+  }
+
+  static Future<String?> removeMember(String groupId, String targetUserId) async {
+    try {
+      final me = _requireMe();
+      final myDoc = await _db
+          .collection('group_members')
+          .doc('${groupId}_$me')
+          .get();
+      final myRole = GroupRole.fromString(myDoc.data()?['role'] as String?);
+      if (!myRole.canManage && me != targetUserId) {
+        return 'Sin permisos para expulsar miembros';
+      }
+      final batch = _db.batch();
+      batch.delete(
+          _db.collection('group_members').doc('${groupId}_$targetUserId'));
+      batch.update(_db.collection('groups').doc(groupId), {
+        'memberCount': FieldValue.increment(-1),
+      });
+      await batch.commit();
+      return null;
+    } catch (e) {
+      return 'No se pudo expulsar al miembro.';
+    }
+  }
+
+  // ── Posts del grupo ────────────────────────────────────────────────────────
+
+  static Stream<List<GroupPostModel>> streamGroupPosts(String groupId) {
+    return _db
+        .collection('groups')
+        .doc(groupId)
+        .collection('posts')
+        .where('removed', isEqualTo: false)
+        .orderBy('createdAt', descending: true)
+        .limit(30)
+        .snapshots()
+        .map((snap) => snap.docs.map(GroupPostModel.fromDoc).toList());
+  }
+
+  static Future<String?> createGroupPost({
+    required String groupId,
+    required String body,
+    String? imageUrl,
+  }) async {
+    try {
+      final me = _requireMe();
+      final userDoc = await _db.collection('users').doc(me).get();
+      final ud = userDoc.data() ?? {};
+      final username = (ud['username'] as String?) ??
+          (ud['displayName'] as String?) ?? 'Usuario';
+      final avatar = ud['photoURL'] as String?;
+
+      await _db
+          .collection('groups')
+          .doc(groupId)
+          .collection('posts')
+          .add({
+        'authorId':        me,
+        'authorUsername':  username,
+        'authorAvatarUrl': avatar,
+        'body':            body,
+        'imageUrl':        imageUrl,
+        'likesCount':      0,
+        'likedBy':         [],
+        'commentsCount':   0,
+        'removed':         false,
+        'createdAt':       FieldValue.serverTimestamp(),
+      });
+      return null;
+    } catch (e) {
+      return 'No se pudo publicar.';
+    }
+  }
+
+  static Future<void> toggleLikeGroupPost(
+      String groupId, String postId) async {
+    final me = _requireMe();
+    final ref = _db
+        .collection('groups')
+        .doc(groupId)
+        .collection('posts')
+        .doc(postId);
+    await _db.runTransaction((txn) async {
+      final snap = await txn.get(ref);
+      if (!snap.exists) return;
+      final likedBy =
+          List<String>.from(snap.data()!['likedBy'] as List? ?? []);
+      if (likedBy.contains(me)) {
+        txn.update(ref, {
+          'likedBy':    FieldValue.arrayRemove([me]),
+          'likesCount': FieldValue.increment(-1),
+        });
+      } else {
+        txn.update(ref, {
+          'likedBy':    FieldValue.arrayUnion([me]),
+          'likesCount': FieldValue.increment(1),
+        });
+      }
+    });
+  }
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// GroupPostModel
+// ─────────────────────────────────────────────────────────────────────────────
+
+class GroupPostModel {
+  final String  docId;
+  final String  authorId;
+  final String  authorUsername;
+  final String? authorAvatarUrl;
+  final String  body;
+  final String? imageUrl;
+  final int     likesCount;
+  final List<String> likedBy;
+  final int     commentsCount;
+  final bool    removed;
+  final DateTime? createdAt;
+
+  const GroupPostModel({
+    required this.docId,
+    required this.authorId,
+    required this.authorUsername,
+    this.authorAvatarUrl,
+    required this.body,
+    this.imageUrl,
+    required this.likesCount,
+    required this.likedBy,
+    required this.commentsCount,
+    required this.removed,
+    this.createdAt,
+  });
+
+  factory GroupPostModel.fromDoc(DocumentSnapshot<Map<String, dynamic>> doc) {
+    final d = doc.data()!;
+    return GroupPostModel(
+      docId:           doc.id,
+      authorId:        d['authorId']        as String? ?? '',
+      authorUsername:  d['authorUsername']  as String? ?? 'Usuario',
+      authorAvatarUrl: d['authorAvatarUrl'] as String?,
+      body:            d['body']            as String? ?? '',
+      imageUrl:        d['imageUrl']        as String?,
+      likesCount:      (d['likesCount']     as num?)?.toInt() ?? 0,
+      likedBy:         List<String>.from(d['likedBy'] as List? ?? []),
+      commentsCount:   (d['commentsCount']  as num?)?.toInt() ?? 0,
+      removed:         d['removed']         as bool? ?? false,
+      createdAt:       _ts(d['createdAt']),
+    );
+  }
 }
 
 // ── Helper privado global: Timestamp → DateTime ───────────────────────────────
@@ -959,4 +1191,327 @@ DateTime? _ts(dynamic value) {
   if (value is Timestamp) return value.toDate();
   if (value is DateTime) return value;
   return null;
+}
+
+// ═════════════════════════════════════════════════════════════════════════════
+// FORO — Modelos
+// ═════════════════════════════════════════════════════════════════════════════
+
+class ForumPost {
+  final String  docId;
+  final String  authorId;
+  final String  authorUsername;
+  final String? authorAvatarUrl;
+  final String  category;
+  final String  title;
+  final String  body;
+  final int     upvotes;
+  final List<String> upvotedBy;
+  final int     repliesCount;
+  final bool    flagged;
+  final bool    removed;
+  final bool    pinned;
+  final DateTime? createdAt;
+
+  const ForumPost({
+    required this.docId,
+    required this.authorId,
+    required this.authorUsername,
+    this.authorAvatarUrl,
+    required this.category,
+    required this.title,
+    required this.body,
+    required this.upvotes,
+    required this.upvotedBy,
+    required this.repliesCount,
+    required this.flagged,
+    required this.removed,
+    required this.pinned,
+    this.createdAt,
+  });
+
+  factory ForumPost.fromDoc(DocumentSnapshot<Map<String, dynamic>> doc) {
+    final d = doc.data()!;
+    return ForumPost(
+      docId:           doc.id,
+      authorId:        d['authorId'] as String? ?? '',
+      authorUsername:  d['authorUsername'] as String? ?? 'Usuario',
+      authorAvatarUrl: d['authorAvatarUrl'] as String?,
+      category:        d['category'] as String? ?? 'general',
+      title:           d['title'] as String? ?? '',
+      body:            d['body'] as String? ?? '',
+      upvotes:         (d['upvotes'] as num?)?.toInt() ?? 0,
+      upvotedBy:       List<String>.from(d['upvotedBy'] as List? ?? []),
+      repliesCount:    (d['repliesCount'] as num?)?.toInt() ?? 0,
+      flagged:         d['flagged'] as bool? ?? false,
+      removed:         d['removed'] as bool? ?? false,
+      pinned:          d['pinned'] as bool? ?? false,
+      createdAt:       _ts(d['createdAt']),
+    );
+  }
+}
+
+class ForumReply {
+  final String  docId;
+  final String  authorId;
+  final String  authorUsername;
+  final String? authorAvatarUrl;
+  final String  body;
+  final int     upvotes;
+  final List<String> upvotedBy;
+  final bool    flagged;
+  final DateTime? createdAt;
+
+  const ForumReply({
+    required this.docId,
+    required this.authorId,
+    required this.authorUsername,
+    this.authorAvatarUrl,
+    required this.body,
+    required this.upvotes,
+    required this.upvotedBy,
+    required this.flagged,
+    this.createdAt,
+  });
+
+  factory ForumReply.fromDoc(DocumentSnapshot<Map<String, dynamic>> doc) {
+    final d = doc.data()!;
+    return ForumReply(
+      docId:           doc.id,
+      authorId:        d['authorId'] as String? ?? '',
+      authorUsername:  d['authorUsername'] as String? ?? 'Usuario',
+      authorAvatarUrl: d['authorAvatarUrl'] as String?,
+      body:            d['body'] as String? ?? '',
+      upvotes:         (d['upvotes'] as num?)?.toInt() ?? 0,
+      upvotedBy:       List<String>.from(d['upvotedBy'] as List? ?? []),
+      flagged:         d['flagged'] as bool? ?? false,
+      createdAt:       _ts(d['createdAt']),
+    );
+  }
+}
+
+// ═════════════════════════════════════════════════════════════════════════════
+// FORO — Servicio
+// ═════════════════════════════════════════════════════════════════════════════
+
+class ForumService {
+  static final _db  = FirebaseFirestore.instance;
+  static final _auth = FirebaseAuth.instance;
+
+  static String _requireMe() {
+    final uid = _auth.currentUser?.uid;
+    if (uid == null) throw Exception('Usuario no autenticado');
+    return uid;
+  }
+
+  // ── Moderation ─────────────────────────────────────────────────────────────
+
+  static const List<String> illegalKeywords = [
+    'vendo droga', 'venta de droga', 'cocaina', 'cocaína', 'heroína', 'heroina',
+    'metanfetamina', 'fentanilo', 'vendo cannabis', 'marihuana en venta',
+    'vendo arma', 'venta de armas', 'pistola en venta', 'compro armas',
+    'escort sexual', 'prostitución', 'prostituta en venta',
+    'pasaporte falso', 'dni falso', 'documento falso', 'visa falsa',
+    'blanqueo de capitales', 'lavado de dinero', 'lavado de plata',
+    'hackeo a sueldo', 'sicario', 'matar a alguien',
+  ];
+
+  static bool containsIllegalContent(String text) {
+    final lower = text.toLowerCase();
+    return illegalKeywords.any((kw) => lower.contains(kw));
+  }
+
+  // ── Stream principal del foro ──────────────────────────────────────────────
+
+  static Stream<List<ForumPost>> streamPosts({String? category, int limit = 40}) {
+    var query = _db
+        .collection('forum_posts')
+        .where('removed', isEqualTo: false)
+        .orderBy('pinned', descending: true)
+        .orderBy('createdAt', descending: true)
+        .limit(limit);
+
+    if (category != null && category != 'general') {
+      query = _db
+          .collection('forum_posts')
+          .where('removed', isEqualTo: false)
+          .where('category', isEqualTo: category)
+          .orderBy('createdAt', descending: true)
+          .limit(limit);
+    }
+
+    return query.snapshots().map((snap) =>
+        snap.docs.map(ForumPost.fromDoc).toList());
+  }
+
+  // ── Crear post ─────────────────────────────────────────────────────────────
+
+  static Future<String?> createPost({
+    required String category,
+    required String title,
+    required String body,
+  }) async {
+    try {
+      final me = _requireMe();
+      final userDoc = await _db.collection('users').doc(me).get();
+      final ud = userDoc.data() ?? {};
+      final username = (ud['username'] as String?) ?? (ud['displayName'] as String?) ?? 'Usuario';
+      final avatar = ud['photoURL'] as String?;
+
+      final flagged = containsIllegalContent('$title $body');
+
+      await _db.collection('forum_posts').add({
+        'authorId':        me,
+        'authorUsername':  username,
+        'authorAvatarUrl': avatar,
+        'category':        category,
+        'title':           title,
+        'body':            body,
+        'upvotes':         0,
+        'upvotedBy':       [],
+        'repliesCount':    0,
+        'flagged':         flagged,
+        'removed':         false,
+        'pinned':          false,
+        'createdAt':       FieldValue.serverTimestamp(),
+      });
+
+      return null;
+    } catch (e) {
+      return 'No se pudo publicar. Intentá de nuevo.';
+    }
+  }
+
+  // ── Upvote post ────────────────────────────────────────────────────────────
+
+  static Future<void> toggleUpvotePost(String postId) async {
+    final me = _requireMe();
+    final ref = _db.collection('forum_posts').doc(postId);
+
+    await _db.runTransaction((txn) async {
+      final snap = await txn.get(ref);
+      if (!snap.exists) return;
+      final upvotedBy = List<String>.from(snap.data()!['upvotedBy'] as List? ?? []);
+      if (upvotedBy.contains(me)) {
+        txn.update(ref, {
+          'upvotedBy': FieldValue.arrayRemove([me]),
+          'upvotes':   FieldValue.increment(-1),
+        });
+      } else {
+        txn.update(ref, {
+          'upvotedBy': FieldValue.arrayUnion([me]),
+          'upvotes':   FieldValue.increment(1),
+        });
+      }
+    });
+  }
+
+  // ── Respuestas ─────────────────────────────────────────────────────────────
+
+  static Stream<List<ForumReply>> streamReplies(String postId) {
+    return _db
+        .collection('forum_posts')
+        .doc(postId)
+        .collection('replies')
+        .where('flagged', isEqualTo: false)
+        .orderBy('createdAt', descending: false)
+        .snapshots()
+        .map((snap) => snap.docs.map(ForumReply.fromDoc).toList());
+  }
+
+  static Future<String?> addReply({
+    required String postId,
+    required String body,
+  }) async {
+    try {
+      final me = _requireMe();
+      final userDoc = await _db.collection('users').doc(me).get();
+      final ud = userDoc.data() ?? {};
+      final username = (ud['username'] as String?) ?? (ud['displayName'] as String?) ?? 'Usuario';
+      final avatar = ud['photoURL'] as String?;
+
+      final flagged = containsIllegalContent(body);
+
+      final batch = _db.batch();
+      final replyRef = _db.collection('forum_posts').doc(postId).collection('replies').doc();
+      batch.set(replyRef, {
+        'authorId':        me,
+        'authorUsername':  username,
+        'authorAvatarUrl': avatar,
+        'body':            body,
+        'upvotes':         0,
+        'upvotedBy':       [],
+        'flagged':         flagged,
+        'createdAt':       FieldValue.serverTimestamp(),
+      });
+      if (!flagged) {
+        batch.update(_db.collection('forum_posts').doc(postId), {
+          'repliesCount': FieldValue.increment(1),
+        });
+      }
+      await batch.commit();
+      return null;
+    } catch (e) {
+      return 'No se pudo publicar la respuesta.';
+    }
+  }
+
+  static Future<void> toggleUpvoteReply(String postId, String replyId) async {
+    final me = _requireMe();
+    final ref = _db.collection('forum_posts').doc(postId).collection('replies').doc(replyId);
+    await _db.runTransaction((txn) async {
+      final snap = await txn.get(ref);
+      if (!snap.exists) return;
+      final upvotedBy = List<String>.from(snap.data()!['upvotedBy'] as List? ?? []);
+      if (upvotedBy.contains(me)) {
+        txn.update(ref, {'upvotedBy': FieldValue.arrayRemove([me]), 'upvotes': FieldValue.increment(-1)});
+      } else {
+        txn.update(ref, {'upvotedBy': FieldValue.arrayUnion([me]), 'upvotes': FieldValue.increment(1)});
+      }
+    });
+  }
+
+  // ── Reportar contenido ─────────────────────────────────────────────────────
+
+  static Future<String?> updatePost({
+    required String postId,
+    required String title,
+    required String body,
+    required String category,
+  }) async {
+    try {
+      final me = _requireMe();
+      final ref = _db.collection('forum_posts').doc(postId);
+      final snap = await ref.get();
+      if (!snap.exists || snap.data()?['authorId'] != me) {
+        return 'No tenés permiso para editar esta publicación.';
+      }
+      final flagged = containsIllegalContent('$title $body');
+      await ref.update({
+        'title':     title,
+        'body':      body,
+        'category':  category,
+        'flagged':   flagged,
+        'updatedAt': FieldValue.serverTimestamp(),
+      });
+      return null;
+    } catch (e) {
+      return 'No se pudo guardar los cambios.';
+    }
+  }
+
+  static Future<void> reportContent({
+    required String targetId,
+    required String targetType,
+    required String reason,
+  }) async {
+    final me = _requireMe();
+    await _db.collection('forum_reports').add({
+      'targetId':   targetId,
+      'targetType': targetType,
+      'reporterId': me,
+      'reason':     reason,
+      'createdAt':  FieldValue.serverTimestamp(),
+    });
+  }
 }

@@ -190,6 +190,7 @@ class _FeedScreenState extends State<FeedScreen> {
               snap: true,
               elevation: 0,
               backgroundColor: Colors.white,
+              automaticallyImplyLeading: false,
               toolbarHeight: _showHeader ? 64 : 0,
               title: AnimatedOpacity(
                 duration: const Duration(milliseconds: 200),

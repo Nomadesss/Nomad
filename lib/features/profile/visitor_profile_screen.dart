@@ -583,16 +583,13 @@ class _VisitorProfileScreenState extends State<VisitorProfileScreen>
   /// Crea el documento /chats/{chatId} si no existe todavía.
   Future<void> _ensureChatDoc(String chatId, String myUid) async {
     final ref = _firestore.collection('chats').doc(chatId);
-    final snap = await ref.get();
-    if (!snap.exists) {
-      await ref.set({
-        'participantIds': [myUid, widget.targetUserId],
-        'lastMessage': '',
-        'lastMessageAt': FieldValue.serverTimestamp(),
-        'unreadCount': {myUid: 0, widget.targetUserId: 0},
-        'createdAt': FieldValue.serverTimestamp(),
-      });
-    }
+    await ref.set({
+      'participantIds': [myUid, widget.targetUserId],
+      'lastMessage': '',
+      'lastMessageAt': FieldValue.serverTimestamp(),
+      'unreadCount': {myUid: 0, widget.targetUserId: 0},
+      'createdAt': FieldValue.serverTimestamp(),
+    }, SetOptions(merge: true));
   }
 
   // ── Bloquear usuario ────────────────────────────────────────────────────────
