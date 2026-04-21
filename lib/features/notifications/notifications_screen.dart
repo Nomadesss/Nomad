@@ -7,6 +7,10 @@ const _teal = Color(0xFF0D9488);
 const _tealDark = Color(0xFF134E4A);
 const _tealBg = Color(0xFFF0FAF9);
 
+// ─────────────────────────────────────────────────────────────────────────────
+// NotificationsScreen
+// ─────────────────────────────────────────────────────────────────────────────
+
 class NotificationsScreen extends StatefulWidget {
   const NotificationsScreen({super.key});
 
@@ -18,7 +22,7 @@ class _NotificationsScreenState extends State<NotificationsScreen> {
   final String? _userId = FirebaseAuth.instance.currentUser?.uid;
   String _filter = 'all';
 
-  // Respuestas locales a solicitudes de follow: docId → true=aceptado, false=rechazado
+  // Respuestas locales a solicitudes de follow: docId → true/false
   final Map<String, bool> _followResponses = {};
 
   @override
@@ -52,7 +56,7 @@ class _NotificationsScreenState extends State<NotificationsScreen> {
         .snapshots();
   }
 
-  // ── Aceptar solicitud de follow ───────────────────────────────────────────
+  // ── Follow actions ─────────────────────────────────────────────────────────
 
   Future<void> _acceptFollow(String docId, String fromUserId) async {
     setState(() => _followResponses[docId] = true);
@@ -95,7 +99,7 @@ class _NotificationsScreenState extends State<NotificationsScreen> {
     }
   }
 
-  // ── Helpers ───────────────────────────────────────────────────────────────
+  // ── Helpers ────────────────────────────────────────────────────────────────
 
   IconData _icon(String type) {
     switch (type) {
@@ -116,7 +120,7 @@ class _NotificationsScreenState extends State<NotificationsScreen> {
     }
   }
 
-  Color _color(String type) {
+  Color _iconColor(String type) {
     switch (type) {
       case 'like':
         return const Color(0xFFEF4444);
@@ -135,17 +139,36 @@ class _NotificationsScreenState extends State<NotificationsScreen> {
     }
   }
 
+  /// Tiempo relativo estilo Instagram:
+  /// < 1 min → "ahora"
+  /// < 60 min → "Xm"
+  /// < 24 h  → "Xh"
+  /// < 7 d   → "X d"
+  /// < 4 sem → "X sem"
+  /// resto   → "X meses" / "X años"
   String _timeAgo(Timestamp? ts) {
     if (ts == null) return '';
     final dt = ts.toDate();
     final diff = DateTime.now().difference(dt);
-    if (diff.inMinutes < 1) return 'Ahora';
-    if (diff.inMinutes < 60) return '${diff.inMinutes}m';
-    if (diff.inHours < 24) return '${diff.inHours}h';
-    if (diff.inDays < 7) return '${diff.inDays}d';
-    return DateFormat('d MMM', 'es').format(dt);
+
+    if (diff.inMinutes < 1) return 'ahora';
+    if (diff.inMinutes < 60) return '${diff.inMinutes} m';
+    if (diff.inHours < 24) return '${diff.inHours} h';
+    if (diff.inDays == 1) return '1 d';
+    if (diff.inDays < 7) return '${diff.inDays} d';
+    final weeks = (diff.inDays / 7).floor();
+    if (weeks < 4) return '$weeks sem';
+    final months = (diff.inDays / 30).floor();
+    if (months < 12) return '$months meses';
+    final years = (diff.inDays / 365).floor();
+    return '$years año${years > 1 ? 's' : ''}';
   }
 
+  /// Etiqueta de sección — igual que Instagram:
+  /// hoy → "Hoy"
+  /// ayer → "Ayer" (se muestra dentro de "Esta semana" en el grouping)
+  /// ≤ 7 días → "Esta semana"
+  /// resto → "Antes"
   String _groupLabel(Timestamp? ts) {
     if (ts == null) return 'Antes';
     final dt = ts.toDate();
@@ -158,7 +181,7 @@ class _NotificationsScreenState extends State<NotificationsScreen> {
     return 'Antes';
   }
 
-  // ── Build ─────────────────────────────────────────────────────────────────
+  // ── Build ──────────────────────────────────────────────────────────────────
 
   @override
   Widget build(BuildContext context) {
@@ -170,12 +193,14 @@ class _NotificationsScreenState extends State<NotificationsScreen> {
           final isLoading = snapshot.connectionState == ConnectionState.waiting;
           final docs = snapshot.data?.docs ?? [];
 
+          // Filtrar
           final filtered = _filter == 'all'
               ? docs
               : docs
                     .where((d) => (d.data()['type'] as String?) == _filter)
                     .toList();
 
+          // Agrupar
           final groups =
               <String, List<QueryDocumentSnapshot<Map<String, dynamic>>>>{};
           for (final doc in filtered) {
@@ -184,6 +209,7 @@ class _NotificationsScreenState extends State<NotificationsScreen> {
             groups.putIfAbsent(label, () => []).add(doc);
           }
 
+          // Construir lista plana con headers
           final items = <_ListItem>[];
           for (final label in ['Hoy', 'Esta semana', 'Antes']) {
             final group = groups[label];
@@ -196,17 +222,28 @@ class _NotificationsScreenState extends State<NotificationsScreen> {
 
           return CustomScrollView(
             slivers: [
-              _buildSliverAppBar(
+              // AppBar
+              _buildAppBar(
                 unreadCount: docs
                     .where((d) => !(d.data()['read'] as bool? ?? true))
                     .length,
               ),
-              SliverToBoxAdapter(child: _buildFilterChips()),
+
+              // Filtros
+              SliverPersistentHeader(
+                pinned: true,
+                delegate: _FilterBarDelegate(
+                  currentFilter: _filter,
+                  onFilterChanged: (f) => setState(() => _filter = f),
+                ),
+              ),
+
+              // Contenido
               if (isLoading)
                 SliverList(
                   delegate: SliverChildBuilderDelegate(
                     (_, i) => const _NotifSkeleton(),
-                    childCount: 8,
+                    childCount: 7,
                   ),
                 )
               else if (items.isEmpty)
@@ -215,8 +252,9 @@ class _NotificationsScreenState extends State<NotificationsScreen> {
                 SliverList(
                   delegate: SliverChildBuilderDelegate((context, i) {
                     final item = items[i];
-                    if (item.isHeader)
+                    if (item.isHeader) {
                       return _SectionHeader(label: item.label!);
+                    }
 
                     final data = item.doc!.data();
                     final docId = item.doc!.id;
@@ -226,6 +264,7 @@ class _NotificationsScreenState extends State<NotificationsScreen> {
                     final fromUserId = data['fromUserId'] as String? ?? '';
                     final fromAvatar = data['fromAvatarUrl'] as String?;
                     final body = data['body'] as String? ?? '';
+                    final postThumb = data['postImageUrl'] as String?;
                     final ts = data['createdAt'] as Timestamp?;
                     final isRead = data['read'] as bool? ?? true;
                     final alreadyAccepted = data['accepted'] as bool?;
@@ -238,9 +277,10 @@ class _NotificationsScreenState extends State<NotificationsScreen> {
                       fromUserId: fromUserId,
                       fromAvatar: fromAvatar,
                       body: body,
+                      postThumb: postThumb,
                       isRead: isRead,
                       icon: _icon(type),
-                      iconColor: _color(type),
+                      iconColor: _iconColor(type),
                       timeAgo: _timeAgo(ts),
                       followResponse: localResponse,
                       alreadyAccepted: alreadyAccepted,
@@ -257,6 +297,7 @@ class _NotificationsScreenState extends State<NotificationsScreen> {
                     );
                   }, childCount: items.length),
                 ),
+
               const SliverToBoxAdapter(child: SizedBox(height: 32)),
             ],
           );
@@ -265,7 +306,7 @@ class _NotificationsScreenState extends State<NotificationsScreen> {
     );
   }
 
-  SliverAppBar _buildSliverAppBar({required int unreadCount}) {
+  SliverAppBar _buildAppBar({required int unreadCount}) {
     return SliverAppBar(
       backgroundColor: Colors.white,
       surfaceTintColor: Colors.transparent,
@@ -316,59 +357,6 @@ class _NotificationsScreenState extends State<NotificationsScreen> {
       bottom: PreferredSize(
         preferredSize: const Size.fromHeight(1),
         child: Container(height: 1, color: const Color(0xFFF1F5F9)),
-      ),
-    );
-  }
-
-  Widget _buildFilterChips() {
-    final filters = [
-      ('all', 'Todo', Icons.apps_rounded),
-      ('like', 'Likes', Icons.favorite_rounded),
-      ('comment', 'Comentarios', Icons.chat_bubble_rounded),
-      ('follow', 'Seguimientos', Icons.person_add_rounded),
-      ('mention', 'Menciones', Icons.alternate_email_rounded),
-    ];
-
-    return SizedBox(
-      height: 48,
-      child: ListView.separated(
-        scrollDirection: Axis.horizontal,
-        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-        separatorBuilder: (_, __) => const SizedBox(width: 8),
-        itemCount: filters.length,
-        itemBuilder: (context, i) {
-          final (value, label, icon) = filters[i];
-          final selected = _filter == value;
-          return GestureDetector(
-            onTap: () => setState(() => _filter = value),
-            child: AnimatedContainer(
-              duration: const Duration(milliseconds: 180),
-              padding: const EdgeInsets.symmetric(horizontal: 12),
-              decoration: BoxDecoration(
-                color: selected ? _teal : const Color(0xFFF1F5F9),
-                borderRadius: BorderRadius.circular(20),
-              ),
-              child: Row(
-                children: [
-                  Icon(
-                    icon,
-                    size: 13,
-                    color: selected ? Colors.white : Colors.grey.shade500,
-                  ),
-                  const SizedBox(width: 5),
-                  Text(
-                    label,
-                    style: TextStyle(
-                      fontSize: 12.5,
-                      fontWeight: selected ? FontWeight.w700 : FontWeight.w500,
-                      color: selected ? Colors.white : Colors.grey.shade600,
-                    ),
-                  ),
-                ],
-              ),
-            ),
-          );
-        },
       ),
     );
   }
@@ -429,6 +417,81 @@ class _NotificationsScreenState extends State<NotificationsScreen> {
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
+// Barra de filtros — SliverPersistentHeader para que quede sticky
+// ─────────────────────────────────────────────────────────────────────────────
+
+const _filters = [
+  ('all', 'Todo'),
+  ('like', 'Likes'),
+  ('comment', 'Comentarios'),
+  ('follow', 'Seguimientos'),
+  ('mention', 'Menciones'),
+];
+
+class _FilterBarDelegate extends SliverPersistentHeaderDelegate {
+  final String currentFilter;
+  final ValueChanged<String> onFilterChanged;
+
+  const _FilterBarDelegate({
+    required this.currentFilter,
+    required this.onFilterChanged,
+  });
+
+  @override
+  double get minExtent => 48;
+  @override
+  double get maxExtent => 48;
+
+  @override
+  bool shouldRebuild(_FilterBarDelegate old) =>
+      old.currentFilter != currentFilter;
+
+  @override
+  Widget build(
+    BuildContext context,
+    double shrinkOffset,
+    bool overlapsContent,
+  ) {
+    return Container(
+      color: Colors.white,
+      child: ListView.separated(
+        scrollDirection: Axis.horizontal,
+        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 9),
+        separatorBuilder: (_, __) => const SizedBox(width: 7),
+        itemCount: _filters.length,
+        itemBuilder: (context, i) {
+          final (value, label) = _filters[i];
+          final selected = currentFilter == value;
+          return GestureDetector(
+            onTap: () => onFilterChanged(value),
+            child: AnimatedContainer(
+              duration: const Duration(milliseconds: 180),
+              padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 0),
+              decoration: BoxDecoration(
+                color: selected
+                    ? const Color(0xFF1F2937)
+                    : const Color(0xFFF1F5F9),
+                borderRadius: BorderRadius.circular(20),
+              ),
+              child: Center(
+                child: Text(
+                  label,
+                  style: TextStyle(
+                    fontSize: 12.5,
+                    fontWeight: selected ? FontWeight.w700 : FontWeight.w500,
+                    color: selected ? Colors.white : Colors.grey.shade600,
+                  ),
+                ),
+              ),
+            ),
+          );
+        },
+      ),
+    );
+  }
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
 // _ListItem
 // ─────────────────────────────────────────────────────────────────────────────
 
@@ -461,10 +524,10 @@ class _SectionHeader extends StatelessWidget {
       child: Text(
         label,
         style: const TextStyle(
-          fontSize: 13,
+          fontSize: 14,
           fontWeight: FontWeight.w800,
-          color: Color(0xFF94A3B8),
-          letterSpacing: 0.4,
+          color: Color(0xFF111827),
+          letterSpacing: -0.1,
         ),
       ),
     );
@@ -472,7 +535,7 @@ class _SectionHeader extends StatelessWidget {
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
-// _NotifTile — con botones de follow estilo Instagram
+// _NotifTile — estilo Instagram
 // ─────────────────────────────────────────────────────────────────────────────
 
 class _NotifTile extends StatefulWidget {
@@ -482,6 +545,7 @@ class _NotifTile extends StatefulWidget {
   final String fromUserId;
   final String? fromAvatar;
   final String body;
+  final String? postThumb; // miniatura del post (like/comment/mention)
   final bool isRead;
   final IconData icon;
   final Color iconColor;
@@ -499,6 +563,7 @@ class _NotifTile extends StatefulWidget {
     required this.fromUserId,
     required this.fromAvatar,
     required this.body,
+    this.postThumb,
     required this.isRead,
     required this.icon,
     required this.iconColor,
@@ -528,6 +593,16 @@ class _NotifTileState extends State<_NotifTile> {
     final accepted =
         widget.followResponse == true || widget.alreadyAccepted == true;
 
+    // Para like/comment/mention mostramos miniatura del post a la derecha
+    final showThumb =
+        widget.postThumb != null &&
+        (widget.type == 'like' ||
+            widget.type == 'comment' ||
+            widget.type == 'mention');
+
+    // Para follow mostramos botón "Seguir también" / estado
+    final showFollowBtn = widget.type == 'follow';
+
     return Material(
       color: widget.isRead ? Colors.white : const Color(0xFFF0FDFB),
       child: InkWell(
@@ -535,15 +610,16 @@ class _NotifTileState extends State<_NotifTile> {
         splashColor: _tealBg,
         highlightColor: _tealBg.withOpacity(0.3),
         child: Padding(
-          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 13),
+          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 11),
           child: Row(
-            crossAxisAlignment: CrossAxisAlignment.start,
+            crossAxisAlignment: CrossAxisAlignment.center,
             children: [
-              // ── Avatar + ícono ────────────────────────────────────────────
+              // ── Avatar + badge de tipo ────────────────────────────────────
               Stack(
+                clipBehavior: Clip.none,
                 children: [
                   CircleAvatar(
-                    radius: 26,
+                    radius: 24,
                     backgroundColor: const Color(0xFFCCFBF1),
                     backgroundImage: widget.fromAvatar != null
                         ? NetworkImage(widget.fromAvatar!)
@@ -552,7 +628,7 @@ class _NotifTileState extends State<_NotifTile> {
                         ? Text(
                             initials,
                             style: const TextStyle(
-                              fontSize: 18,
+                              fontSize: 17,
                               fontWeight: FontWeight.w700,
                               color: _teal,
                             ),
@@ -560,72 +636,71 @@ class _NotifTileState extends State<_NotifTile> {
                         : null,
                   ),
                   Positioned(
-                    bottom: -1,
-                    right: -1,
+                    bottom: -2,
+                    right: -2,
                     child: Container(
-                      width: 22,
-                      height: 22,
+                      width: 20,
+                      height: 20,
                       decoration: BoxDecoration(
                         color: widget.iconColor,
                         shape: BoxShape.circle,
-                        border: Border.all(color: Colors.white, width: 2),
+                        border: Border.all(color: Colors.white, width: 1.5),
                       ),
-                      child: Icon(widget.icon, color: Colors.white, size: 11),
+                      child: Icon(widget.icon, color: Colors.white, size: 10),
                     ),
                   ),
                 ],
               ),
 
-              const SizedBox(width: 14),
+              const SizedBox(width: 12),
 
-              // ── Texto + botones ───────────────────────────────────────────
+              // ── Texto central ─────────────────────────────────────────────
               Expanded(
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
+                  mainAxisSize: MainAxisSize.min,
                   children: [
+                    // Texto: "username acción" + tiempo
                     RichText(
                       text: TextSpan(
                         style: TextStyle(
-                          fontSize: 14,
+                          fontSize: 13.5,
                           color: widget.isRead
                               ? const Color(0xFF374151)
                               : const Color(0xFF111827),
-                          height: 1.4,
+                          height: 1.35,
                         ),
                         children: [
                           TextSpan(
                             text: widget.fromUsername,
                             style: const TextStyle(fontWeight: FontWeight.w700),
                           ),
+                          if (widget.body.isNotEmpty) ...[
+                            const TextSpan(text: ' '),
+                            TextSpan(text: widget.body),
+                          ],
                           const TextSpan(text: ' '),
-                          TextSpan(text: widget.body),
+                          TextSpan(
+                            text: widget.timeAgo,
+                            style: TextStyle(
+                              color: Colors.grey.shade400,
+                              fontWeight: FontWeight.w400,
+                              fontSize: 13,
+                            ),
+                          ),
                         ],
                       ),
                     ),
 
-                    const SizedBox(height: 4),
-
-                    Text(
-                      widget.timeAgo,
-                      style: TextStyle(
-                        fontSize: 12,
-                        color: widget.isRead ? Colors.grey.shade400 : _teal,
-                        fontWeight: widget.isRead
-                            ? FontWeight.normal
-                            : FontWeight.w600,
-                      ),
-                    ),
-
-                    // ── Botones de follow ─────────────────────────────────
-                    if (widget.type == 'follow') ...[
+                    // ── Botón "Seguir también" (follow) ───────────────────
+                    if (showFollowBtn) ...[
                       const SizedBox(height: 10),
-
                       if (!responded) ...[
-                        // Pendiente → Confirmar / Eliminar
+                        // Solicitud pendiente → Confirmar / Eliminar
                         Row(
                           children: [
                             Expanded(
-                              child: _FollowButton(
+                              child: _PillButton(
                                 label: 'Confirmar',
                                 isPrimary: true,
                                 onTap: widget.onAccept,
@@ -633,7 +708,7 @@ class _NotifTileState extends State<_NotifTile> {
                             ),
                             const SizedBox(width: 8),
                             Expanded(
-                              child: _FollowButton(
+                              child: _PillButton(
                                 label: 'Eliminar',
                                 isPrimary: false,
                                 onTap: widget.onReject,
@@ -642,12 +717,11 @@ class _NotifTileState extends State<_NotifTile> {
                           ],
                         ),
                       ] else if (accepted) ...[
-                        // Aceptado → Seguir también / Siguiendo
-                        _FollowButton(
-                          label: _followedBack
-                              ? 'Siguiendo ✓'
-                              : 'Seguir también',
+                        // Aceptado → "Seguir también" / "Siguiendo"
+                        _PillButton(
+                          label: _followedBack ? 'Siguiendo' : 'Seguir también',
                           isPrimary: !_followedBack,
+                          fullWidth: true,
                           onTap: _followedBack
                               ? null
                               : () {
@@ -656,7 +730,6 @@ class _NotifTileState extends State<_NotifTile> {
                                 },
                         ),
                       ] else ...[
-                        // Rechazado
                         Text(
                           'Solicitud eliminada',
                           style: TextStyle(
@@ -671,17 +744,36 @@ class _NotifTileState extends State<_NotifTile> {
                 ),
               ),
 
-              // ── Punto no leído ────────────────────────────────────────────
-              if (!widget.isRead)
-                Padding(
-                  padding: const EdgeInsets.only(top: 6, left: 8),
-                  child: Container(
-                    width: 8,
-                    height: 8,
-                    decoration: const BoxDecoration(
-                      color: _teal,
-                      shape: BoxShape.circle,
+              const SizedBox(width: 12),
+
+              // ── Lado derecho: miniatura o punto no leído ──────────────────
+              if (showThumb)
+                ClipRRect(
+                  borderRadius: BorderRadius.circular(4),
+                  child: Image.network(
+                    widget.postThumb!,
+                    width: 44,
+                    height: 44,
+                    fit: BoxFit.cover,
+                    errorBuilder: (_, __, ___) => Container(
+                      width: 44,
+                      height: 44,
+                      color: const Color(0xFFF1F5F9),
+                      child: const Icon(
+                        Icons.image_outlined,
+                        size: 20,
+                        color: Color(0xFFCBD5E1),
+                      ),
                     ),
+                  ),
+                )
+              else if (!widget.isRead && !showFollowBtn)
+                Container(
+                  width: 8,
+                  height: 8,
+                  decoration: const BoxDecoration(
+                    color: _teal,
+                    shape: BoxShape.circle,
                   ),
                 ),
             ],
@@ -693,49 +785,59 @@ class _NotifTileState extends State<_NotifTile> {
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
-// _FollowButton
+// _PillButton — botón tipo Instagram (Confirmar / Seguir también / etc.)
 // ─────────────────────────────────────────────────────────────────────────────
 
-class _FollowButton extends StatelessWidget {
+class _PillButton extends StatelessWidget {
   final String label;
   final bool isPrimary;
+  final bool fullWidth;
   final VoidCallback? onTap;
 
-  const _FollowButton({
+  const _PillButton({
     required this.label,
     required this.isPrimary,
+    this.fullWidth = false,
     this.onTap,
   });
 
   @override
   Widget build(BuildContext context) {
-    return GestureDetector(
-      onTap: onTap,
-      child: AnimatedContainer(
-        duration: const Duration(milliseconds: 200),
-        height: 34,
-        decoration: BoxDecoration(
-          color: isPrimary ? _teal : const Color(0xFFF1F5F9),
-          borderRadius: BorderRadius.circular(8),
-          border: isPrimary ? null : Border.all(color: const Color(0xFFE2E8F0)),
-        ),
-        child: Center(
-          child: Text(
-            label,
-            style: TextStyle(
-              fontSize: 13,
-              fontWeight: FontWeight.w700,
-              color: isPrimary ? Colors.white : const Color(0xFF374151),
-            ),
+    final bg = isPrimary ? _teal : const Color(0xFFF1F5F9);
+    final fg = isPrimary ? Colors.white : const Color(0xFF374151);
+    final border = isPrimary
+        ? null
+        : Border.all(color: const Color(0xFFE2E8F0));
+
+    final inner = AnimatedContainer(
+      duration: const Duration(milliseconds: 180),
+      height: 32,
+      width: fullWidth ? double.infinity : null,
+      padding: const EdgeInsets.symmetric(horizontal: 14),
+      decoration: BoxDecoration(
+        color: bg,
+        borderRadius: BorderRadius.circular(8),
+        border: border,
+      ),
+      child: Center(
+        child: Text(
+          label,
+          style: TextStyle(
+            fontSize: 13,
+            fontWeight: FontWeight.w700,
+            color: fg,
           ),
         ),
       ),
     );
+
+    if (onTap == null) return inner;
+    return GestureDetector(onTap: onTap, child: inner);
   }
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
-// _NotifSkeleton
+// _NotifSkeleton — shimmer de carga
 // ─────────────────────────────────────────────────────────────────────────────
 
 class _NotifSkeleton extends StatefulWidget {
@@ -776,31 +878,27 @@ class _NotifSkeletonState extends State<_NotifSkeleton>
       builder: (_, __) => Opacity(
         opacity: _anim.value,
         child: Padding(
-          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 11),
           child: Row(
-            crossAxisAlignment: CrossAxisAlignment.start,
+            crossAxisAlignment: CrossAxisAlignment.center,
             children: [
-              Container(
-                width: 52,
-                height: 52,
-                decoration: const BoxDecoration(
-                  color: Color(0xFFE2E8F0),
-                  shape: BoxShape.circle,
-                ),
+              const CircleAvatar(
+                radius: 24,
+                backgroundColor: Color(0xFFE2E8F0),
               ),
-              const SizedBox(width: 14),
+              const SizedBox(width: 12),
               Expanded(
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    _box(width: 220, height: 13),
+                    _box(width: 200, height: 12),
                     const SizedBox(height: 6),
-                    _box(width: 160, height: 11),
-                    const SizedBox(height: 6),
-                    _box(width: 60, height: 10),
+                    _box(width: 130, height: 11),
                   ],
                 ),
               ),
+              const SizedBox(width: 12),
+              _box(width: 44, height: 44, radius: 4),
             ],
           ),
         ),
@@ -808,12 +906,16 @@ class _NotifSkeletonState extends State<_NotifSkeleton>
     );
   }
 
-  Widget _box({required double width, required double height}) => Container(
+  Widget _box({
+    required double width,
+    required double height,
+    double radius = 6,
+  }) => Container(
     width: width,
     height: height,
     decoration: BoxDecoration(
       color: const Color(0xFFE2E8F0),
-      borderRadius: BorderRadius.circular(6),
+      borderRadius: BorderRadius.circular(radius),
     ),
   );
 }
