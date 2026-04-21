@@ -3,6 +3,8 @@ import 'package:flutter/foundation.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/rendering.dart';
 
+import '../../services/seed_posts.dart';
+import '../../services/seed_stories.dart';
 import '../../services/location_service.dart';
 import '../../services/feed_service.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
@@ -25,6 +27,9 @@ class _FeedScreenState extends State<FeedScreen> {
   bool _isLoading = true;
   bool _isLoadingMore = false;
 
+  /// Posts ocultos en esta sesión (no me interesa / reportar)
+  final Set<String> _hiddenPostIds = {};
+
   // IDs de usuarios que el usuario actual sigue (amigos).
   // Se carga una vez al iniciar y se reutiliza en _loadMore.
   List<String> _friendIds = [];
@@ -36,7 +41,10 @@ class _FeedScreenState extends State<FeedScreen> {
   @override
   void initState() {
     super.initState();
-    if (kDebugMode) {}
+    if (kDebugMode) {
+      SeedPosts.run();
+      SeedStories.run();
+    }
     _loadFeed();
     _scrollController.addListener(_onScroll);
   }
@@ -46,6 +54,10 @@ class _FeedScreenState extends State<FeedScreen> {
     _scrollController.removeListener(_onScroll);
     _scrollController.dispose();
     super.dispose();
+  }
+
+  void _hidePost(String postId) {
+    setState(() => _hiddenPostIds.add(postId));
   }
 
   void _onScroll() {
@@ -170,6 +182,7 @@ class _FeedScreenState extends State<FeedScreen> {
   Future<void> _onRefresh() async {
     setState(() {
       _feedResult = FeedResult.empty;
+      _hiddenPostIds.clear();
       _isLoading = true;
     });
     await _loadFeed();
@@ -177,6 +190,15 @@ class _FeedScreenState extends State<FeedScreen> {
 
   @override
   Widget build(BuildContext context) {
+    final visibleCombined = _feedResult.combined
+        .where((item) {
+          if (item is PostModel) {
+            return !_hiddenPostIds.contains(item.docId);
+          }
+          return true;
+        })
+        .toList();
+
     return Scaffold(
       backgroundColor: const Color(0xFFF5F6FA),
       body: RefreshIndicator(
@@ -199,6 +221,7 @@ class _FeedScreenState extends State<FeedScreen> {
               ),
             ),
 
+            // ── StoriesBar en tiempo real ─────────────────────────────────
             const SliverToBoxAdapter(child: StoriesBar()),
 
             if (_isLoading)
@@ -211,7 +234,7 @@ class _FeedScreenState extends State<FeedScreen> {
                 ),
               ),
 
-            if (!_isLoading && _feedResult.combined.isEmpty)
+            if (!_isLoading && visibleCombined.isEmpty)
               const SliverToBoxAdapter(
                 child: Padding(
                   padding: EdgeInsets.symmetric(vertical: 60, horizontal: 32),
@@ -243,37 +266,41 @@ class _FeedScreenState extends State<FeedScreen> {
                 ),
               ),
 
-            if (!_isLoading && _feedResult.combined.isNotEmpty)
+            if (!_isLoading && visibleCombined.isNotEmpty)
               SliverList(
-                delegate: SliverChildBuilderDelegate((context, index) {
-                  final item = _feedResult.combined[index];
+                delegate: SliverChildBuilderDelegate(
+                  (context, index) {
+                    final item = visibleCombined[index];
 
-                  if (item is PostModel) {
-                    if (item.docId.isEmpty) return const SizedBox.shrink();
-                    return PostCard(
-                      key: ValueKey(item.docId),
-                      postId: item.docId,
-                      postAuthorId: item.authorId,
-                      username: item.username,
-                      images: item.images,
-                      caption: item.caption,
-                      userCountryFlag: item.countryFlag,
-                      userCity: item.city,
-                      userBio: item.bio,
-                    );
-                  }
+                    if (item is PostModel) {
+                      if (item.docId.isEmpty) return const SizedBox.shrink();
+                      return PostCard(
+                        key: ValueKey(item.docId),
+                        postId: item.docId,
+                        postAuthorId: item.authorId,
+                        username: item.username,
+                        images: item.images,
+                        caption: item.caption,
+                        userCountryFlag: item.countryFlag,
+                        userCity: item.city,
+                        userBio: item.bio,
+                        onDismiss: () => _hidePost(item.docId),
+                      );
+                    }
 
-                  if (item is EventModel) {
-                    return EventCard(
-                      key: ValueKey('event_${item.docId}'),
-                      title: item.title,
-                      location: item.location ?? '',
-                      date: item.date ?? '',
-                    );
-                  }
+                    if (item is EventModel) {
+                      return EventCard(
+                        key: ValueKey('event_${item.docId}'),
+                        title: item.title,
+                        location: item.location ?? '',
+                        date: item.date ?? '',
+                      );
+                    }
 
-                  return const SizedBox.shrink();
-                }, childCount: _feedResult.combined.length),
+                    return const SizedBox.shrink();
+                  },
+                  childCount: visibleCombined.length,
+                ),
               ),
 
             if (_isLoadingMore)
