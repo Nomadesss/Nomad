@@ -3,8 +3,7 @@ import 'package:flutter/foundation.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/rendering.dart';
 
-import '../../services/seed_posts.dart';
-import '../../services/seed_stories.dart';
+import 'widgets/seed_stories.dart';
 import '../../services/location_service.dart';
 import '../../services/feed_service.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
@@ -42,7 +41,6 @@ class _FeedScreenState extends State<FeedScreen> {
   void initState() {
     super.initState();
     if (kDebugMode) {
-      SeedPosts.run();
       SeedStories.run();
     }
     _loadFeed();
@@ -190,14 +188,12 @@ class _FeedScreenState extends State<FeedScreen> {
 
   @override
   Widget build(BuildContext context) {
-    final visibleCombined = _feedResult.combined
-        .where((item) {
-          if (item is PostModel) {
-            return !_hiddenPostIds.contains(item.docId);
-          }
-          return true;
-        })
-        .toList();
+    final visibleCombined = _feedResult.combined.where((item) {
+      if (item is PostModel) {
+        return !_hiddenPostIds.contains(item.docId);
+      }
+      return true;
+    }).toList();
 
     return Scaffold(
       backgroundColor: const Color(0xFFF5F6FA),
@@ -268,39 +264,36 @@ class _FeedScreenState extends State<FeedScreen> {
 
             if (!_isLoading && visibleCombined.isNotEmpty)
               SliverList(
-                delegate: SliverChildBuilderDelegate(
-                  (context, index) {
-                    final item = visibleCombined[index];
+                delegate: SliverChildBuilderDelegate((context, index) {
+                  final item = visibleCombined[index];
 
-                    if (item is PostModel) {
-                      if (item.docId.isEmpty) return const SizedBox.shrink();
-                      return PostCard(
-                        key: ValueKey(item.docId),
-                        postId: item.docId,
-                        postAuthorId: item.authorId,
-                        username: item.username,
-                        images: item.images,
-                        caption: item.caption,
-                        userCountryFlag: item.countryFlag,
-                        userCity: item.city,
-                        userBio: item.bio,
-                        onDismiss: () => _hidePost(item.docId),
-                      );
-                    }
+                  if (item is PostModel) {
+                    if (item.docId.isEmpty) return const SizedBox.shrink();
+                    return PostCard(
+                      key: ValueKey(item.docId),
+                      postId: item.docId,
+                      postAuthorId: item.authorId,
+                      username: item.username,
+                      images: item.images,
+                      caption: item.caption,
+                      userCountryFlag: item.countryFlag,
+                      userCity: item.city,
+                      userBio: item.bio,
+                      onDismiss: () => _hidePost(item.docId),
+                    );
+                  }
 
-                    if (item is EventModel) {
-                      return EventCard(
-                        key: ValueKey('event_${item.docId}'),
-                        title: item.title,
-                        location: item.location ?? '',
-                        date: item.date ?? '',
-                      );
-                    }
+                  if (item is EventModel) {
+                    return EventCard(
+                      key: ValueKey('event_${item.docId}'),
+                      title: item.title,
+                      location: item.location ?? '',
+                      date: item.date ?? '',
+                    );
+                  }
 
-                    return const SizedBox.shrink();
-                  },
-                  childCount: visibleCombined.length,
-                ),
+                  return const SizedBox.shrink();
+                }, childCount: visibleCombined.length),
               ),
 
             if (_isLoadingMore)

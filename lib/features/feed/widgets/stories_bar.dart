@@ -29,7 +29,6 @@ class StoriesBar extends StatelessWidget {
           .collection('stories')
           .where('expiresAt', isGreaterThan: now)
           .orderBy('expiresAt')
-          .orderBy('createdAt', descending: true)
           .snapshots(),
       builder: (context, snapshot) {
         final allDocs = snapshot.data?.docs ?? [];
