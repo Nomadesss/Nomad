@@ -2,93 +2,227 @@ import 'package:flutter/material.dart';
 import 'dart:math' show pi;
 import 'dart:ui' show ImageFilter;
 
+import 'package:firebase_auth/firebase_auth.dart';
+import 'package:cloud_firestore/cloud_firestore.dart';
+
 import '../nueva_historia_screen.dart';
 import '../nueva_publicacion_screen.dart';
 import '../crear_evento_screen.dart';
 import '../mensaje_comunidad_screen.dart';
+import 'story_viewer.dart'; // ← nuevo import
+
+// ─────────────────────────────────────────────────────────────────────────────
+// StoriesBar — ahora lee historias reales de Firestore
+// El blob animado, el menú de crear y toda la UI existente se mantienen igual.
+// ─────────────────────────────────────────────────────────────────────────────
 
 class StoriesBar extends StatelessWidget {
   const StoriesBar({super.key});
 
   @override
   Widget build(BuildContext context) {
-    final List<Map<String, dynamic>> stories = [
-      {"name": "Mi historia", "isCreate": true},
-      {
-        "name": "Ana",
-        "viewed": false,
-        "avatarUrl": "https://randomuser.me/api/portraits/women/44.jpg",
-      },
-      {
-        "name": "Luis",
-        "viewed": false,
-        "avatarUrl": "https://randomuser.me/api/portraits/men/32.jpg",
-      },
-      {
-        "name": "Carla",
-        "viewed": true,
-        "avatarUrl": "https://randomuser.me/api/portraits/women/68.jpg",
-      },
-      {
-        "name": "Pedro",
-        "viewed": false,
-        "avatarUrl": "https://randomuser.me/api/portraits/men/75.jpg",
-      },
-      {
-        "name": "Sofía",
-        "viewed": true,
-        "avatarUrl": "https://randomuser.me/api/portraits/women/90.jpg",
-      },
-      {
-        "name": "Mateo",
-        "viewed": false,
-        "avatarUrl": "https://randomuser.me/api/portraits/men/12.jpg",
-      },
-      {
-        "name": "Valentina",
-        "viewed": true,
-        "avatarUrl": "https://randomuser.me/api/portraits/women/21.jpg",
-      },
-      {
-        "name": "Diego",
-        "viewed": false,
-        "avatarUrl": "https://randomuser.me/api/portraits/men/55.jpg",
-      },
-    ];
+    final myId = FirebaseAuth.instance.currentUser?.uid ?? '';
+    final now = Timestamp.now();
 
-    stories.sort((a, b) {
-      final aCreate = (a["isCreate"] as bool?) ?? false;
-      final bCreate = (b["isCreate"] as bool?) ?? false;
-      if (aCreate) return -1;
-      if (bCreate) return 1;
-      final aViewed = (a["viewed"] as bool?) ?? false;
-      final bViewed = (b["viewed"] as bool?) ?? false;
-      if (aViewed == bViewed) return 0;
-      return aViewed ? 1 : -1;
-    });
+    return StreamBuilder<QuerySnapshot<Map<String, dynamic>>>(
+      stream: FirebaseFirestore.instance
+          .collection('stories')
+          .where('expiresAt', isGreaterThan: now)
+          .orderBy('expiresAt')
+          .orderBy('createdAt', descending: true)
+          .snapshots(),
+      builder: (context, snapshot) {
+        final allDocs = snapshot.data?.docs ?? [];
 
-    return Container(
-      height: 110,
-      padding: const EdgeInsets.symmetric(vertical: 8),
-      child: ListView.builder(
-        scrollDirection: Axis.horizontal,
-        padding: const EdgeInsets.symmetric(horizontal: 12),
-        itemCount: stories.length,
-        itemBuilder: (context, index) {
-          final story = stories[index];
-          return _StoryBubble(
-            name: story["name"] as String,
-            isCreate: (story["isCreate"] as bool?) ?? false,
-            viewed: (story["viewed"] as bool?) ?? false,
-            avatarUrl: story["avatarUrl"] as String?,
-          );
-        },
+        // ── Agrupar historias por autor ──────────────────────────────────
+        final Map<String, List<StoryModel>> byAuthor = {};
+        for (final doc in allDocs) {
+          final story = StoryModel.fromDoc(doc);
+          byAuthor.putIfAbsent(story.authorId, () => []).add(story);
+        }
+
+        // Ordenar cada grupo por createdAt ascendente
+        for (final list in byAuthor.values) {
+          list.sort((a, b) => a.createdAt.compareTo(b.createdAt));
+        }
+
+        // Separar mis historias del resto
+        final myStories = byAuthor[myId] ?? [];
+
+        // Otros autores: no vistas primero, luego vistas
+        final othersEntries =
+            byAuthor.entries.where((e) => e.key != myId).toList()..sort((a, b) {
+              final aAllSeen = a.value.every((s) => s.viewedBy.contains(myId));
+              final bAllSeen = b.value.every((s) => s.viewedBy.contains(myId));
+              if (aAllSeen && !bAllSeen) return 1;
+              if (!aAllSeen && bAllSeen) return -1;
+              return b.value.last.createdAt.compareTo(a.value.last.createdAt);
+            });
+
+        // Lista de grupos para StoryViewer (solo los otros)
+        final otherGroups = othersEntries.map((e) => e.value).toList();
+
+        // Lista estática que usaba el código original
+        // (mantenemos los mismos usuarios como fallback visual si
+        //  Firestore aún no tiene datos — se reemplaza con el stream)
+        final staticFallback = <Map<String, dynamic>>[
+          {
+            "name": "Ana",
+            "viewed": false,
+            "avatarUrl": "https://randomuser.me/api/portraits/women/44.jpg",
+          },
+          {
+            "name": "Luis",
+            "viewed": false,
+            "avatarUrl": "https://randomuser.me/api/portraits/men/32.jpg",
+          },
+          {
+            "name": "Carla",
+            "viewed": true,
+            "avatarUrl": "https://randomuser.me/api/portraits/women/68.jpg",
+          },
+          {
+            "name": "Pedro",
+            "viewed": false,
+            "avatarUrl": "https://randomuser.me/api/portraits/men/75.jpg",
+          },
+          {
+            "name": "Sofía",
+            "viewed": true,
+            "avatarUrl": "https://randomuser.me/api/portraits/women/90.jpg",
+          },
+          {
+            "name": "Mateo",
+            "viewed": false,
+            "avatarUrl": "https://randomuser.me/api/portraits/men/12.jpg",
+          },
+          {
+            "name": "Valentina",
+            "viewed": true,
+            "avatarUrl": "https://randomuser.me/api/portraits/women/21.jpg",
+          },
+          {
+            "name": "Diego",
+            "viewed": false,
+            "avatarUrl": "https://randomuser.me/api/portraits/men/55.jpg",
+          },
+        ];
+
+        // Si Firestore ya tiene historias, usamos los datos reales.
+        // Si no, mostramos el fallback estático (sin abrir viewer).
+        final useFirestore = allDocs.isNotEmpty;
+
+        return Container(
+          height: 110,
+          padding: const EdgeInsets.symmetric(vertical: 8),
+          child: ListView.builder(
+            scrollDirection: Axis.horizontal,
+            padding: const EdgeInsets.symmetric(horizontal: 12),
+            itemCount: useFirestore
+                ? 1 +
+                      othersEntries
+                          .length // Mi historia + otros reales
+                : 1 + staticFallback.length, // Mi historia + fallback
+            itemBuilder: (context, index) {
+              // ── Primer item siempre: "Mi historia" ───────────────────────
+              if (index == 0) {
+                final hasMine = myStories.isNotEmpty;
+                return _StoryBubble(
+                  name: 'Mi historia',
+                  isCreate: true,
+                  viewed: false,
+                  avatarUrl: FirebaseAuth.instance.currentUser?.photoURL,
+                  hasStories: hasMine,
+                  onTap: () {
+                    if (hasMine) {
+                      // Abrir mis historias primero, luego las de otros
+                      _openViewer(
+                        context,
+                        allGroups: [myStories, ...otherGroups],
+                        initialGroup: 0,
+                      );
+                    } else {
+                      // Abrir menú de crear
+                      _openCreateMenu(context);
+                    }
+                  },
+                );
+              }
+
+              // ── Historias reales de Firestore ─────────────────────────────
+              if (useFirestore) {
+                final entry = othersEntries[index - 1];
+                final stories = entry.value;
+                final allSeen = stories.every((s) => s.viewedBy.contains(myId));
+                final first = stories.first;
+
+                return _StoryBubble(
+                  name: first.username,
+                  isCreate: false,
+                  viewed: allSeen,
+                  avatarUrl: first.avatarUrl,
+                  hasStories: true,
+                  onTap: () => _openViewer(
+                    context,
+                    allGroups: otherGroups,
+                    initialGroup: index - 1,
+                  ),
+                );
+              }
+
+              // ── Fallback estático (sin viewer) ────────────────────────────
+              final s = staticFallback[index - 1];
+              return _StoryBubble(
+                name: s['name'] as String,
+                isCreate: false,
+                viewed: s['viewed'] as bool,
+                avatarUrl: s['avatarUrl'] as String?,
+                hasStories: false,
+                onTap: () {}, // sin acción hasta que haya datos reales
+              );
+            },
+          ),
+        );
+      },
+    );
+  }
+
+  void _openViewer(
+    BuildContext context, {
+    required List<List<StoryModel>> allGroups,
+    required int initialGroup,
+  }) {
+    if (allGroups.isEmpty) return;
+    Navigator.push(
+      context,
+      PageRouteBuilder(
+        opaque: false,
+        barrierColor: Colors.black,
+        pageBuilder: (_, __, ___) =>
+            StoryViewer(allGroups: allGroups, initialGroup: initialGroup),
+        transitionsBuilder: (_, anim, __, child) =>
+            FadeTransition(opacity: anim, child: child),
       ),
+    );
+  }
+
+  void _openCreateMenu(BuildContext context) {
+    showModalBottomSheet(
+      context: context,
+      isScrollControlled: true,
+      backgroundColor: Colors.transparent,
+      barrierColor: const Color(0xFF0A2420).withOpacity(0.72),
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
+      ),
+      builder: (_) => const _CreateMenuSheet(),
     );
   }
 }
 
-// ── Blob shape painter ────────────────────────────────────────
+// ─────────────────────────────────────────────────────────────────────────────
+// Blob shape painter — sin cambios
+// ─────────────────────────────────────────────────────────────────────────────
 
 class _BlobBorderPainter extends CustomPainter {
   final double progress;
@@ -169,19 +303,25 @@ class _BlobBorderPainter extends CustomPainter {
       old.progress != progress || old.viewed != viewed;
 }
 
-// ── Story bubble ──────────────────────────────────────────────
+// ─────────────────────────────────────────────────────────────────────────────
+// Story bubble — ahora recibe onTap y hasStories desde arriba
+// ─────────────────────────────────────────────────────────────────────────────
 
 class _StoryBubble extends StatefulWidget {
   final String name;
   final bool isCreate;
   final bool viewed;
   final String? avatarUrl;
+  final bool hasStories; // ← nuevo: si hay historias reales
+  final VoidCallback onTap; // ← nuevo: acción ya resuelta por el padre
 
   const _StoryBubble({
     required this.name,
     this.isCreate = false,
     this.viewed = false,
     this.avatarUrl,
+    required this.hasStories,
+    required this.onTap,
   });
 
   @override
@@ -216,7 +356,7 @@ class _StoryBubbleState extends State<_StoryBubble>
       onTapDown: (_) => setState(() => _pressed = true),
       onTapUp: (_) {
         setState(() => _pressed = false);
-        _handleTap(context);
+        widget.onTap(); // ← usa la acción resuelta por el padre
       },
       onTapCancel: () => setState(() => _pressed = false),
       child: AnimatedScale(
@@ -308,29 +448,11 @@ class _StoryBubbleState extends State<_StoryBubble>
       ),
     );
   }
-
-  void _handleTap(BuildContext context) {
-    if (widget.isCreate) {
-      _openCreateMenu(context);
-    }
-    // TODO: si no es isCreate, abrir el viewer de la historia
-  }
-
-  void _openCreateMenu(BuildContext context) {
-    showModalBottomSheet(
-      context: context,
-      isScrollControlled: true,
-      backgroundColor: Colors.transparent,
-      barrierColor: const Color(0xFF0A2420).withOpacity(0.72),
-      shape: const RoundedRectangleBorder(
-        borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
-      ),
-      builder: (_) => const _CreateMenuSheet(),
-    );
-  }
 }
 
-// ── Sheet completo ────────────────────────────────────────────────────────────
+// ─────────────────────────────────────────────────────────────────────────────
+// Sheet de crear — sin cambios
+// ─────────────────────────────────────────────────────────────────────────────
 
 class _CreateMenuSheet extends StatefulWidget {
   const _CreateMenuSheet();
@@ -610,7 +732,9 @@ class _CreateTileState extends State<_CreateTile> {
   }
 }
 
-// ── Clipper separado ──────────────────────────────────────────────────────────
+// ─────────────────────────────────────────────────────────────────────────────
+// Clipper — sin cambios
+// ─────────────────────────────────────────────────────────────────────────────
 
 class _BlobClippy extends CustomClipper<Path> {
   final double progress;
