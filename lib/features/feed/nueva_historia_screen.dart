@@ -2,6 +2,9 @@ import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:image_picker/image_picker.dart';
 import 'package:phosphor_flutter/phosphor_flutter.dart';
+import 'package:firebase_auth/firebase_auth.dart';
+import 'package:firebase_storage/firebase_storage.dart';
+import 'package:cloud_firestore/cloud_firestore.dart';
 
 // ─────────────────────────────────────────────────────────────────────────────
 // NuevaHistoriaScreen — crear una historia tipo Instagram
@@ -40,19 +43,73 @@ class _NuevaHistoriaScreenState extends State<NuevaHistoriaScreen> {
     if (_imagen == null) return;
     setState(() => _publicando = true);
 
-    // TODO: await StoriesService.publish(imagen: _imagen!, texto: _textoCtrl.text);
+    try {
+      final user = FirebaseAuth.instance.currentUser;
+      if (user == null) throw Exception('No hay sesión activa');
 
-    await Future.delayed(const Duration(milliseconds: 800)); // simulado
+      // ── Leer datos del perfil ────────────────────────────────────────────
+      final userDoc = await FirebaseFirestore.instance
+          .collection('users')
+          .doc(user.uid)
+          .get();
+      final userData = userDoc.data() ?? {};
+      final username =
+          userData['username'] ??
+          userData['displayName'] ??
+          user.displayName ??
+          user.email?.split('@')[0] ??
+          'usuario';
+      final avatarUrl = userData['photo'] ?? user.photoURL;
 
-    if (mounted) {
-      Navigator.pop(context);
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text('¡Historia publicada!'),
-          backgroundColor: Color(0xFF0D9488),
-          behavior: SnackBarBehavior.floating,
-        ),
+      // ── Subir imagen a Firebase Storage ─────────────────────────────────
+      final seed = DateTime.now().millisecondsSinceEpoch;
+      final ref = FirebaseStorage.instance
+          .ref()
+          .child('stories')
+          .child('${user.uid}_$seed.jpg');
+
+      await ref.putFile(_imagen!, SettableMetadata(contentType: 'image/jpeg'));
+      final mediaUrl = await ref.getDownloadURL();
+
+      // ── Guardar en Firestore colección 'stories' (raíz) ──────────────────
+      // StoriesBar lee de esta colección con el filtro expiresAt > now
+      final expiresAt = Timestamp.fromDate(
+        DateTime.now().add(const Duration(hours: 24)),
       );
+
+      await FirebaseFirestore.instance.collection('stories').add({
+        'authorId': user.uid,
+        'username': username,
+        'avatarUrl': avatarUrl,
+        'mediaUrl': mediaUrl,
+        'mediaType': 'image',
+        'texto': _textoCtrl.text.trim(),
+        'viewedBy': [],
+        'createdAt': FieldValue.serverTimestamp(),
+        'expiresAt': expiresAt,
+      });
+
+      if (mounted) {
+        Navigator.pop(context);
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('¡Historia publicada!'),
+            backgroundColor: Color(0xFF0D9488),
+            behavior: SnackBarBehavior.floating,
+          ),
+        );
+      }
+    } catch (e) {
+      if (mounted) {
+        setState(() => _publicando = false);
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Error al publicar: $e'),
+            backgroundColor: Colors.redAccent,
+            behavior: SnackBarBehavior.floating,
+          ),
+        );
+      }
     }
   }
 
