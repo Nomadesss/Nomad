@@ -292,14 +292,19 @@ class SocialService {
   static String get _me => _requireMe();
 
   /// Devuelve los campos de identidad de un usuario para incluir en notificaciones.
+  /// Nunca lanza excepción: si el fetch falla devuelve campos vacíos.
   static Future<Map<String, dynamic>> _senderInfo(String uid) async {
-    final snap = await _db.collection('users').doc(uid).get();
-    final d = snap.data() ?? {};
-    return {
-      'fromUserId':    uid,
-      'fromUsername':  d['username'] as String? ?? d['nombreCompleto'] as String? ?? '',
-      'fromAvatarUrl': d['fotoUrl']  as String? ?? '',
-    };
+    try {
+      final snap = await _db.collection('users').doc(uid).get();
+      final d = snap.data() ?? {};
+      return {
+        'fromUserId':    uid,
+        'fromUsername':  (d['username'] ?? d['nombreCompleto'] ?? '') as String,
+        'fromAvatarUrl': (d['fotoUrl'] ?? '') as String,
+      };
+    } catch (_) {
+      return {'fromUserId': uid, 'fromUsername': '', 'fromAvatarUrl': ''};
+    }
   }
 
   // ══════════════════════════════════════════════════════════════════════════
@@ -422,7 +427,7 @@ class SocialService {
     if (postAuthorId != me) {
       final sender = await _senderInfo(me);
       await _db.collection('notifications').add({
-        'toUserId': postAuthorId,
+        'recipientId': postAuthorId,
         ...sender,
         'type': 'like',
         'refId': postId,
@@ -552,7 +557,7 @@ class SocialService {
     if (postAuthorId != me) {
       final sender = await _senderInfo(me);
       await _db.collection('notifications').add({
-        'toUserId': postAuthorId,
+        'recipientId': postAuthorId,
         ...sender,
         'type': 'comment',
         'refId': postId,
@@ -593,7 +598,7 @@ class SocialService {
     final me = _requireMe();
     return _db
         .collection('notifications')
-        .where('toUserId', isEqualTo: me)
+        .where('recipientId', isEqualTo: me)
         .orderBy('createdAt', descending: true)
         .limit(30)
         .snapshots()
@@ -607,7 +612,7 @@ class SocialService {
     final me = _requireMe();
     return _db
         .collection('notifications')
-        .where('toUserId', isEqualTo: me)
+        .where('recipientId', isEqualTo: me)
         .where('read', isEqualTo: false)
         .snapshots()
         .map((snap) => snap.docs.length);
@@ -623,7 +628,7 @@ class SocialService {
     final me = _requireMe();
     final snap = await _db
         .collection('notifications')
-        .where('toUserId', isEqualTo: me)
+        .where('recipientId', isEqualTo: me)
         .where('read', isEqualTo: false)
         .get();
 
@@ -797,7 +802,7 @@ class SocialService {
       if (group != null && group.createdBy != me) {
         final sender = await _senderInfo(me);
         await _db.collection('notifications').add({
-          'toUserId': group.createdBy,
+          'recipientId': group.createdBy,
           ...sender,
           'type': 'group_join',
           'refId': groupId,
