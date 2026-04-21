@@ -291,6 +291,17 @@ class SocialService {
 
   static String get _me => _requireMe();
 
+  /// Devuelve los campos de identidad de un usuario para incluir en notificaciones.
+  static Future<Map<String, dynamic>> _senderInfo(String uid) async {
+    final snap = await _db.collection('users').doc(uid).get();
+    final d = snap.data() ?? {};
+    return {
+      'fromUserId':    uid,
+      'fromUsername':  d['username'] as String? ?? d['nombreCompleto'] as String? ?? '',
+      'fromAvatarUrl': d['fotoUrl']  as String? ?? '',
+    };
+  }
+
   // ══════════════════════════════════════════════════════════════════════════
   // FOLLOWS
   // ══════════════════════════════════════════════════════════════════════════
@@ -409,9 +420,10 @@ class SocialService {
     });
 
     if (postAuthorId != me) {
+      final sender = await _senderInfo(me);
       await _db.collection('notifications').add({
         'toUserId': postAuthorId,
-        'fromUserId': me,
+        ...sender,
         'type': 'like',
         'refId': postId,
         'read': false,
@@ -538,9 +550,10 @@ class SocialService {
     await batch.commit();
 
     if (postAuthorId != me) {
+      final sender = await _senderInfo(me);
       await _db.collection('notifications').add({
         'toUserId': postAuthorId,
-        'fromUserId': me,
+        ...sender,
         'type': 'comment',
         'refId': postId,
         'read': false,
@@ -782,9 +795,10 @@ class SocialService {
 
       final group = await getGroup(groupId);
       if (group != null && group.createdBy != me) {
+        final sender = await _senderInfo(me);
         await _db.collection('notifications').add({
           'toUserId': group.createdBy,
-          'fromUserId': me,
+          ...sender,
           'type': 'group_join',
           'refId': groupId,
           'read': false,

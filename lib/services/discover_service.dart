@@ -192,9 +192,24 @@ class DiscoverService {
 
   // ── Crear match ────────────────────────────────────────────────────────────
 
+  static Future<Map<String, dynamic>> _senderInfo(String uid) async {
+    final snap = await _db.collection('users').doc(uid).get();
+    final d = snap.data() ?? {};
+    return {
+      'fromUserId':    uid,
+      'fromUsername':  d['username'] as String? ?? d['nombreCompleto'] as String? ?? '',
+      'fromAvatarUrl': d['fotoUrl']  as String? ?? '',
+    };
+  }
+
   static Future<void> _createMatch(String uid1, String uid2) async {
     final mId = _matchId(uid1, uid2);
     final chatId = mId; // mismo formato
+
+    // Pre-fetch de perfiles para incluir en las notificaciones
+    final info1 = await _senderInfo(uid1);
+    final info2 = await _senderInfo(uid2);
+
     final batch = _db.batch();
 
     // Documento del match
@@ -214,13 +229,13 @@ class DiscoverService {
       'createdAt': FieldValue.serverTimestamp(),
     }, SetOptions(merge: true));
 
-    // Notificación para el otro
+    // Notificación para cada usuario (el "from" es el otro)
+    final senderForUid = {uid1: info2, uid2: info1};
     for (final uid in [uid1, uid2]) {
-      final other = uid == uid1 ? uid2 : uid1;
       batch.set(_db.collection('notifications').doc(), {
         'recipientId': uid,
+        ...senderForUid[uid]!,
         'type': 'match',
-        'fromUid': other,
         'matchId': mId,
         'read': false,
         'createdAt': FieldValue.serverTimestamp(),
