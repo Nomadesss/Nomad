@@ -542,11 +542,16 @@ class SocialService {
         .collection('comments')
         .doc();
 
+    final authorInfo = await _senderInfo(me);
+
     batch.set(commentRef, {
-      'postId': postId,
-      'authorId': me,
-      'text': text.trim(),
-      'createdAt': FieldValue.serverTimestamp(),
+      'postId':          postId,
+      'authorId':        me,
+      'authorUsername':  authorInfo['fromUsername'],
+      'authorAvatarUrl': authorInfo['fromAvatarUrl'],
+      'text':            text.trim(),
+      'likedBy':         <String>[],
+      'createdAt':       FieldValue.serverTimestamp(),
     });
     batch.update(_db.collection('posts').doc(postId), {
       'commentsCount': FieldValue.increment(1),
@@ -588,6 +593,22 @@ class SocialService {
         .doc(postId)
         .snapshots()
         .map((snap) => (snap.data()?['commentsCount'] as int?) ?? 0);
+  }
+
+  static Future<void> likeComment(String postId, String commentId) async {
+    final me = _requireMe();
+    await _db
+        .collection('posts').doc(postId)
+        .collection('comments').doc(commentId)
+        .update({'likedBy': FieldValue.arrayUnion([me])});
+  }
+
+  static Future<void> unlikeComment(String postId, String commentId) async {
+    final me = _requireMe();
+    await _db
+        .collection('posts').doc(postId)
+        .collection('comments').doc(commentId)
+        .update({'likedBy': FieldValue.arrayRemove([me])});
   }
 
   // ══════════════════════════════════════════════════════════════════════════

@@ -1,6 +1,25 @@
 import 'package:flutter/material.dart';
 import 'package:firebase_auth/firebase_auth.dart';
+import 'package:cloud_firestore/cloud_firestore.dart';
 import '../../../services/social_service.dart';
+
+const _teal     = Color(0xFF0D9488);
+const _tealDark = Color(0xFF134E4A);
+const _tealBg   = Color(0xFFCCFBF1);
+
+String _timeAgo(Timestamp? ts) {
+  if (ts == null) return '';
+  final diff = DateTime.now().difference(ts.toDate());
+  if (diff.inMinutes < 1)  return 'ahora';
+  if (diff.inMinutes < 60) return '${diff.inMinutes} m';
+  if (diff.inHours < 24)   return '${diff.inHours} h';
+  if (diff.inDays < 7)     return '${diff.inDays} d';
+  final weeks = (diff.inDays / 7).floor();
+  if (weeks < 4)           return '$weeks sem';
+  final months = (diff.inDays / 30).floor();
+  if (months < 12)         return '$months meses';
+  return '${(diff.inDays / 365).floor()} a';
+}
 
 // ─────────────────────────────────────────────────────────────────────────────
 // CommentsScreen — pantalla completa de comentarios de un post.
@@ -176,11 +195,12 @@ class _CommentsScreenState extends State<CommentsScreen> {
                     vertical: 8,
                   ),
                   itemCount: comments.length,
-                  itemBuilder: (_, i) =>
-                      _CommentTile(
-                        comment:  comments[i],
-                        isMyComment: comments[i]['authorId'] == _myUid,
-                      ),
+                  itemBuilder: (_, i) => _CommentTile(
+                    comment:     comments[i],
+                    isMyComment: comments[i]['authorId'] == _myUid,
+                    myUid:       _myUid,
+                    postId:      widget.postId,
+                  ),
                 );
               },
             ),
@@ -277,89 +297,189 @@ class _CommentsScreenState extends State<CommentsScreen> {
 
 // ── Tile de un comentario individual ─────────────────────────────────────────
 
-class _CommentTile extends StatelessWidget {
+class _CommentTile extends StatefulWidget {
   final Map<String, dynamic> comment;
   final bool isMyComment;
+  final String myUid;
+  final String postId;
 
   const _CommentTile({
     required this.comment,
     required this.isMyComment,
+    required this.myUid,
+    required this.postId,
   });
 
   @override
+  State<_CommentTile> createState() => _CommentTileState();
+}
+
+class _CommentTileState extends State<_CommentTile> {
+  late bool   _liked;
+  late int    _likes;
+  bool        _liking = false;
+
+  @override
+  void initState() {
+    super.initState();
+    final likedBy = (widget.comment['likedBy'] as List?)?.cast<String>() ?? [];
+    _liked = likedBy.contains(widget.myUid);
+    _likes = likedBy.length;
+  }
+
+  @override
+  void didUpdateWidget(_CommentTile old) {
+    super.didUpdateWidget(old);
+    // Sincronizar si el stream trae datos nuevos
+    final likedBy = (widget.comment['likedBy'] as List?)?.cast<String>() ?? [];
+    _liked = likedBy.contains(widget.myUid);
+    _likes = likedBy.length;
+  }
+
+  Future<void> _toggleLike() async {
+    if (_liking) return;
+    setState(() {
+      _liking = true;
+      _liked  = !_liked;
+      _likes  = _liked ? _likes + 1 : _likes - 1;
+    });
+    try {
+      final commentId = widget.comment['id'] as String;
+      if (_liked) {
+        await SocialService.likeComment(widget.postId, commentId);
+      } else {
+        await SocialService.unlikeComment(widget.postId, commentId);
+      }
+    } catch (_) {
+      if (mounted) {
+        setState(() {
+          _liked  = !_liked;
+          _likes  = _liked ? _likes + 1 : _likes - 1;
+        });
+      }
+    } finally {
+      if (mounted) setState(() => _liking = false);
+    }
+  }
+
+  @override
   Widget build(BuildContext context) {
+    final username  = widget.comment['authorUsername'] as String?
+        ?? widget.comment['authorId'] as String?
+        ?? 'Usuario';
+    final avatarUrl = widget.comment['authorAvatarUrl'] as String?;
+    final text      = widget.comment['text'] as String? ?? '';
+    final ts        = widget.comment['createdAt'] as Timestamp?;
+    final timeLabel = _timeAgo(ts);
+
     return Padding(
       padding: const EdgeInsets.only(bottom: 14),
       child: Row(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
 
+          // Avatar
           CircleAvatar(
             radius: 16,
-            backgroundColor: isMyComment
-                ? const Color(0xFF0D9488)
-                : const Color(0xFFCCFBF1),
-            child: Icon(
-              Icons.person,
-              size: 16,
-              color: isMyComment
-                  ? Colors.white
-                  : const Color(0xFF0D9488),
-            ),
+            backgroundColor: _tealBg,
+            foregroundColor: widget.isMyComment ? Colors.white : _teal,
+            backgroundImage: (avatarUrl != null && avatarUrl.isNotEmpty)
+                ? NetworkImage(avatarUrl)
+                : null,
+            child: (avatarUrl == null || avatarUrl.isEmpty)
+                ? Icon(Icons.person, size: 16,
+                    color: widget.isMyComment ? Colors.white : _teal)
+                : null,
           ),
 
           const SizedBox(width: 10),
 
+          // Username + texto
           Expanded(
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-
                 Row(
                   children: [
-                    Text(
-                      comment['authorId'] ?? 'usuario',
-                      style: const TextStyle(
-                        fontWeight: FontWeight.w600,
-                        fontSize: 13,
-                        color: Color(0xFF134E4A),
+                    Flexible(
+                      child: Text(
+                        username,
+                        overflow: TextOverflow.ellipsis,
+                        style: const TextStyle(
+                          fontWeight: FontWeight.w600,
+                          fontSize: 13,
+                          color: _tealDark,
+                        ),
                       ),
                     ),
-                    if (isMyComment) ...[
+                    if (widget.isMyComment) ...[
                       const SizedBox(width: 6),
                       Container(
                         padding: const EdgeInsets.symmetric(
-                          horizontal: 6,
-                          vertical: 2,
-                        ),
+                            horizontal: 6, vertical: 2),
                         decoration: BoxDecoration(
                           color: const Color(0xFFE6FAF8),
                           borderRadius: BorderRadius.circular(4),
                         ),
                         child: const Text(
-                          "Vos",
+                          'Vos',
                           style: TextStyle(
-                            fontSize: 10,
-                            color: Color(0xFF0D9488),
-                            fontWeight: FontWeight.w600,
-                          ),
+                              fontSize: 10,
+                              color: _teal,
+                              fontWeight: FontWeight.w600),
                         ),
                       ),
                     ],
                   ],
                 ),
-
                 const SizedBox(height: 3),
-
                 Text(
-                  comment['text'] ?? '',
+                  text,
                   style: const TextStyle(
-                    fontSize: 13,
-                    color: Color(0xFF134E4A),
-                    height: 1.4,
-                  ),
+                      fontSize: 13, color: _tealDark, height: 1.4),
                 ),
+                if (timeLabel.isNotEmpty) ...[
+                  const SizedBox(height: 4),
+                  Text(
+                    timeLabel,
+                    style: const TextStyle(
+                        fontSize: 11, color: Color(0xFF9CA3AF)),
+                  ),
+                ],
               ],
+            ),
+          ),
+
+          // Botón like
+          const SizedBox(width: 8),
+          GestureDetector(
+            onTap: _toggleLike,
+            behavior: HitTestBehavior.opaque,
+            child: Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 2),
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Icon(
+                    _liked ? Icons.favorite_rounded : Icons.favorite_border_rounded,
+                    size: 16,
+                    color: _liked ? const Color(0xFFEF4444) : const Color(0xFFB2D8D8),
+                  ),
+                  if (_likes > 0) ...[
+                    const SizedBox(height: 2),
+                    Text(
+                      '$_likes',
+                      style: TextStyle(
+                        fontSize: 10,
+                        color: _liked
+                            ? const Color(0xFFEF4444)
+                            : const Color(0xFFB2D8D8),
+                        fontWeight: FontWeight.w600,
+                      ),
+                    ),
+                  ],
+                ],
+              ),
             ),
           ),
         ],
