@@ -193,13 +193,17 @@ class DiscoverService {
   // ── Crear match ────────────────────────────────────────────────────────────
 
   static Future<Map<String, dynamic>> _senderInfo(String uid) async {
-    final snap = await _db.collection('users').doc(uid).get();
-    final d = snap.data() ?? {};
-    return {
-      'fromUserId':    uid,
-      'fromUsername':  d['username'] as String? ?? d['nombreCompleto'] as String? ?? '',
-      'fromAvatarUrl': d['fotoUrl']  as String? ?? '',
-    };
+    try {
+      final snap = await _db.collection('users').doc(uid).get();
+      final d = snap.data() ?? {};
+      return {
+        'fromUserId':    uid,
+        'fromUsername':  (d['username'] ?? d['nombreCompleto'] ?? '') as String,
+        'fromAvatarUrl': (d['fotoUrl'] ?? '') as String,
+      };
+    } catch (_) {
+      return {'fromUserId': uid, 'fromUsername': '', 'fromAvatarUrl': ''};
+    }
   }
 
   static Future<void> _createMatch(String uid1, String uid2) async {
