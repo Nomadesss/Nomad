@@ -18,6 +18,9 @@ class _NotificationsScreenState extends State<NotificationsScreen> {
   final String? _userId = FirebaseAuth.instance.currentUser?.uid;
   String _filter = 'all';
 
+  // Respuestas locales a solicitudes de follow: docId → true=aceptado, false=rechazado
+  final Map<String, bool> _followResponses = {};
+
   @override
   void initState() {
     super.initState();
@@ -49,29 +52,86 @@ class _NotificationsScreenState extends State<NotificationsScreen> {
         .snapshots();
   }
 
-  // ── Helpers ──────────────────────────────────────────────────────────────────
+  // ── Aceptar solicitud de follow ───────────────────────────────────────────
+
+  Future<void> _acceptFollow(String docId, String fromUserId) async {
+    setState(() => _followResponses[docId] = true);
+    try {
+      await FirebaseFirestore.instance.collection('follows').add({
+        'followerId': fromUserId,
+        'followingId': _userId,
+        'createdAt': FieldValue.serverTimestamp(),
+      });
+      await FirebaseFirestore.instance
+          .collection('notifications')
+          .doc(docId)
+          .update({'accepted': true});
+    } catch (e) {
+      debugPrint('[Notifications] Error al aceptar follow: $e');
+    }
+  }
+
+  Future<void> _rejectFollow(String docId) async {
+    setState(() => _followResponses[docId] = false);
+    try {
+      await FirebaseFirestore.instance
+          .collection('notifications')
+          .doc(docId)
+          .update({'accepted': false});
+    } catch (e) {
+      debugPrint('[Notifications] Error al rechazar follow: $e');
+    }
+  }
+
+  Future<void> _followBack(String fromUserId) async {
+    try {
+      await FirebaseFirestore.instance.collection('follows').add({
+        'followerId': _userId,
+        'followingId': fromUserId,
+        'createdAt': FieldValue.serverTimestamp(),
+      });
+    } catch (e) {
+      debugPrint('[Notifications] Error al seguir de vuelta: $e');
+    }
+  }
+
+  // ── Helpers ───────────────────────────────────────────────────────────────
 
   IconData _icon(String type) {
     switch (type) {
-      case 'like':    return Icons.favorite_rounded;
-      case 'comment': return Icons.chat_bubble_rounded;
-      case 'follow':  return Icons.person_add_rounded;
-      case 'mention': return Icons.alternate_email_rounded;
-      case 'event':   return Icons.event_rounded;
-      case 'match':   return Icons.favorite_border_rounded;
-      default:        return Icons.notifications_rounded;
+      case 'like':
+        return Icons.favorite_rounded;
+      case 'comment':
+        return Icons.chat_bubble_rounded;
+      case 'follow':
+        return Icons.person_add_rounded;
+      case 'mention':
+        return Icons.alternate_email_rounded;
+      case 'event':
+        return Icons.event_rounded;
+      case 'match':
+        return Icons.favorite_border_rounded;
+      default:
+        return Icons.notifications_rounded;
     }
   }
 
   Color _color(String type) {
     switch (type) {
-      case 'like':    return const Color(0xFFEF4444);
-      case 'comment': return const Color(0xFF3B82F6);
-      case 'follow':  return const Color(0xFF8B5CF6);
-      case 'mention': return const Color(0xFFF59E0B);
-      case 'event':   return _teal;
-      case 'match':   return const Color(0xFFEC4899);
-      default:        return const Color(0xFF6B7280);
+      case 'like':
+        return const Color(0xFFEF4444);
+      case 'comment':
+        return const Color(0xFF3B82F6);
+      case 'follow':
+        return const Color(0xFF8B5CF6);
+      case 'mention':
+        return const Color(0xFFF59E0B);
+      case 'event':
+        return _teal;
+      case 'match':
+        return const Color(0xFFEC4899);
+      default:
+        return const Color(0xFF6B7280);
     }
   }
 
@@ -110,20 +170,20 @@ class _NotificationsScreenState extends State<NotificationsScreen> {
           final isLoading = snapshot.connectionState == ConnectionState.waiting;
           final docs = snapshot.data?.docs ?? [];
 
-          // Filtrar por tipo
           final filtered = _filter == 'all'
               ? docs
-              : docs.where((d) => (d.data()['type'] as String?) == _filter).toList();
+              : docs
+                    .where((d) => (d.data()['type'] as String?) == _filter)
+                    .toList();
 
-          // Agrupar por fecha
-          final groups = <String, List<QueryDocumentSnapshot<Map<String, dynamic>>>>{};
+          final groups =
+              <String, List<QueryDocumentSnapshot<Map<String, dynamic>>>>{};
           for (final doc in filtered) {
             final ts = doc.data()['createdAt'] as Timestamp?;
             final label = _groupLabel(ts);
             groups.putIfAbsent(label, () => []).add(doc);
           }
 
-          // Construir items lineales: [header, item, item, header, item...]
           final items = <_ListItem>[];
           for (final label in ['Hoy', 'Esta semana', 'Antes']) {
             final group = groups[label];
@@ -136,7 +196,11 @@ class _NotificationsScreenState extends State<NotificationsScreen> {
 
           return CustomScrollView(
             slivers: [
-              _buildSliverAppBar(unreadCount: docs.where((d) => !(d.data()['read'] as bool? ?? true)).length),
+              _buildSliverAppBar(
+                unreadCount: docs
+                    .where((d) => !(d.data()['read'] as bool? ?? true))
+                    .length,
+              ),
               SliverToBoxAdapter(child: _buildFilterChips()),
               if (isLoading)
                 SliverList(
@@ -149,25 +213,49 @@ class _NotificationsScreenState extends State<NotificationsScreen> {
                 SliverFillRemaining(child: _buildEmpty())
               else
                 SliverList(
-                  delegate: SliverChildBuilderDelegate(
-                    (context, i) {
-                      final item = items[i];
-                      if (item.isHeader) return _SectionHeader(label: item.label!);
-                      final data = item.doc!.data();
-                      return _NotifTile(
-                        type: data['type'] as String? ?? 'generic',
-                        fromUsername: data['fromUsername'] as String? ?? 'Alguien',
-                        fromAvatar: data['fromAvatarUrl'] as String?,
-                        body: data['body'] as String? ?? '',
-                        createdAt: data['createdAt'] as Timestamp?,
-                        isRead: data['read'] as bool? ?? true,
-                        icon: _icon(data['type'] as String? ?? ''),
-                        iconColor: _color(data['type'] as String? ?? ''),
-                        timeAgo: _timeAgo(data['createdAt'] as Timestamp?),
-                      );
-                    },
-                    childCount: items.length,
-                  ),
+                  delegate: SliverChildBuilderDelegate((context, i) {
+                    final item = items[i];
+                    if (item.isHeader)
+                      return _SectionHeader(label: item.label!);
+
+                    final data = item.doc!.data();
+                    final docId = item.doc!.id;
+                    final type = data['type'] as String? ?? 'generic';
+                    final fromUsername =
+                        data['fromUsername'] as String? ?? 'Usuario';
+                    final fromUserId = data['fromUserId'] as String? ?? '';
+                    final fromAvatar = data['fromAvatarUrl'] as String?;
+                    final body = data['body'] as String? ?? '';
+                    final ts = data['createdAt'] as Timestamp?;
+                    final isRead = data['read'] as bool? ?? true;
+                    final alreadyAccepted = data['accepted'] as bool?;
+                    final localResponse = _followResponses[docId];
+
+                    return _NotifTile(
+                      docId: docId,
+                      type: type,
+                      fromUsername: fromUsername,
+                      fromUserId: fromUserId,
+                      fromAvatar: fromAvatar,
+                      body: body,
+                      isRead: isRead,
+                      icon: _icon(type),
+                      iconColor: _color(type),
+                      timeAgo: _timeAgo(ts),
+                      followResponse: localResponse,
+                      alreadyAccepted: alreadyAccepted,
+                      onAccept: type == 'follow'
+                          ? () => _acceptFollow(docId, fromUserId)
+                          : null,
+                      onReject: type == 'follow'
+                          ? () => _rejectFollow(docId)
+                          : null,
+                      onFollowBack:
+                          (localResponse == true || alreadyAccepted == true)
+                          ? () => _followBack(fromUserId)
+                          : null,
+                    );
+                  }, childCount: items.length),
                 ),
               const SliverToBoxAdapter(child: SizedBox(height: 32)),
             ],
@@ -186,7 +274,11 @@ class _NotificationsScreenState extends State<NotificationsScreen> {
       snap: true,
       pinned: false,
       leading: IconButton(
-        icon: const Icon(Icons.arrow_back_ios_new_rounded, color: _tealDark, size: 20),
+        icon: const Icon(
+          Icons.arrow_back_ios_new_rounded,
+          color: _tealDark,
+          size: 20,
+        ),
         onPressed: () => Navigator.pop(context),
       ),
       title: Row(
@@ -251,14 +343,18 @@ class _NotificationsScreenState extends State<NotificationsScreen> {
             onTap: () => setState(() => _filter = value),
             child: AnimatedContainer(
               duration: const Duration(milliseconds: 180),
-              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 0),
+              padding: const EdgeInsets.symmetric(horizontal: 12),
               decoration: BoxDecoration(
                 color: selected ? _teal : const Color(0xFFF1F5F9),
                 borderRadius: BorderRadius.circular(20),
               ),
               child: Row(
                 children: [
-                  Icon(icon, size: 13, color: selected ? Colors.white : Colors.grey.shade500),
+                  Icon(
+                    icon,
+                    size: 13,
+                    color: selected ? Colors.white : Colors.grey.shade500,
+                  ),
                   const SizedBox(width: 5),
                   Text(
                     label,
@@ -295,11 +391,17 @@ class _NotificationsScreenState extends State<NotificationsScreen> {
                 ),
                 shape: BoxShape.circle,
               ),
-              child: const Icon(Icons.notifications_none_rounded, size: 38, color: _teal),
+              child: const Icon(
+                Icons.notifications_none_rounded,
+                size: 38,
+                color: _teal,
+              ),
             ),
             const SizedBox(height: 20),
             Text(
-              _filter == 'all' ? 'Sin actividad por ahora' : 'Sin notificaciones de este tipo',
+              _filter == 'all'
+                  ? 'Sin actividad por ahora'
+                  : 'Sin notificaciones de este tipo',
               style: const TextStyle(
                 fontSize: 17,
                 fontWeight: FontWeight.w800,
@@ -313,7 +415,11 @@ class _NotificationsScreenState extends State<NotificationsScreen> {
                   ? 'Cuando alguien interactúe con vos\naparecerá acá.'
                   : 'Probá cambiando el filtro.',
               textAlign: TextAlign.center,
-              style: TextStyle(fontSize: 14, color: Colors.grey.shade500, height: 1.6),
+              style: TextStyle(
+                fontSize: 14,
+                color: Colors.grey.shade500,
+                height: 1.6,
+              ),
             ),
           ],
         ),
@@ -323,7 +429,7 @@ class _NotificationsScreenState extends State<NotificationsScreen> {
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
-// _ListItem — wrapper para unificar headers y notificaciones en un solo ListView
+// _ListItem
 // ─────────────────────────────────────────────────────────────────────────────
 
 class _ListItem {
@@ -333,9 +439,11 @@ class _ListItem {
 
   const _ListItem._({required this.isHeader, this.label, this.doc});
 
-  factory _ListItem.header(String label) => _ListItem._(isHeader: true, label: label);
-  factory _ListItem.notification(QueryDocumentSnapshot<Map<String, dynamic>> doc) =>
-      _ListItem._(isHeader: false, doc: doc);
+  factory _ListItem.header(String label) =>
+      _ListItem._(isHeader: true, label: label);
+  factory _ListItem.notification(
+    QueryDocumentSnapshot<Map<String, dynamic>> doc,
+  ) => _ListItem._(isHeader: false, doc: doc);
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -364,59 +472,87 @@ class _SectionHeader extends StatelessWidget {
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
-// _NotifTile
+// _NotifTile — con botones de follow estilo Instagram
 // ─────────────────────────────────────────────────────────────────────────────
 
-class _NotifTile extends StatelessWidget {
+class _NotifTile extends StatefulWidget {
+  final String docId;
   final String type;
   final String fromUsername;
+  final String fromUserId;
   final String? fromAvatar;
   final String body;
-  final Timestamp? createdAt;
   final bool isRead;
   final IconData icon;
   final Color iconColor;
   final String timeAgo;
+  final bool? followResponse;
+  final bool? alreadyAccepted;
+  final VoidCallback? onAccept;
+  final VoidCallback? onReject;
+  final VoidCallback? onFollowBack;
 
   const _NotifTile({
+    required this.docId,
     required this.type,
     required this.fromUsername,
+    required this.fromUserId,
     required this.fromAvatar,
     required this.body,
-    required this.createdAt,
     required this.isRead,
     required this.icon,
     required this.iconColor,
     required this.timeAgo,
+    this.followResponse,
+    this.alreadyAccepted,
+    this.onAccept,
+    this.onReject,
+    this.onFollowBack,
   });
 
   @override
+  State<_NotifTile> createState() => _NotifTileState();
+}
+
+class _NotifTileState extends State<_NotifTile> {
+  bool _followedBack = false;
+
+  @override
   Widget build(BuildContext context) {
-    final initials = fromUsername.isNotEmpty ? fromUsername[0].toUpperCase() : '?';
+    final initials = widget.fromUsername.isNotEmpty
+        ? widget.fromUsername[0].toUpperCase()
+        : '?';
+
+    final responded =
+        widget.followResponse != null || widget.alreadyAccepted != null;
+    final accepted =
+        widget.followResponse == true || widget.alreadyAccepted == true;
 
     return Material(
-      color: isRead ? Colors.white : const Color(0xFFF0FDFB),
+      color: widget.isRead ? Colors.white : const Color(0xFFF0FDFB),
       child: InkWell(
         onTap: () {},
         splashColor: _tealBg,
         highlightColor: _tealBg.withOpacity(0.3),
         child: Padding(
-          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 13),
           child: Row(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              // ── Avatar + tipo ───────────────────────────────────────────
+              // ── Avatar + ícono ────────────────────────────────────────────
               Stack(
                 children: [
                   CircleAvatar(
-                    radius: 24,
+                    radius: 26,
                     backgroundColor: const Color(0xFFCCFBF1),
-                    backgroundImage: fromAvatar != null ? NetworkImage(fromAvatar!) : null,
-                    child: fromAvatar == null
+                    backgroundImage: widget.fromAvatar != null
+                        ? NetworkImage(widget.fromAvatar!)
+                        : null,
+                    child: widget.fromAvatar == null
                         ? Text(
                             initials,
                             style: const TextStyle(
-                              fontSize: 16,
+                              fontSize: 18,
                               fontWeight: FontWeight.w700,
                               color: _teal,
                             ),
@@ -430,18 +566,19 @@ class _NotifTile extends StatelessWidget {
                       width: 22,
                       height: 22,
                       decoration: BoxDecoration(
-                        color: iconColor,
+                        color: widget.iconColor,
                         shape: BoxShape.circle,
                         border: Border.all(color: Colors.white, width: 2),
                       ),
-                      child: Icon(icon, color: Colors.white, size: 11),
+                      child: Icon(widget.icon, color: Colors.white, size: 11),
                     ),
                   ),
                 ],
               ),
+
               const SizedBox(width: 14),
 
-              // ── Texto + tiempo ──────────────────────────────────────────
+              // ── Texto + botones ───────────────────────────────────────────
               Expanded(
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
@@ -450,43 +587,146 @@ class _NotifTile extends StatelessWidget {
                       text: TextSpan(
                         style: TextStyle(
                           fontSize: 14,
-                          color: isRead ? const Color(0xFF374151) : const Color(0xFF111827),
+                          color: widget.isRead
+                              ? const Color(0xFF374151)
+                              : const Color(0xFF111827),
                           height: 1.4,
                         ),
                         children: [
                           TextSpan(
-                            text: fromUsername,
+                            text: widget.fromUsername,
                             style: const TextStyle(fontWeight: FontWeight.w700),
                           ),
                           const TextSpan(text: ' '),
-                          TextSpan(text: body),
+                          TextSpan(text: widget.body),
                         ],
                       ),
                     ),
+
                     const SizedBox(height: 4),
+
                     Text(
-                      timeAgo,
+                      widget.timeAgo,
                       style: TextStyle(
                         fontSize: 12,
-                        color: isRead ? Colors.grey.shade400 : _teal,
-                        fontWeight: isRead ? FontWeight.normal : FontWeight.w600,
+                        color: widget.isRead ? Colors.grey.shade400 : _teal,
+                        fontWeight: widget.isRead
+                            ? FontWeight.normal
+                            : FontWeight.w600,
                       ),
                     ),
+
+                    // ── Botones de follow ─────────────────────────────────
+                    if (widget.type == 'follow') ...[
+                      const SizedBox(height: 10),
+
+                      if (!responded) ...[
+                        // Pendiente → Confirmar / Eliminar
+                        Row(
+                          children: [
+                            Expanded(
+                              child: _FollowButton(
+                                label: 'Confirmar',
+                                isPrimary: true,
+                                onTap: widget.onAccept,
+                              ),
+                            ),
+                            const SizedBox(width: 8),
+                            Expanded(
+                              child: _FollowButton(
+                                label: 'Eliminar',
+                                isPrimary: false,
+                                onTap: widget.onReject,
+                              ),
+                            ),
+                          ],
+                        ),
+                      ] else if (accepted) ...[
+                        // Aceptado → Seguir también / Siguiendo
+                        _FollowButton(
+                          label: _followedBack
+                              ? 'Siguiendo ✓'
+                              : 'Seguir también',
+                          isPrimary: !_followedBack,
+                          onTap: _followedBack
+                              ? null
+                              : () {
+                                  setState(() => _followedBack = true);
+                                  widget.onFollowBack?.call();
+                                },
+                        ),
+                      ] else ...[
+                        // Rechazado
+                        Text(
+                          'Solicitud eliminada',
+                          style: TextStyle(
+                            fontSize: 12,
+                            color: Colors.grey.shade400,
+                            fontStyle: FontStyle.italic,
+                          ),
+                        ),
+                      ],
+                    ],
                   ],
                 ),
               ),
 
-              // ── Punto no leído ──────────────────────────────────────────
-              if (!isRead)
+              // ── Punto no leído ────────────────────────────────────────────
+              if (!widget.isRead)
                 Padding(
                   padding: const EdgeInsets.only(top: 6, left: 8),
                   child: Container(
                     width: 8,
                     height: 8,
-                    decoration: const BoxDecoration(color: _teal, shape: BoxShape.circle),
+                    decoration: const BoxDecoration(
+                      color: _teal,
+                      shape: BoxShape.circle,
+                    ),
                   ),
                 ),
             ],
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// _FollowButton
+// ─────────────────────────────────────────────────────────────────────────────
+
+class _FollowButton extends StatelessWidget {
+  final String label;
+  final bool isPrimary;
+  final VoidCallback? onTap;
+
+  const _FollowButton({
+    required this.label,
+    required this.isPrimary,
+    this.onTap,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return GestureDetector(
+      onTap: onTap,
+      child: AnimatedContainer(
+        duration: const Duration(milliseconds: 200),
+        height: 34,
+        decoration: BoxDecoration(
+          color: isPrimary ? _teal : const Color(0xFFF1F5F9),
+          borderRadius: BorderRadius.circular(8),
+          border: isPrimary ? null : Border.all(color: const Color(0xFFE2E8F0)),
+        ),
+        child: Center(
+          child: Text(
+            label,
+            style: TextStyle(
+              fontSize: 13,
+              fontWeight: FontWeight.w700,
+              color: isPrimary ? Colors.white : const Color(0xFF374151),
+            ),
           ),
         ),
       ),
@@ -513,10 +753,14 @@ class _NotifSkeletonState extends State<_NotifSkeleton>
   @override
   void initState() {
     super.initState();
-    _ctrl = AnimationController(vsync: this, duration: const Duration(milliseconds: 950))
-      ..repeat(reverse: true);
-    _anim = Tween<double>(begin: 0.35, end: 0.85)
-        .animate(CurvedAnimation(parent: _ctrl, curve: Curves.easeInOut));
+    _ctrl = AnimationController(
+      vsync: this,
+      duration: const Duration(milliseconds: 950),
+    )..repeat(reverse: true);
+    _anim = Tween<double>(
+      begin: 0.35,
+      end: 0.85,
+    ).animate(CurvedAnimation(parent: _ctrl, curve: Curves.easeInOut));
   }
 
   @override
@@ -537,9 +781,12 @@ class _NotifSkeletonState extends State<_NotifSkeleton>
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               Container(
-                width: 48,
-                height: 48,
-                decoration: const BoxDecoration(color: Color(0xFFE2E8F0), shape: BoxShape.circle),
+                width: 52,
+                height: 52,
+                decoration: const BoxDecoration(
+                  color: Color(0xFFE2E8F0),
+                  shape: BoxShape.circle,
+                ),
               ),
               const SizedBox(width: 14),
               Expanded(
@@ -562,11 +809,11 @@ class _NotifSkeletonState extends State<_NotifSkeleton>
   }
 
   Widget _box({required double width, required double height}) => Container(
-        width: width,
-        height: height,
-        decoration: BoxDecoration(
-          color: const Color(0xFFE2E8F0),
-          borderRadius: BorderRadius.circular(6),
-        ),
-      );
+    width: width,
+    height: height,
+    decoration: BoxDecoration(
+      color: const Color(0xFFE2E8F0),
+      borderRadius: BorderRadius.circular(6),
+    ),
+  );
 }
