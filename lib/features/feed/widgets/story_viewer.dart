@@ -252,7 +252,9 @@ class _StoryViewerState extends State<StoryViewer>
                   fit: BoxFit.cover,
                   loadingBuilder: (_, child, progress) {
                     if (progress == null) return child;
-                    _pause();
+                    WidgetsBinding.instance.addPostFrameCallback((_) {
+                      if (mounted) _pause();
+                    });
                     return Container(
                       color: Colors.black,
                       child: const Center(
@@ -264,7 +266,11 @@ class _StoryViewerState extends State<StoryViewer>
                     );
                   },
                   frameBuilder: (_, child, frame, wasSynchronouslyLoaded) {
-                    if (frame != null && _isPaused) _resume();
+                    if (frame != null && _isPaused) {
+                      WidgetsBinding.instance.addPostFrameCallback((_) {
+                        if (mounted) _resume();
+                      });
+                    }
                     return child;
                   },
                   errorBuilder: (_, __, ___) => Container(
