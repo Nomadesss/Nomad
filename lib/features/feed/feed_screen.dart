@@ -36,7 +36,6 @@ class _FeedScreenState extends State<FeedScreen> {
 
   final ScrollController _scrollController = ScrollController();
   bool _showBottomBar = true;
-  bool _showHeader = true;
 
   @override
   void initState() {
@@ -60,27 +59,16 @@ class _FeedScreenState extends State<FeedScreen> {
   }
 
   void _onScroll() {
-    final direction = _scrollController.position.userScrollDirection;
-
-    if (direction == ScrollDirection.reverse) {
-      if (_showBottomBar || _showHeader) {
-        setState(() {
-          _showBottomBar = false;
-          _showHeader = false;
-        });
-      }
-    }
-
-    if (direction == ScrollDirection.forward) {
-      if (!_showBottomBar || !_showHeader) {
-        setState(() {
-          _showBottomBar = true;
-          _showHeader = true;
-        });
-      }
-    }
-
     final pos = _scrollController.position;
+    final direction = pos.userScrollDirection;
+
+    // Ocultar bottom nav solo después de 80px para no reagir a micro-scrolls
+    if (direction == ScrollDirection.reverse && pos.pixels > 80) {
+      if (_showBottomBar) setState(() => _showBottomBar = false);
+    } else if (direction == ScrollDirection.forward) {
+      if (!_showBottomBar) setState(() => _showBottomBar = true);
+    }
+
     if (pos.pixels >= pos.maxScrollExtent * 0.8) {
       _loadMore();
     }
@@ -212,12 +200,8 @@ class _FeedScreenState extends State<FeedScreen> {
               elevation: 0,
               backgroundColor: Colors.white,
               automaticallyImplyLeading: false,
-              toolbarHeight: _showHeader ? 64 : 0,
-              title: AnimatedOpacity(
-                duration: const Duration(milliseconds: 200),
-                opacity: _showHeader ? 1.0 : 0.0,
-                child: const FeedHeader(),
-              ),
+              toolbarHeight: 64,
+              title: const FeedHeader(),
             ),
 
             // ── StoriesBar en tiempo real ─────────────────────────────────

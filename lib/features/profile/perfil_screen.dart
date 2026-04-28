@@ -157,6 +157,7 @@ class _PerfilPropioState extends State<PerfilPropio>
     return Scaffold(
       backgroundColor: _bgMain,
       body: NestedScrollView(
+        physics: const ClampingScrollPhysics(),
         headerSliverBuilder: (context, innerBoxIsScrolled) => [
           _buildSliverHeader(
             context,

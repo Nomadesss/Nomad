@@ -74,6 +74,7 @@ class _SocialScreenState extends State<SocialScreen>
     return Scaffold(
       backgroundColor: NomadColors.feedBg,
       body: NestedScrollView(
+        physics: const ClampingScrollPhysics(),
         headerSliverBuilder: (context, _) => [_buildAppBar()],
         body: TabBarView(
           controller: _tabs,
@@ -2283,6 +2284,7 @@ class _GroupDetailScreenState extends State<GroupDetailScreen>
         return Scaffold(
           backgroundColor: NomadColors.feedBg,
           body: NestedScrollView(
+            physics: const ClampingScrollPhysics(),
             headerSliverBuilder: (context, _) => [
               _buildHeader(g, myRole, myId),
             ],

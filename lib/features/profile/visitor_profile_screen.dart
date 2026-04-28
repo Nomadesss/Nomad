@@ -668,6 +668,7 @@ class _VisitorProfileScreenState extends State<VisitorProfileScreen>
 
   Widget _buildBody() {
     return NestedScrollView(
+      physics: const ClampingScrollPhysics(),
       controller: _scrollController,
       headerSliverBuilder: (context, innerBoxIsScrolled) => [
         _buildSliverHeader(innerBoxIsScrolled),
