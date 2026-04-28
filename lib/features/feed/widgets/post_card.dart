@@ -52,11 +52,30 @@ class _PostCardState extends State<PostCard> {
   int _likesCount = 0;
   bool _isSaved = false;
   int _currentImageIndex = 0;
+  bool _ocultarLikes = false;
+  bool _ocultarCompartidos = false;
 
   @override
   void initState() {
     super.initState();
     _loadInitialState();
+    _listenPostFlags();
+  }
+
+  // Escucha en tiempo real los flags del post (ocultarLikes, ocultarCompartidos, etc.)
+  void _listenPostFlags() {
+    FirebaseFirestore.instance
+        .collection('posts')
+        .doc(widget.postId)
+        .snapshots()
+        .listen((snap) {
+          if (!mounted) return;
+          final d = snap.data() ?? {};
+          setState(() {
+            _ocultarLikes = d['ocultarLikes'] as bool? ?? false;
+            _ocultarCompartidos = d['ocultarCompartidos'] as bool? ?? false;
+          });
+        });
   }
 
   Future<void> _loadInitialState() async {
@@ -84,6 +103,8 @@ class _PostCardState extends State<PostCard> {
           _isLiked = likes.contains(_myId);
           _likesCount = count;
           _isSaved = savedDoc.exists;
+          _ocultarLikes = data['ocultarLikes'] as bool? ?? false;
+          _ocultarCompartidos = data['ocultarCompartidos'] as bool? ?? false;
         });
       }
     } catch (e) {
@@ -332,14 +353,16 @@ class _PostCardState extends State<PostCard> {
                             : const Color(0xFF6B7280),
                         size: 24,
                       ),
-                      const SizedBox(width: 4),
-                      Text(
-                        '$_likesCount',
-                        style: const TextStyle(
-                          fontSize: 13,
-                          color: Color(0xFF6B7280),
+                      if (!_ocultarLikes) ...[
+                        const SizedBox(width: 4),
+                        Text(
+                          '$_likesCount',
+                          style: const TextStyle(
+                            fontSize: 13,
+                            color: Color(0xFF6B7280),
+                          ),
                         ),
-                      ),
+                      ],
                     ],
                   ),
                 ),
@@ -377,14 +400,15 @@ class _PostCardState extends State<PostCard> {
                 ),
                 const SizedBox(width: 16),
                 // Compartir — ahora funcional
-                GestureDetector(
-                  onTap: _openShare,
-                  child: Icon(
-                    PhosphorIcons.paperPlaneTilt(),
-                    color: const Color(0xFF6B7280),
-                    size: 24,
+                if (!_ocultarCompartidos)
+                  GestureDetector(
+                    onTap: _openShare,
+                    child: Icon(
+                      PhosphorIcons.paperPlaneTilt(),
+                      color: const Color(0xFF6B7280),
+                      size: 24,
+                    ),
                   ),
-                ),
                 const Spacer(),
                 // Guardar
                 GestureDetector(
