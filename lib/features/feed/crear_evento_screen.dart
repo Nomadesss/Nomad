@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import 'package:image_picker/image_picker.dart';
 import 'package:phosphor_flutter/phosphor_flutter.dart';
 import 'package:intl/intl.dart';
+import '../../../l10n/app_localizations.dart';
 
 import '../../../services/event_service.dart';
 import '../../../widgets/location_autocomplete_field.dart';
@@ -56,6 +57,7 @@ class _CrearEventoScreenState extends State<CrearEventoScreen> {
   // ── Foto de portada ────────────────────────────────────────────────────────
 
   Future<void> _elegirPortada() async {
+    final l10n = AppLocalizations.of(context);
     showModalBottomSheet(
       context: context,
       backgroundColor: const Color(0xFF1A1A24),
@@ -80,9 +82,9 @@ class _CrearEventoScreenState extends State<CrearEventoScreen> {
                 PhosphorIcons.images(),
                 color: const Color(0xFF34D399),
               ),
-              title: const Text(
-                'Galería',
-                style: TextStyle(color: Colors.white),
+              title: Text(
+                l10n.gallery,
+                style: const TextStyle(color: Colors.white),
               ),
               onTap: () async {
                 Navigator.pop(context);
@@ -99,9 +101,9 @@ class _CrearEventoScreenState extends State<CrearEventoScreen> {
                 PhosphorIcons.camera(),
                 color: const Color(0xFF34D399),
               ),
-              title: const Text(
-                'Cámara',
-                style: TextStyle(color: Colors.white),
+              title: Text(
+                l10n.camera,
+                style: const TextStyle(color: Colors.white),
               ),
               onTap: () async {
                 Navigator.pop(context);
@@ -168,7 +170,7 @@ class _CrearEventoScreenState extends State<CrearEventoScreen> {
   Future<void> _guardar() async {
     if (!_formKey.currentState!.validate()) return;
     if (_fecha == null || _hora == null) {
-      _snack('Elegí fecha y hora del evento');
+      _snack(AppLocalizations.of(context).eventErrorDateTime);
       return;
     }
 
@@ -203,9 +205,9 @@ class _CrearEventoScreenState extends State<CrearEventoScreen> {
 
     Navigator.pop(context);
     ScaffoldMessenger.of(context).showSnackBar(
-      const SnackBar(
-        content: Text('¡Evento creado!'),
-        backgroundColor: Color(0xFF0D9488),
+      SnackBar(
+        content: Text(AppLocalizations.of(context).eventSuccess),
+        backgroundColor: const Color(0xFF0D9488),
         behavior: SnackBarBehavior.floating,
       ),
     );
@@ -215,12 +217,12 @@ class _CrearEventoScreenState extends State<CrearEventoScreen> {
     SnackBar(content: Text(msg), behavior: SnackBarBehavior.floating),
   );
 
-  String get _fechaFormateada => _fecha == null
-      ? 'Elegir fecha'
-      : DateFormat("EEE d 'de' MMM", 'es').format(_fecha!);
+  String _fechaFormateada(AppLocalizations l10n) => _fecha == null
+      ? l10n.eventPickDate
+      : DateFormat("EEE d MMM", 'es').format(_fecha!);
 
-  String get _horaFormateada {
-    if (_hora == null) return 'Elegir hora';
+  String _horaFormateada(AppLocalizations l10n) {
+    if (_hora == null) return l10n.eventPickTime;
     final h = _hora!.hour.toString().padLeft(2, '0');
     final m = _hora!.minute.toString().padLeft(2, '0');
     return '$h:$m hs';
@@ -228,6 +230,7 @@ class _CrearEventoScreenState extends State<CrearEventoScreen> {
 
   @override
   Widget build(BuildContext context) {
+    final l10n = AppLocalizations.of(context);
     return Scaffold(
       backgroundColor: const Color(0xFF0F0F14),
       appBar: AppBar(
@@ -237,9 +240,9 @@ class _CrearEventoScreenState extends State<CrearEventoScreen> {
           icon: const Icon(Icons.close, color: Colors.white),
           onPressed: () => Navigator.pop(context),
         ),
-        title: const Text(
-          'Crear evento',
-          style: TextStyle(
+        title: Text(
+          l10n.eventAppBarTitle,
+          style: const TextStyle(
             color: Colors.white,
             fontWeight: FontWeight.w600,
             fontSize: 16,
@@ -256,7 +259,7 @@ class _CrearEventoScreenState extends State<CrearEventoScreen> {
               // ── Foto de portada ──────────────────────────────────────────
               _DarkLabel(
                 icono: PhosphorIcons.image(),
-                texto: 'Foto de portada (opcional)',
+                texto: l10n.eventCoverLabel,
               ),
               const SizedBox(height: 10),
               GestureDetector(
@@ -330,20 +333,20 @@ class _CrearEventoScreenState extends State<CrearEventoScreen> {
                             SizedBox(height: 12),
 
                             Text(
-                              "Sumá una portada",
+                              l10n.eventCoverPlaceholder,
 
-                              style: TextStyle(
+                              style: const TextStyle(
                                 color: Colors.white,
                                 fontWeight: FontWeight.w600,
                               ),
                             ),
 
-                            SizedBox(height: 4),
+                            const SizedBox(height: 4),
 
                             Text(
-                              "Hace tu evento más atractivo",
+                              l10n.eventCoverPlaceholderSub,
 
-                              style: TextStyle(
+                              style: const TextStyle(
                                 color: Colors.white38,
                                 fontSize: 12,
                               ),
@@ -356,7 +359,7 @@ class _CrearEventoScreenState extends State<CrearEventoScreen> {
               const SizedBox(height: 24),
 
               // ── Tipo de evento ───────────────────────────────────────────
-              _DarkLabel(icono: PhosphorIcons.tag(), texto: 'Tipo de evento'),
+              _DarkLabel(icono: PhosphorIcons.tag(), texto: l10n.eventTypeLabel),
               const SizedBox(height: 10),
               SizedBox(
                 height: 44,
@@ -415,13 +418,13 @@ class _CrearEventoScreenState extends State<CrearEventoScreen> {
               const SizedBox(height: 24),
 
               // ── Título ───────────────────────────────────────────────────
-              _DarkLabel(icono: PhosphorIcons.pencilSimple(), texto: 'Título'),
+              _DarkLabel(icono: PhosphorIcons.pencilSimple(), texto: l10n.eventTitleLabel),
               const SizedBox(height: 10),
               _DarkField(
                 controller: _tituloCtrl,
-                hint: 'ej: Asado de nomads en Palermo',
+                hint: l10n.eventTitleHint,
                 validator: (v) => v == null || v.trim().isEmpty
-                    ? 'El título es obligatorio'
+                    ? l10n.eventTitleError
                     : null,
               ),
 
@@ -430,12 +433,12 @@ class _CrearEventoScreenState extends State<CrearEventoScreen> {
               // ── Descripción ──────────────────────────────────────────────
               _DarkLabel(
                 icono: PhosphorIcons.textAlignLeft(),
-                texto: 'Sobre el evento',
+                texto: l10n.eventDescLabel,
               ),
               const SizedBox(height: 10),
               _DarkField(
                 controller: _descripcionCtrl,
-                hint: 'Contá de qué se trata el evento...',
+                hint: l10n.eventDescHint,
                 maxLines: 4,
               ),
 
@@ -444,7 +447,7 @@ class _CrearEventoScreenState extends State<CrearEventoScreen> {
               // ── Fecha y hora ─────────────────────────────────────────────
               _DarkLabel(
                 icono: PhosphorIcons.calendarBlank(),
-                texto: 'Fecha y hora',
+                texto: l10n.eventDateLabel,
               ),
               const SizedBox(height: 10),
               Row(
@@ -452,7 +455,7 @@ class _CrearEventoScreenState extends State<CrearEventoScreen> {
                   Expanded(
                     child: _SelectorTile(
                       icono: PhosphorIcons.calendarBlank(),
-                      label: _fechaFormateada,
+                      label: _fechaFormateada(l10n),
                       activo: _fecha != null,
                       onTap: _elegirFecha,
                     ),
@@ -461,7 +464,7 @@ class _CrearEventoScreenState extends State<CrearEventoScreen> {
                   Expanded(
                     child: _SelectorTile(
                       icono: PhosphorIcons.clock(),
-                      label: _horaFormateada,
+                      label: _horaFormateada(l10n),
                       activo: _hora != null,
                       onTap: _elegirHora,
                     ),
@@ -472,11 +475,11 @@ class _CrearEventoScreenState extends State<CrearEventoScreen> {
               const SizedBox(height: 24),
 
               // ── Lugar (Places autocomplete) ──────────────────────────────
-              _DarkLabel(icono: PhosphorIcons.mapPin(), texto: 'Lugar'),
+              _DarkLabel(icono: PhosphorIcons.mapPin(), texto: l10n.eventLocationLabel),
               const SizedBox(height: 10),
               LocationAutocompleteField(
                 controller: _lugarCtrl,
-                hint: 'ej: Parque Centenario, CABA',
+                hint: l10n.eventLocationHint,
                 dark: true,
                 onSelected: (pred, detail) {
                   _locationPlaceId = pred.placeId;
@@ -489,12 +492,12 @@ class _CrearEventoScreenState extends State<CrearEventoScreen> {
               // ── Capacidad máxima ─────────────────────────────────────────
               _DarkLabel(
                 icono: PhosphorIcons.users(),
-                texto: 'Capacidad máxima (opcional)',
+                texto: l10n.eventCapacityLabel,
               ),
               const SizedBox(height: 10),
               _DarkField(
                 controller: _capacidadCtrl,
-                hint: 'ej: 30',
+                hint: l10n.eventCapacityHint,
                 keyboardType: TextInputType.number,
                 prefixIcon: PhosphorIcons.users(),
               ),
@@ -531,9 +534,9 @@ class _CrearEventoScreenState extends State<CrearEventoScreen> {
                                 size: 20,
                               ),
                               const SizedBox(width: 10),
-                              const Text(
-                                'Crear evento',
-                                style: TextStyle(
+                              Text(
+                                l10n.eventCreateButton,
+                                style: const TextStyle(
                                   color: Colors.white,
                                   fontWeight: FontWeight.w600,
                                   fontSize: 16,

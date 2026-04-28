@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'phone_verification_screen.dart';
+import '../../l10n/app_localizations.dart';
 
 // ── Lista de países con prefijo ───────────────────────────────
 class PaisPrefix {
@@ -106,6 +107,7 @@ class _PhoneLoginScreenState extends State<PhoneLoginScreen>
   // ── Selector de país ──────────────────────────────────────────
 
   void _abrirSelectorPais() {
+    final l10n = AppLocalizations.of(context);
     final busquedaController = TextEditingController();
     List<PaisPrefix> filtrados = kPaises.toList();
 
@@ -144,8 +146,8 @@ class _PhoneLoginScreenState extends State<PhoneLoginScreen>
                         vertical: 8,
                       ),
                       child: Text(
-                        'Seleccioná tu país',
-                        style: TextStyle(
+                        l10n.phoneCountrySheetTitle,
+                        style: const TextStyle(
                           fontSize: 16,
                           fontWeight: FontWeight.w600,
                           color: Colors.white,
@@ -165,7 +167,7 @@ class _PhoneLoginScreenState extends State<PhoneLoginScreen>
                           fontSize: 14,
                         ),
                         decoration: InputDecoration(
-                          hintText: 'Buscar país...',
+                          hintText: l10n.phoneCountrySearchHint,
                           hintStyle: TextStyle(
                             color: Colors.white.withValues(alpha: 0.35),
                             fontSize: 14,
@@ -271,14 +273,15 @@ class _PhoneLoginScreenState extends State<PhoneLoginScreen>
   // ── Enviar SMS ────────────────────────────────────────────────
 
   Future<void> _enviarCodigo() async {
+    final l10n = AppLocalizations.of(context);
     final numero = _phoneController.text.trim();
 
     if (numero.isEmpty) {
-      setState(() => _errorTelefono = 'Ingresá tu número de teléfono');
+      setState(() => _errorTelefono = l10n.phoneErrorEmpty);
       return;
     }
     if (numero.length < 6) {
-      setState(() => _errorTelefono = 'Número demasiado corto');
+      setState(() => _errorTelefono = l10n.phoneErrorTooShort);
       return;
     }
 
@@ -302,19 +305,20 @@ class _PhoneLoginScreenState extends State<PhoneLoginScreen>
       verificationFailed: (FirebaseAuthException e) {
         if (!mounted) return;
         setState(() => _isLoading = false);
+        final l10nInner = AppLocalizations.of(context);
         String msg;
         switch (e.code) {
           case 'invalid-phone-number':
-            msg = 'Número de teléfono inválido';
+            msg = l10nInner.phoneErrorInvalid;
             break;
           case 'too-many-requests':
-            msg = 'Demasiados intentos. Esperá unos minutos.';
+            msg = l10nInner.phoneErrorTooManyAttempts;
             break;
           case 'network-request-failed':
-            msg = 'Sin conexión. Verificá tu internet.';
+            msg = l10nInner.phoneErrorNoConnection;
             break;
           default:
-            msg = 'Error al enviar el código. Intentá de nuevo.';
+            msg = l10nInner.phoneErrorSend;
         }
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
@@ -352,6 +356,8 @@ class _PhoneLoginScreenState extends State<PhoneLoginScreen>
 
   @override
   Widget build(BuildContext context) {
+    final l10n = AppLocalizations.of(context);
+
     return Scaffold(
       backgroundColor: const Color(0xFF0F0F14),
       body: Stack(
@@ -427,9 +433,9 @@ class _PhoneLoginScreenState extends State<PhoneLoginScreen>
 
                       const SizedBox(height: 36),
 
-                      const Text(
-                        "Tu número de celular",
-                        style: TextStyle(
+                      Text(
+                        l10n.phoneTitle,
+                        style: const TextStyle(
                           fontSize: 26,
                           fontWeight: FontWeight.bold,
                           color: Colors.white,
@@ -438,7 +444,7 @@ class _PhoneLoginScreenState extends State<PhoneLoginScreen>
                       ),
                       const SizedBox(height: 8),
                       Text(
-                        "Te enviaremos un código de verificación por SMS",
+                        l10n.phoneSubtitle,
                         style: TextStyle(
                           fontSize: 14,
                           color: Colors.white.withValues(alpha: 0.5),
@@ -449,7 +455,7 @@ class _PhoneLoginScreenState extends State<PhoneLoginScreen>
 
                       // ── Selector país + número ───────────
                       Text(
-                        'Número de teléfono',
+                        l10n.phoneNumberLabel,
                         style: TextStyle(
                           fontSize: 13,
                           fontWeight: FontWeight.w500,
@@ -591,7 +597,7 @@ class _PhoneLoginScreenState extends State<PhoneLoginScreen>
                       const SizedBox(height: 12),
 
                       Text(
-                        'Ingresá solo el número sin el prefijo de país.',
+                        l10n.phoneInstruction,
                         style: TextStyle(
                           fontSize: 11.5,
                           color: Colors.white.withValues(alpha: 0.35),
@@ -621,9 +627,9 @@ class _PhoneLoginScreenState extends State<PhoneLoginScreen>
                                   elevation: 0,
                                 ),
                                 onPressed: _enviarCodigo,
-                                child: const Text(
-                                  "Enviar código",
-                                  style: TextStyle(
+                                child: Text(
+                                  l10n.phoneSendButton,
+                                  style: const TextStyle(
                                     fontSize: 16,
                                     fontWeight: FontWeight.w600,
                                     letterSpacing: 0.2,

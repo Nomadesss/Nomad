@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import '../auth/terms_acceptance_screen.dart';
+import '../../l10n/app_localizations.dart';
 
 class PhoneVerificationScreen extends StatefulWidget {
   final String verificationId;
@@ -114,10 +115,11 @@ class _PhoneVerificationScreenState extends State<PhoneVerificationScreen>
   // ── Verificar código ──────────────────────────────────────────
 
   Future<void> _verificarCodigo() async {
+    final l10n = AppLocalizations.of(context);
     final codigo = _codigoCompleto;
 
     if (codigo.length < 6) {
-      setState(() => _error = 'Ingresá los 6 dígitos del código');
+      setState(() => _error = l10n.phoneVerifErrorDigits);
       return;
     }
 
@@ -142,24 +144,26 @@ class _PhoneVerificationScreenState extends State<PhoneVerificationScreen>
       );
     } on FirebaseAuthException catch (e) {
       if (!mounted) return;
+      final l10nInner = AppLocalizations.of(context);
       setState(() {
         _isLoading = false;
       });
       switch (e.code) {
         case 'invalid-verification-code':
-          setState(() => _error = 'Código incorrecto. Revisá el SMS.');
+          setState(() => _error = l10nInner.phoneVerifErrorWrong);
           break;
         case 'session-expired':
-          setState(() => _error = 'El código expiró. Solicitá uno nuevo.');
+          setState(() => _error = l10nInner.phoneVerifErrorExpired);
           break;
         default:
-          setState(() => _error = 'Error al verificar. Intentá de nuevo.');
+          setState(() => _error = l10nInner.phoneVerifErrorGeneric);
       }
     } catch (_) {
       if (!mounted) return;
+      final l10nInner = AppLocalizations.of(context);
       setState(() {
         _isLoading = false;
-        _error = 'Error inesperado. Intentá de nuevo.';
+        _error = l10nInner.phoneVerifErrorUnexpected;
       });
     }
   }
@@ -183,9 +187,10 @@ class _PhoneVerificationScreenState extends State<PhoneVerificationScreen>
       verificationFailed: (e) {
         if (!mounted) return;
         setState(() => _isResending = false);
+        final l10n = AppLocalizations.of(context);
         ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(
-            content: Text('No se pudo reenviar el código. Intentá de nuevo.'),
+          SnackBar(
+            content: Text(l10n.phoneVerifResendError),
             backgroundColor: Colors.redAccent,
             behavior: SnackBarBehavior.floating,
           ),
@@ -205,10 +210,11 @@ class _PhoneVerificationScreenState extends State<PhoneVerificationScreen>
         });
         FocusScope.of(context).requestFocus(_focusNodes[0]);
         _startCountdown();
+        final l10n = AppLocalizations.of(context);
         ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(
-            content: Text('Código reenviado'),
-            backgroundColor: Color(0xFF27AE60),
+          SnackBar(
+            content: Text(l10n.phoneVerifResendSuccess),
+            backgroundColor: const Color(0xFF27AE60),
             behavior: SnackBarBehavior.floating,
           ),
         );
@@ -223,6 +229,8 @@ class _PhoneVerificationScreenState extends State<PhoneVerificationScreen>
 
   @override
   Widget build(BuildContext context) {
+    final l10n = AppLocalizations.of(context);
+
     return Scaffold(
       backgroundColor: const Color(0xFF0F0F14),
       body: Stack(
@@ -295,9 +303,9 @@ class _PhoneVerificationScreenState extends State<PhoneVerificationScreen>
 
                     const SizedBox(height: 36),
 
-                    const Text(
-                      "Verificá tu número",
-                      style: TextStyle(
+                    Text(
+                      l10n.phoneVerifTitle,
+                      style: const TextStyle(
                         fontSize: 26,
                         fontWeight: FontWeight.bold,
                         color: Colors.white,
@@ -305,24 +313,11 @@ class _PhoneVerificationScreenState extends State<PhoneVerificationScreen>
                       ),
                     ),
                     const SizedBox(height: 8),
-                    RichText(
-                      text: TextSpan(
-                        style: TextStyle(
-                          fontSize: 14,
-                          color: Colors.white.withValues(alpha: 0.5),
-                        ),
-                        children: [
-                          const TextSpan(
-                            text: 'Ingresá el código que enviamos a ',
-                          ),
-                          TextSpan(
-                            text: widget.numeroCompleto,
-                            style: const TextStyle(
-                              color: Colors.white,
-                              fontWeight: FontWeight.w600,
-                            ),
-                          ),
-                        ],
+                    Text(
+                      l10n.phoneVerifCodeSent(widget.numeroCompleto),
+                      style: TextStyle(
+                        fontSize: 14,
+                        color: Colors.white.withValues(alpha: 0.5),
                       ),
                     ),
 
@@ -435,7 +430,7 @@ class _PhoneVerificationScreenState extends State<PhoneVerificationScreen>
                                   style: const TextStyle(fontSize: 14),
                                   children: [
                                     TextSpan(
-                                      text: '¿No recibiste el código? ',
+                                      text: l10n.phoneVerifNoCode,
                                       style: TextStyle(
                                         color: Colors.white.withValues(
                                           alpha: 0.45,
@@ -444,17 +439,16 @@ class _PhoneVerificationScreenState extends State<PhoneVerificationScreen>
                                     ),
                                     _segundosRestantes > 0
                                         ? TextSpan(
-                                            text:
-                                                'Reenviar en ${_segundosRestantes}s',
+                                            text: l10n.phoneVerifResendIn(_segundosRestantes),
                                             style: TextStyle(
                                               color: Colors.white.withValues(
                                                 alpha: 0.35,
                                               ),
                                             ),
                                           )
-                                        : const TextSpan(
-                                            text: 'Reenviar',
-                                            style: TextStyle(
+                                        : TextSpan(
+                                            text: l10n.phoneVerifResend,
+                                            style: const TextStyle(
                                               color: Colors.white,
                                               fontWeight: FontWeight.w600,
                                               decoration:
@@ -491,9 +485,9 @@ class _PhoneVerificationScreenState extends State<PhoneVerificationScreen>
                                 elevation: 0,
                               ),
                               onPressed: _verificarCodigo,
-                              child: const Text(
-                                "Verificar código",
-                                style: TextStyle(
+                              child: Text(
+                                l10n.phoneVerifButton,
+                                style: const TextStyle(
                                   fontSize: 16,
                                   fontWeight: FontWeight.w600,
                                   letterSpacing: 0.2,

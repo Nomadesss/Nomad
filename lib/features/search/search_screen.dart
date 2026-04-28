@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 
-// Ajustá esta ruta relativa según tu estructura de carpetas.
+import '../../l10n/app_localizations.dart';
 import '../feed/widgets/bottom_nav.dart';
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -19,29 +19,21 @@ const _bgMain = Color(0xFFF8FFFE);
 // Datos de ejemplo (reemplazar con llamadas a Firestore)
 // ─────────────────────────────────────────────────────────────────────────────
 
-final _categorias = [
-  {
-    'label': 'Personas',
-    'icon': Icons.person_outline_rounded,
-    'color': 0xFF0D9488,
-  },
-  {'label': 'Eventos', 'icon': Icons.event_outlined, 'color': 0xFF0891B2},
-  {'label': 'Lugares', 'icon': Icons.location_on_outlined, 'color': 0xFF7C3AED},
-  {
-    'label': 'Comunidades',
-    'icon': Icons.people_outline_rounded,
-    'color': 0xFF059669,
-  },
-  {
-    'label': 'Tips',
-    'icon': Icons.lightbulb_outline_rounded,
-    'color': 0xFFD97706,
-  },
-  {
-    'label': 'Trabajos',
-    'icon': Icons.work_outline_rounded,
-    'color': 0xFFE11D48,
-  },
+const _categoriasIcons = [
+  Icons.person_outline_rounded,
+  Icons.event_outlined,
+  Icons.location_on_outlined,
+  Icons.people_outline_rounded,
+  Icons.lightbulb_outline_rounded,
+  Icons.work_outline_rounded,
+];
+const _categoriasColors = [
+  0xFF0D9488,
+  0xFF0891B2,
+  0xFF7C3AED,
+  0xFF059669,
+  0xFFD97706,
+  0xFFE11D48,
 ];
 
 final _sugerenciasPopulares = [
@@ -119,7 +111,7 @@ class _SearchScreenState extends State<SearchScreen>
   bool _isSearching = false;
   bool _hasResults = false;
   String _query = '';
-  String _categoriaActiva = 'Personas';
+  int _categoriaActiveIndex = 0;
 
   late AnimationController _animController;
   late Animation<double> _fadeAnim;
@@ -174,6 +166,16 @@ class _SearchScreenState extends State<SearchScreen>
 
   @override
   Widget build(BuildContext context) {
+    final l10n = AppLocalizations.of(context);
+    final categorias = [
+      {'label': l10n.searchPeople,       'icon': _categoriasIcons[0], 'color': _categoriasColors[0]},
+      {'label': l10n.searchEvents,       'icon': _categoriasIcons[1], 'color': _categoriasColors[1]},
+      {'label': l10n.searchPlaces,       'icon': _categoriasIcons[2], 'color': _categoriasColors[2]},
+      {'label': l10n.searchCommunities,  'icon': _categoriasIcons[3], 'color': _categoriasColors[3]},
+      {'label': l10n.searchTips,         'icon': _categoriasIcons[4], 'color': _categoriasColors[4]},
+      {'label': l10n.searchJobs,         'icon': _categoriasIcons[5], 'color': _categoriasColors[5]},
+    ];
+
     return Scaffold(
       backgroundColor: _bgMain,
       body: SafeArea(
@@ -181,15 +183,15 @@ class _SearchScreenState extends State<SearchScreen>
           opacity: _fadeAnim,
           child: Column(
             children: [
-              _buildSearchBar(),
+              _buildSearchBar(l10n),
               if (_isSearching && !_hasResults)
-                _buildSugerenciasRapidas()
+                _buildSugerenciasRapidas(l10n)
               else if (_hasResults)
-                _buildFiltrosCategorias(),
+                _buildFiltrosCategorias(categorias),
               Expanded(
                 child: _hasResults
-                    ? _buildResultados()
-                    : _buildDescubreContenido(),
+                    ? _buildResultados(l10n)
+                    : _buildDescubreContenido(l10n, categorias),
               ),
             ],
           ),
@@ -201,7 +203,7 @@ class _SearchScreenState extends State<SearchScreen>
 
   // ── Search bar ────────────────────────────────────────────────────────────
 
-  Widget _buildSearchBar() {
+  Widget _buildSearchBar(AppLocalizations l10n) {
     return AnimatedContainer(
       duration: const Duration(milliseconds: 200),
       padding: EdgeInsets.fromLTRB(
@@ -243,7 +245,7 @@ class _SearchScreenState extends State<SearchScreen>
                   fontWeight: FontWeight.w500,
                 ),
                 decoration: InputDecoration(
-                  hintText: 'Buscar personas, lugares, eventos...',
+                  hintText: '${l10n.searchPeople}, ${l10n.searchPlaces}, ${l10n.searchEvents}...',
                   hintStyle: const TextStyle(
                     color: Color(0xFF94A3B8),
                     fontSize: 14,
@@ -283,9 +285,9 @@ class _SearchScreenState extends State<SearchScreen>
                 _focus.unfocus();
                 _limpiar();
               },
-              child: const Text(
-                'Cancelar',
-                style: TextStyle(
+              child: Text(
+                l10n.cancelButton,
+                style: const TextStyle(
                   color: _teal,
                   fontWeight: FontWeight.w600,
                   fontSize: 14,
@@ -300,22 +302,22 @@ class _SearchScreenState extends State<SearchScreen>
 
   // ── Sugerencias rápidas (cuando el campo está vacío y enfocado) ───────────
 
-  Widget _buildSugerenciasRapidas() {
+  Widget _buildSugerenciasRapidas(AppLocalizations l10n) {
     return Container(
       color: Colors.white,
       padding: const EdgeInsets.fromLTRB(16, 4, 16, 12),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          const Padding(
-            padding: EdgeInsets.only(bottom: 10),
+          Padding(
+            padding: const EdgeInsets.only(bottom: 10),
             child: Row(
               children: [
-                Icon(Icons.trending_up_rounded, size: 14, color: _teal),
-                SizedBox(width: 6),
+                const Icon(Icons.trending_up_rounded, size: 14, color: _teal),
+                const SizedBox(width: 6),
                 Text(
-                  'Tendencias en Nomad',
-                  style: TextStyle(
+                  'Nomad',
+                  style: const TextStyle(
                     fontSize: 12,
                     fontWeight: FontWeight.w700,
                     color: _teal,
@@ -360,22 +362,22 @@ class _SearchScreenState extends State<SearchScreen>
 
   // ── Chips de categorías ───────────────────────────────────────────────────
 
-  Widget _buildFiltrosCategorias() {
+  Widget _buildFiltrosCategorias(List<Map<String, Object>> categorias) {
     return Container(
       color: Colors.white,
       height: 44,
       child: ListView.separated(
         scrollDirection: Axis.horizontal,
         padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 6),
-        itemCount: _categorias.length,
+        itemCount: categorias.length,
         separatorBuilder: (_, __) => const SizedBox(width: 8),
         itemBuilder: (context, i) {
-          final cat = _categorias[i];
-          final selected = _categoriaActiva == cat['label'];
+          final cat = categorias[i];
+          final selected = _categoriaActiveIndex == i;
           return GestureDetector(
             onTap: () {
               HapticFeedback.selectionClick();
-              setState(() => _categoriaActiva = cat['label'] as String);
+              setState(() => _categoriaActiveIndex = i);
             },
             child: AnimatedContainer(
               duration: const Duration(milliseconds: 180),
@@ -413,7 +415,7 @@ class _SearchScreenState extends State<SearchScreen>
 
   // ── Resultados de búsqueda ────────────────────────────────────────────────
 
-  Widget _buildResultados() {
+  Widget _buildResultados(AppLocalizations l10n) {
     return ListView(
       padding: const EdgeInsets.all(16),
       children: [
@@ -424,7 +426,7 @@ class _SearchScreenState extends State<SearchScreen>
             child: _SugerenciaInteligenteCard(query: _query),
           ),
 
-        const _ResultSectionLabel('Resultados'),
+        _ResultSectionLabel(l10n.searchPeople),
 
         ..._resultadosEjemplo.map((r) {
           if (r['tipo'] == 'persona') {
@@ -442,12 +444,12 @@ class _SearchScreenState extends State<SearchScreen>
 
   // ── Contenido descubrimiento (estado inicial) ─────────────────────────────
 
-  Widget _buildDescubreContenido() {
+  Widget _buildDescubreContenido(AppLocalizations l10n, List<Map<String, Object>> categorias) {
     return ListView(
       padding: const EdgeInsets.all(16),
       children: [
         // Categorías visuales
-        const _ResultSectionLabel('Explorar por categoría'),
+        const _ResultSectionLabel('·'),
         const SizedBox(height: 10),
         GridView.count(
           crossAxisCount: 3,
@@ -456,7 +458,7 @@ class _SearchScreenState extends State<SearchScreen>
           shrinkWrap: true,
           physics: const NeverScrollableScrollPhysics(),
           childAspectRatio: 1.1,
-          children: _categorias.map((cat) {
+          children: categorias.map((cat) {
             return GestureDetector(
               onTap: () {
                 HapticFeedback.selectionClick();
@@ -498,7 +500,8 @@ class _SearchScreenState extends State<SearchScreen>
         const SizedBox(height: 24),
 
         // Nómadas cerca tuyo
-        const _ResultSectionLabel('Nómadas cerca tuyo'),
+        _ResultSectionLabel(l10n.mapMigrants),
+
         const SizedBox(height: 10),
 
         SizedBox(
@@ -537,7 +540,7 @@ class _SearchScreenState extends State<SearchScreen>
         const SizedBox(height: 24),
 
         // Búsquedas recientes
-        const _ResultSectionLabel('Búsquedas recientes'),
+        const _ResultSectionLabel('·'),
         const SizedBox(height: 8),
         ..._sugerenciasPopulares
             .take(4)

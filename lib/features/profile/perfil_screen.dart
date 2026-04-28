@@ -3,6 +3,8 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
+import '../../l10n/app_localizations.dart';
+import '../../core/widgets/language_picker_sheet.dart';
 
 import '../feed/widgets/bottom_nav.dart';
 import 'edit_profile_screen.dart';
@@ -400,7 +402,7 @@ class _ProfileHeader extends StatelessWidget {
                       ),
                     ),
                     const SizedBox(width: 12),
-                    _EditButton(label: 'Editar perfil', onTap: onEditarPerfil),
+                    _EditButton(label: AppLocalizations.of(context).profileEditButton, onTap: onEditarPerfil),
                   ],
                 ),
                 const SizedBox(height: 10),
@@ -478,17 +480,17 @@ class _ProfileHeader extends StatelessWidget {
                     color: Colors.black.withOpacity(0.5),
                     borderRadius: BorderRadius.circular(20),
                   ),
-                  child: const Row(
+                  child: Row(
                     children: [
-                      Icon(
+                      const Icon(
                         Icons.camera_alt_outlined,
                         color: Colors.white,
                         size: 14,
                       ),
-                      SizedBox(width: 4),
+                      const SizedBox(width: 4),
                       Text(
-                        'Editar portada',
-                        style: TextStyle(color: Colors.white, fontSize: 11),
+                        AppLocalizations.of(context).profileEditCover,
+                        style: const TextStyle(color: Colors.white, fontSize: 11),
                       ),
                     ],
                   ),
@@ -782,18 +784,18 @@ class _TabPublicacionesFirebase extends StatelessWidget {
               children: [
                 Icon(Icons.photo_library_outlined, size: 48, color: _tealLight),
                 const SizedBox(height: 12),
-                const Text(
-                  'Aún no publicaste nada',
-                  style: TextStyle(
+                Text(
+                  AppLocalizations.of(context).profileNoPostsTitle,
+                  style: const TextStyle(
                     fontSize: 15,
                     color: _tealDark,
                     fontWeight: FontWeight.w600,
                   ),
                 ),
                 const SizedBox(height: 6),
-                const Text(
-                  'Compartí tu experiencia migrante',
-                  style: TextStyle(fontSize: 13, color: Color(0xFF94A3B8)),
+                Text(
+                  AppLocalizations.of(context).profileNoPostsSubtitle,
+                  style: const TextStyle(fontSize: 13, color: Color(0xFF94A3B8)),
                 ),
               ],
             ),
@@ -1485,13 +1487,13 @@ class _PerfilPostOptionsContentState extends State<_PerfilPostOptionsContent> {
       context: context,
       builder: (_) => AlertDialog(
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
-        title: const Text(
-          'Eliminar publicación',
-          style: TextStyle(fontWeight: FontWeight.w700, color: _tealDark),
+        title: Text(
+          AppLocalizations.of(context).profileDeletePostTitle,
+          style: const TextStyle(fontWeight: FontWeight.w700, color: _tealDark),
         ),
-        content: const Text(
-          '¿Estás seguro? Esta acción no se puede deshacer.',
-          style: TextStyle(color: Color(0xFF64748B)),
+        content: Text(
+          AppLocalizations.of(context).profileDeletePostContent,
+          style: const TextStyle(color: Color(0xFF64748B)),
         ),
         actions: [
           TextButton(
@@ -1688,9 +1690,9 @@ class _PerfilPostOptionsContentState extends State<_PerfilPostOptionsContent> {
                           color: const Color(0xFF0D9488).withOpacity(0.2),
                           borderRadius: BorderRadius.circular(20),
                         ),
-                        child: const Text(
-                          'Fijado',
-                          style: TextStyle(
+                        child: Text(
+                          AppLocalizations.of(context).pinned,
+                          style: const TextStyle(
                             fontSize: 11,
                             color: Color(0xFF4DC9C2),
                           ),
@@ -1764,18 +1766,18 @@ class _TabEventosFirebase extends StatelessWidget {
                   children: [
                     Icon(Icons.event_outlined, size: 48, color: _tealLight),
                     const SizedBox(height: 12),
-                    const Text(
-                      'Sin eventos creados',
-                      style: TextStyle(
+                    Text(
+                      AppLocalizations.of(context).profileNoEventsTitle,
+                      style: const TextStyle(
                         fontSize: 15,
                         color: _tealDark,
                         fontWeight: FontWeight.w600,
                       ),
                     ),
                     const SizedBox(height: 6),
-                    const Text(
-                      'Organizá encuentros para la comunidad',
-                      style: TextStyle(fontSize: 13, color: Color(0xFF94A3B8)),
+                    Text(
+                      AppLocalizations.of(context).profileNoEventsSubtitle,
+                      style: const TextStyle(fontSize: 13, color: Color(0xFF94A3B8)),
                     ),
                   ],
                 ),
@@ -1867,18 +1869,18 @@ class _TabMensajesFirebase extends StatelessWidget {
                   children: [
                     Icon(Icons.campaign_outlined, size: 48, color: _tealLight),
                     const SizedBox(height: 12),
-                    const Text(
-                      'Sin mensajes aún',
-                      style: TextStyle(
+                    Text(
+                      AppLocalizations.of(context).profileNoMessagesTitle,
+                      style: const TextStyle(
                         fontSize: 15,
                         color: _tealDark,
                         fontWeight: FontWeight.w600,
                       ),
                     ),
                     const SizedBox(height: 6),
-                    const Text(
-                      'Compartí tips, preguntas o experiencias',
-                      style: TextStyle(fontSize: 13, color: Color(0xFF94A3B8)),
+                    Text(
+                      AppLocalizations.of(context).profileNoMessagesSubtitle,
+                      style: const TextStyle(fontSize: 13, color: Color(0xFF94A3B8)),
                     ),
                   ],
                 ),
@@ -1973,9 +1975,9 @@ class _EditButton extends StatelessWidget {
           borderRadius: BorderRadius.circular(20),
           border: Border.all(color: _tealLight),
         ),
-        child: const Text(
-          'Editar perfil',
-          style: TextStyle(
+        child: Text(
+          label,
+          style: const TextStyle(
             fontSize: 12,
             fontWeight: FontWeight.w600,
             color: _teal,
@@ -2251,9 +2253,9 @@ class _MensajeCard extends StatelessWidget {
                 color: Color(0xFF94A3B8),
               ),
               const SizedBox(width: 4),
-              const Text(
-                'Ver comentarios',
-                style: TextStyle(fontSize: 12, color: Color(0xFF94A3B8)),
+              Text(
+                AppLocalizations.of(context).profileViewComments,
+                style: const TextStyle(fontSize: 12, color: Color(0xFF94A3B8)),
               ),
             ],
           ),
@@ -2448,9 +2450,9 @@ class _FotoOptionsSheet extends StatelessWidget {
           // Usamos ListTile directo aquí — sin depender de _OptionTile externo
           ListTile(
             leading: const Icon(Icons.camera_alt_rounded, color: _teal),
-            title: const Text(
-              'Tomar foto',
-              style: TextStyle(
+            title: Text(
+              AppLocalizations.of(context).takePhoto,
+              style: const TextStyle(
                 fontSize: 15,
                 fontWeight: FontWeight.w500,
                 color: _tealDark,
@@ -2460,9 +2462,9 @@ class _FotoOptionsSheet extends StatelessWidget {
           ),
           ListTile(
             leading: const Icon(Icons.photo_library_rounded, color: _teal),
-            title: const Text(
-              'Elegir de galería',
-              style: TextStyle(
+            title: Text(
+              AppLocalizations.of(context).chooseFromGallery,
+              style: const TextStyle(
                 fontSize: 15,
                 fontWeight: FontWeight.w500,
                 color: _tealDark,
@@ -2476,9 +2478,9 @@ class _FotoOptionsSheet extends StatelessWidget {
                 Icons.delete_outline_rounded,
                 color: Colors.red,
               ),
-              title: const Text(
-                'Eliminar foto actual',
-                style: TextStyle(
+              title: Text(
+                AppLocalizations.of(context).deleteCurrentPhoto,
+                style: const TextStyle(
                   fontSize: 15,
                   fontWeight: FontWeight.w500,
                   color: Colors.red,
@@ -2514,9 +2516,9 @@ class _PortadaOptionsSheet extends StatelessWidget {
             ),
           ),
           const SizedBox(height: 20),
-          const Text(
-            'Editar portada',
-            style: TextStyle(
+          Text(
+            AppLocalizations.of(context).profileEditCover,
+            style: const TextStyle(
               fontSize: 16,
               fontWeight: FontWeight.w700,
               color: _tealDark,
@@ -2525,9 +2527,9 @@ class _PortadaOptionsSheet extends StatelessWidget {
           const SizedBox(height: 12),
           ListTile(
             leading: const Icon(Icons.camera_alt_rounded, color: _teal),
-            title: const Text(
-              'Tomar foto',
-              style: TextStyle(
+            title: Text(
+              AppLocalizations.of(context).takePhoto,
+              style: const TextStyle(
                 fontSize: 15,
                 fontWeight: FontWeight.w500,
                 color: _tealDark,
@@ -2537,9 +2539,9 @@ class _PortadaOptionsSheet extends StatelessWidget {
           ),
           ListTile(
             leading: const Icon(Icons.photo_library_rounded, color: _teal),
-            title: const Text(
-              'Elegir de galería',
-              style: TextStyle(
+            title: Text(
+              AppLocalizations.of(context).chooseFromGallery,
+              style: const TextStyle(
                 fontSize: 15,
                 fontWeight: FontWeight.w500,
                 color: _tealDark,
@@ -2557,6 +2559,7 @@ class _ConfiguracionSheet extends StatelessWidget {
   const _ConfiguracionSheet();
   @override
   Widget build(BuildContext context) {
+    final l10n = AppLocalizations.of(context);
     return DraggableScrollableSheet(
       initialChildSize: 0.75,
       maxChildSize: 0.95,
@@ -2578,9 +2581,9 @@ class _ConfiguracionSheet extends StatelessWidget {
               ),
             ),
             const SizedBox(height: 16),
-            const Text(
-              'Configuración',
-              style: TextStyle(
+            Text(
+              l10n.settings,
+              style: const TextStyle(
                 fontSize: 18,
                 fontWeight: FontWeight.w800,
                 color: _tealDark,
@@ -2591,49 +2594,49 @@ class _ConfiguracionSheet extends StatelessWidget {
               child: ListView(
                 controller: controller,
                 children: [
-                  _SettingGroup('Cuenta', [
+                  _SettingGroup(l10n.settingsAccount, [
                     _SettingItem(
                       Icons.notifications_outlined,
-                      'Notificaciones',
+                      l10n.settingsNotifications,
                       onTap: () {},
                     ),
                     _SettingItem(
                       Icons.vpn_key_outlined,
-                      'Contraseña',
+                      l10n.settingsPassword,
                       onTap: () {},
                     ),
                     _SettingItem(
                       Icons.language_outlined,
-                      'Idioma',
-                      onTap: () {},
+                      l10n.settingsLanguage,
+                      onTap: () => showLanguagePicker(context),
                     ),
                     _SettingItem(
                       Icons.devices_outlined,
-                      'Dispositivos activos',
+                      l10n.settingsActiveDevices,
                       onTap: () {},
                     ),
                   ]),
-                  _SettingGroup('Privacidad', [
+                  _SettingGroup(l10n.settingsPrivacy, [
                     _SettingItem(
                       Icons.lock_outline_rounded,
-                      'Privacidad de la cuenta',
+                      l10n.settingsAccountPrivacy,
                       onTap: () {},
                     ),
                     _SettingItem(
                       Icons.block_outlined,
-                      'Usuarios bloqueados',
+                      l10n.settingsBlockedUsers,
                       onTap: () {},
                     ),
                   ]),
-                  _SettingGroup('Soporte', [
+                  _SettingGroup(l10n.settingsSupport, [
                     _SettingItem(
                       Icons.help_outline_rounded,
-                      'Centro de ayuda',
+                      l10n.settingsHelpCenter,
                       onTap: () {},
                     ),
                     _SettingItem(
                       Icons.info_outline_rounded,
-                      'Acerca de Nomad',
+                      l10n.settingsAbout,
                       onTap: () {},
                     ),
                   ]),
@@ -2651,9 +2654,9 @@ class _ConfiguracionSheet extends StatelessWidget {
                         ).pushNamedAndRemoveUntil('/', (_) => false);
                       },
                       icon: const Icon(Icons.logout_rounded, color: Colors.red),
-                      label: const Text(
-                        'Cerrar sesión',
-                        style: TextStyle(
+                      label: Text(
+                        l10n.logout,
+                        style: const TextStyle(
                           color: Colors.red,
                           fontWeight: FontWeight.w600,
                         ),
@@ -2756,7 +2759,7 @@ class _BioExpandableState extends State<_BioExpandable> {
             child: Padding(
               padding: const EdgeInsets.only(top: 4),
               child: Text(
-                expanded ? "ver menos" : "ver más",
+                expanded ? AppLocalizations.of(context).seeLess : AppLocalizations.of(context).seeMore,
                 style: const TextStyle(
                   fontSize: 12,
                   color: _teal,

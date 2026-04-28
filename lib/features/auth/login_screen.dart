@@ -1,7 +1,9 @@
 import 'dart:ui';
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
+import '../../l10n/app_localizations.dart';
 
+import '../../core/widgets/language_picker_sheet.dart';
 import '../../services/auth_service.dart';
 import '../auth/terms_acceptance_screen.dart';
 import '../auth/phone_login_screen.dart';
@@ -76,7 +78,6 @@ class _LoginScreenState extends State<LoginScreen>
       if (!mounted) return;
       setState(() => _isLoading = false);
 
-      // Error explícito devuelto por el servicio
       if (result.error != null) {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
@@ -88,7 +89,6 @@ class _LoginScreenState extends State<LoginScreen>
         return;
       }
 
-      // El usuario canceló el selector de cuentas
       if (result.user == null) return;
 
       Navigator.pushReplacement(
@@ -100,7 +100,7 @@ class _LoginScreenState extends State<LoginScreen>
       setState(() => _isLoading = false);
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
-          content: Text('No se pudo iniciar sesión. Intentá de nuevo.'),
+          content: Text(AppLocalizations.of(context).loginError),
           backgroundColor: Colors.redAccent,
           behavior: SnackBarBehavior.floating,
         ),
@@ -121,8 +121,10 @@ class _LoginScreenState extends State<LoginScreen>
 
   @override
   Widget build(BuildContext context) {
+    final l10n = AppLocalizations.of(context);
+
     return Scaffold(
-      resizeToAvoidBottomInset: false, // ← Fix principal
+      resizeToAvoidBottomInset: false,
       body: Stack(
         children: [
           /// BACKGROUND
@@ -131,7 +133,7 @@ class _LoginScreenState extends State<LoginScreen>
             builder: (context, child) {
               return Transform.scale(
                 scale: _backgroundZoom.value,
-                alignment: Alignment.center, // ← Evita que el zoom se desplace
+                alignment: Alignment.center,
                 child: Stack(
                   children: [
                     Positioned.fill(
@@ -166,7 +168,37 @@ class _LoginScreenState extends State<LoginScreen>
             ),
           ),
 
-          /// LOGO — posición fija, no depende del viewport
+          /// BOTÓN DE IDIOMA — esquina superior derecha
+          Positioned(
+            top: 52,
+            right: 20,
+            child: FadeTransition(
+              opacity: _logoFade,
+              child: GestureDetector(
+                onTap: () => showLanguagePicker(context),
+                child: Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+                  decoration: BoxDecoration(
+                    color: Colors.black.withValues(alpha: 0.35),
+                    borderRadius: BorderRadius.circular(20),
+                    border: Border.all(
+                      color: Colors.white.withValues(alpha: 0.3),
+                    ),
+                  ),
+                  child: const Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      Icon(Icons.language_outlined, color: Colors.white, size: 16),
+                      SizedBox(width: 4),
+                      Icon(Icons.keyboard_arrow_down_rounded, color: Colors.white, size: 16),
+                    ],
+                  ),
+                ),
+              ),
+            ),
+          ),
+
+          /// LOGO
           Positioned(
             top: 80,
             left: 30,
@@ -187,7 +219,7 @@ class _LoginScreenState extends State<LoginScreen>
                   ),
                   SizedBox(height: 10),
                   Text(
-                    "Siéntete más cerca de tu casa",
+                    l10n.appTagline,
                     textAlign: TextAlign.center,
                     style: GoogleFonts.pacifico(
                       fontSize: 20,
@@ -199,7 +231,7 @@ class _LoginScreenState extends State<LoginScreen>
             ),
           ),
 
-          /// BOTONES — anclados al fondo, posición fija
+          /// BOTONES
           Positioned(
             bottom: 40,
             left: 30,
@@ -216,19 +248,19 @@ class _LoginScreenState extends State<LoginScreen>
                         children: [
                           _socialButton(
                             "assets/icons/google.png",
-                            "Continuar con Google",
+                            l10n.continueWithGoogle,
                             _loginGoogle,
                           ),
                           const SizedBox(height: 12),
                           _socialButton(
                             "assets/icons/apple.png",
-                            "Continuar con Apple",
+                            l10n.continueWithApple,
                             () {},
                           ),
                           const SizedBox(height: 12),
                           _socialButton(
                             "assets/icons/phone.png",
-                            "Iniciar sesión con número de celular",
+                            l10n.continueWithPhone,
                             _loginTelefono,
                           ),
                           const SizedBox(height: 12),
@@ -236,16 +268,16 @@ class _LoginScreenState extends State<LoginScreen>
                             onTap: () =>
                                 Navigator.pushNamed(context, '/registro'),
                             child: RichText(
-                              text: const TextSpan(
-                                style: TextStyle(fontSize: 14),
+                              text: TextSpan(
+                                style: const TextStyle(fontSize: 14),
                                 children: [
                                   TextSpan(
-                                    text: '¿No tenés cuenta? ',
-                                    style: TextStyle(color: Colors.white54),
+                                    text: l10n.noAccount,
+                                    style: const TextStyle(color: Colors.white54),
                                   ),
                                   TextSpan(
-                                    text: 'Registrate aquí',
-                                    style: TextStyle(
+                                    text: l10n.registerHere,
+                                    style: const TextStyle(
                                       color: Colors.white,
                                       fontWeight: FontWeight.w600,
                                       decoration: TextDecoration.underline,
@@ -288,12 +320,15 @@ class _LoginScreenState extends State<LoginScreen>
               children: [
                 Image.asset(iconPath, height: 22),
                 const SizedBox(width: 12),
-                Text(
-                  text,
-                  style: const TextStyle(
-                    color: Colors.white,
-                    fontWeight: FontWeight.w500,
-                    fontSize: 15,
+                Flexible(
+                  child: Text(
+                    text,
+                    overflow: TextOverflow.ellipsis,
+                    style: const TextStyle(
+                      color: Colors.white,
+                      fontWeight: FontWeight.w500,
+                      fontSize: 15,
+                    ),
                   ),
                 ),
               ],

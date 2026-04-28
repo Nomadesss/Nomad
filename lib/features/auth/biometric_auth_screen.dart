@@ -5,6 +5,7 @@ import 'package:local_auth/local_auth.dart';
 
 import '../../services/biometric_service.dart';
 import '../auth/login_screen.dart';
+import '../../l10n/app_localizations.dart';
 
 /// Pantalla que se muestra en logins siguientes cuando el usuario
 /// ya tiene biometría activada. Destino final se pasa como parámetro.
@@ -121,6 +122,8 @@ class _BiometricAuthScreenState extends State<BiometricAuthScreen>
 
   @override
   Widget build(BuildContext context) {
+    final l10n = AppLocalizations.of(context);
+
     return Scaffold(
       backgroundColor: const Color(0xFF0F0F14),
       body: Stack(
@@ -208,7 +211,7 @@ class _BiometricAuthScreenState extends State<BiometricAuthScreen>
                     const SizedBox(height: 32),
 
                     Text(
-                      _failed ? 'No se pudo verificar' : 'Bienvenido de nuevo',
+                      _failed ? l10n.biometricAuthErrorTitle : l10n.biometricAuthWelcome,
                       style: const TextStyle(
                         fontSize: 24,
                         fontWeight: FontWeight.bold,
@@ -221,8 +224,8 @@ class _BiometricAuthScreenState extends State<BiometricAuthScreen>
 
                     Text(
                       _failed
-                          ? 'La verificación falló. Intentá de nuevo o usá otra opción.'
-                          : 'Confirmá tu identidad con $_biometricNombre para ingresar',
+                          ? l10n.biometricAuthErrorMessage
+                          : l10n.biometricAuthInstruction(_biometricNombre),
                       textAlign: TextAlign.center,
                       style: TextStyle(
                         fontSize: 14,
@@ -258,8 +261,8 @@ class _BiometricAuthScreenState extends State<BiometricAuthScreen>
                               onPressed: _autenticar,
                               child: Text(
                                 _failed
-                                    ? 'Intentar de nuevo'
-                                    : 'Usar $_biometricNombre',
+                                    ? l10n.biometricAuthRetry
+                                    : l10n.biometricAuthUse(_biometricNombre),
                                 style: const TextStyle(
                                   fontSize: 16,
                                   fontWeight: FontWeight.w600,
@@ -274,7 +277,7 @@ class _BiometricAuthScreenState extends State<BiometricAuthScreen>
                     GestureDetector(
                       onTap: _cerrarSesion,
                       child: Text(
-                        'Usar otra cuenta',
+                        l10n.biometricAuthOtherAccount,
                         style: TextStyle(
                           fontSize: 14,
                           color: Colors.white.withValues(alpha: 0.4),

@@ -5,6 +5,7 @@ import 'package:local_auth/local_auth.dart';
 
 import '../../services/biometric_service.dart';
 import '../auth/terms_acceptance_screen.dart';
+import '../../l10n/app_localizations.dart';
 
 class BiometricSetupScreen extends StatefulWidget {
   const BiometricSetupScreen({super.key});
@@ -125,6 +126,8 @@ class _BiometricSetupScreenState extends State<BiometricSetupScreen>
 
   @override
   Widget build(BuildContext context) {
+    final l10n = AppLocalizations.of(context);
+
     return Scaffold(
       backgroundColor: const Color(0xFF0F0F14),
       body: Stack(
@@ -205,7 +208,7 @@ class _BiometricSetupScreenState extends State<BiometricSetupScreen>
                       const SizedBox(height: 32),
 
                       Text(
-                        'Activar $_biometricNombre',
+                        l10n.biometricSetupTitle(_biometricNombre),
                         style: const TextStyle(
                           fontSize: 26,
                           fontWeight: FontWeight.bold,
@@ -217,7 +220,7 @@ class _BiometricSetupScreenState extends State<BiometricSetupScreen>
                       const SizedBox(height: 12),
 
                       Text(
-                        'Hacé tus próximos ingresos más rápidos y seguros. Solo necesitás tu $_biometricNombre para verificar tu identidad.',
+                        l10n.biometricSetupDescription(_biometricNombre),
                         textAlign: TextAlign.center,
                         style: TextStyle(
                           fontSize: 15,
@@ -231,20 +234,20 @@ class _BiometricSetupScreenState extends State<BiometricSetupScreen>
                       // Beneficios
                       _beneficioItem(
                         '⚡',
-                        'Acceso instantáneo',
-                        'Sin contraseñas, sin esperas',
+                        l10n.biometricSetupBenefit1Title,
+                        l10n.biometricSetupBenefit1Desc,
                       ),
                       const SizedBox(height: 12),
                       _beneficioItem(
                         '🔒',
-                        'Más seguro',
-                        'Tu identidad no viaja por internet',
+                        l10n.biometricSetupBenefit2Title,
+                        l10n.biometricSetupBenefit2Desc,
                       ),
                       const SizedBox(height: 12),
                       _beneficioItem(
                         '📴',
-                        'Funciona offline',
-                        'No necesitás señal ni SMS',
+                        l10n.biometricSetupBenefit3Title,
+                        l10n.biometricSetupBenefit3Desc,
                       ),
 
                       const Spacer(),
@@ -271,7 +274,7 @@ class _BiometricSetupScreenState extends State<BiometricSetupScreen>
                                 ),
                                 onPressed: _activar,
                                 child: Text(
-                                  'Activar $_biometricNombre',
+                                  l10n.biometricSetupActivate(_biometricNombre),
                                   style: const TextStyle(
                                     fontSize: 16,
                                     fontWeight: FontWeight.w600,
@@ -286,7 +289,7 @@ class _BiometricSetupScreenState extends State<BiometricSetupScreen>
                       GestureDetector(
                         onTap: _isLoading ? null : _saltar,
                         child: Text(
-                          'Ahora no',
+                          l10n.biometricSetupSkip,
                           style: TextStyle(
                             fontSize: 14,
                             color: Colors.white.withValues(alpha: 0.45),

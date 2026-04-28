@@ -7,6 +7,7 @@ import 'package:firebase_auth/firebase_auth.dart';
 import '../profile/profile_setup_screen.dart';
 import '../legal/terms_screen.dart';
 import '../legal/privacy_screen.dart';
+import '../../l10n/app_localizations.dart';
 
 class TermsAcceptanceScreen extends StatefulWidget {
   const TermsAcceptanceScreen({super.key});
@@ -88,6 +89,8 @@ class _TermsAcceptanceScreenState extends State<TermsAcceptanceScreen>
 
   @override
   Widget build(BuildContext context) {
+    final l10n = AppLocalizations.of(context);
+
     return Scaffold(
       body: Stack(
         children: [
@@ -113,9 +116,9 @@ class _TermsAcceptanceScreenState extends State<TermsAcceptanceScreen>
                   const SizedBox(),
 
                   /// LOGO
-                  const Column(
+                  Column(
                     children: [
-                      Hero(
+                      const Hero(
                         tag: "logo",
                         child: Text(
                           "Nomad",
@@ -127,11 +130,11 @@ class _TermsAcceptanceScreenState extends State<TermsAcceptanceScreen>
                         ),
                       ),
 
-                      SizedBox(height: 10),
+                      const SizedBox(height: 10),
 
                       Text(
-                        "Antes de comenzar",
-                        style: TextStyle(color: Colors.white70, fontSize: 16),
+                        l10n.termsTitle,
+                        style: const TextStyle(color: Colors.white70, fontSize: 16),
                       ),
                     ],
                   ),
@@ -167,9 +170,9 @@ class _TermsAcceptanceScreenState extends State<TermsAcceptanceScreen>
 
                                     const SizedBox(height: 16),
 
-                                    const Text(
-                                      "Aceptar términos",
-                                      style: TextStyle(
+                                    Text(
+                                      l10n.termsCardTitle,
+                                      style: const TextStyle(
                                         fontSize: 22,
                                         fontWeight: FontWeight.bold,
                                         color: Colors.white,
@@ -178,10 +181,10 @@ class _TermsAcceptanceScreenState extends State<TermsAcceptanceScreen>
 
                                     const SizedBox(height: 10),
 
-                                    const Text(
-                                      "Para usar Nomad necesitamos que aceptes nuestros términos y política de privacidad.",
+                                    Text(
+                                      l10n.termsCardDescription,
                                       textAlign: TextAlign.center,
-                                      style: TextStyle(
+                                      style: const TextStyle(
                                         color: Colors.white70,
                                         fontSize: 14,
                                       ),
@@ -213,12 +216,12 @@ class _TermsAcceptanceScreenState extends State<TermsAcceptanceScreen>
                                                 fontSize: 14,
                                               ),
                                               children: [
-                                                const TextSpan(
-                                                  text: "Acepto los ",
+                                                TextSpan(
+                                                  text: l10n.termsAcceptPrefix,
                                                 ),
 
                                                 TextSpan(
-                                                  text: "Términos de uso",
+                                                  text: l10n.termsOfUse,
                                                   style: const TextStyle(
                                                     fontWeight: FontWeight.bold,
                                                     decoration: TextDecoration
@@ -229,11 +232,10 @@ class _TermsAcceptanceScreenState extends State<TermsAcceptanceScreen>
                                                         ..onTap = _openTerms,
                                                 ),
 
-                                                const TextSpan(text: " y la "),
+                                                TextSpan(text: l10n.termsAnd),
 
                                                 TextSpan(
-                                                  text:
-                                                      "Política de privacidad",
+                                                  text: l10n.termsPrivacyPolicy,
                                                   style: const TextStyle(
                                                     fontWeight: FontWeight.bold,
                                                     decoration: TextDecoration
@@ -272,9 +274,9 @@ class _TermsAcceptanceScreenState extends State<TermsAcceptanceScreen>
                                   ),
                                 ),
                                 onPressed: accepted ? _acceptTerms : null,
-                                child: const Text(
-                                  "Aceptar y continuar",
-                                  style: TextStyle(
+                                child: Text(
+                                  l10n.termsAcceptButton,
+                                  style: const TextStyle(
                                     fontSize: 16,
                                     color: Colors.white,
                                   ),
@@ -285,10 +287,10 @@ class _TermsAcceptanceScreenState extends State<TermsAcceptanceScreen>
 
                           const SizedBox(height: 12),
 
-                          const Text(
-                            "Puedes revisar estos documentos más tarde en configuración.",
+                          Text(
+                            l10n.termsFooter,
                             textAlign: TextAlign.center,
-                            style: TextStyle(
+                            style: const TextStyle(
                               color: Colors.white60,
                               fontSize: 12,
                             ),

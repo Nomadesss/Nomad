@@ -3,9 +3,11 @@ import 'package:firebase_core/firebase_core.dart';
 import 'firebase_options.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
-import 'package:flutter_localizations/flutter_localizations.dart';
+import 'l10n/app_localizations.dart';
+import 'package:provider/provider.dart';
 import 'app_theme.dart';
 import 'package:flutter/services.dart';
+import 'core/locale_provider.dart';
 import 'features/auth/login_screen.dart';
 import 'features/auth/registration_screen.dart';
 import 'features/auth/terms_acceptance_screen.dart';
@@ -22,30 +24,48 @@ void main() async {
   WidgetsFlutterBinding.ensureInitialized();
   await Firebase.initializeApp(options: DefaultFirebaseOptions.currentPlatform);
   await SystemChrome.setPreferredOrientations([DeviceOrientation.portraitUp]);
-  runApp(const NomadApp());
+  final localeProvider = await LocaleProvider.create();
+  runApp(NomadApp(localeProvider: localeProvider));
 }
 
 class NomadApp extends StatelessWidget {
-  const NomadApp({super.key});
+  final LocaleProvider localeProvider;
+  const NomadApp({super.key, required this.localeProvider});
 
   @override
   Widget build(BuildContext context) {
-    return MaterialApp(
-      title: 'Nomad',
-      debugShowCheckedModeBanner: false,
-      theme: NomadTheme.light,
-      localizationsDelegates: GlobalMaterialLocalizations.delegates,
-      supportedLocales: const [Locale('es', 'AR')],
-      home: const AuthGate(),
-      routes: {
-        '/login': (context) => const LoginScreen(),
-        '/terms': (context) => const TermsAcceptanceScreen(),
-        '/profile': (context) => const PerfilPropio(),
-        '/feed': (context) => const FeedScreen(),
-        '/registro': (context) => const RegistrationScreen(),
-        '/map': (context) => const MapScreen(),
-        '/search': (context) => const SearchScreen(),
-      },
+    return ChangeNotifierProvider.value(
+      value: localeProvider,
+      child: Consumer<LocaleProvider>(
+        builder: (context, locale, _) => MaterialApp(
+          title: 'Nomad',
+          debugShowCheckedModeBanner: false,
+          theme: NomadTheme.light,
+          locale: locale.locale,
+          supportedLocales: const [
+            Locale('es'),
+            Locale('en'),
+            Locale('pt'),
+            Locale('fr'),
+            Locale('de'),
+            Locale('it'),
+            Locale('tr'),
+            Locale('ru'),
+            Locale('hi'),
+          ],
+          localizationsDelegates: AppLocalizations.localizationsDelegates,
+          home: const AuthGate(),
+          routes: {
+            '/login': (context) => const LoginScreen(),
+            '/terms': (context) => const TermsAcceptanceScreen(),
+            '/profile': (context) => const PerfilPropio(),
+            '/feed': (context) => const FeedScreen(),
+            '/registro': (context) => const RegistrationScreen(),
+            '/map': (context) => const MapScreen(),
+            '/search': (context) => const SearchScreen(),
+          },
+        ),
+      ),
     );
   }
 }
@@ -63,7 +83,6 @@ class AuthGate extends StatelessWidget {
 
     // ── 1. No aceptó términos ─────────────────────────────────
     if (!doc.exists || data?['acceptedTerms'] != true) {
-      // Antes de ir a términos, ver si hay que ofrecer biometría
       final biometricAvailable = await BiometricService.isAvailable();
       final isFirstTime = await BiometricService.isFirstTimeForUser(user.uid);
 
@@ -82,14 +101,12 @@ class AuthGate extends StatelessWidget {
     }
 
     // ── 3. Usuario completo ───────────────────────────────────
-    // Verificar si tiene biometría activa en este dispositivo
     final biometricEnabled = await BiometricService.isEnabledForUser(user.uid);
 
     if (biometricEnabled) {
       return BiometricAuthScreen(destination: const FeedScreen());
     }
 
-    // Si nunca se le ofreció biometría (ej. usuario viejo), ofrecerla ahora
     final biometricAvailable = await BiometricService.isAvailable();
     final isFirstTime = await BiometricService.isFirstTimeForUser(user.uid);
 
@@ -105,7 +122,6 @@ class AuthGate extends StatelessWidget {
     return StreamBuilder<User?>(
       stream: FirebaseAuth.instance.authStateChanges(),
       builder: (context, snapshot) {
-        // Cargando
         if (snapshot.connectionState == ConnectionState.waiting) {
           return const Scaffold(
             backgroundColor: Color(0xFF0F0F14),
@@ -115,12 +131,10 @@ class AuthGate extends StatelessWidget {
           );
         }
 
-        // No logueado
         if (!snapshot.hasData) {
           return const LoginScreen();
         }
 
-        // Logueado — resolver pantalla
         return FutureBuilder<Widget>(
           future: _resolveScreen(snapshot.data!),
           builder: (context, screen) {

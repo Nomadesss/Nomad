@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
 import '../../services/auth_service.dart';
 import '../auth/terms_acceptance_screen.dart';
+import '../../l10n/app_localizations.dart';
 
 class RegistrationScreen extends StatefulWidget {
   const RegistrationScreen({super.key});
@@ -81,37 +82,37 @@ class _RegistrationScreenState extends State<RegistrationScreen>
 
   // ── Validaciones puras (sin side effects) ─────────────────────
 
-  String? _checkNombres(String v) {
-    if (v.trim().isEmpty) return 'Ingresá tu nombre';
-    if (v.trim().length < 2) return 'Mínimo 2 caracteres';
+  String? _checkNombres(String v, AppLocalizations l10n) {
+    if (v.trim().isEmpty) return l10n.regErrorFirstName;
+    if (v.trim().length < 2) return l10n.regErrorFirstNameMin;
     return null;
   }
 
-  String? _checkApellidos(String v) {
-    if (v.trim().isEmpty) return 'Ingresá tu apellido';
-    if (v.trim().length < 2) return 'Mínimo 2 caracteres';
+  String? _checkApellidos(String v, AppLocalizations l10n) {
+    if (v.trim().isEmpty) return l10n.regErrorLastName;
+    if (v.trim().length < 2) return l10n.regErrorFirstNameMin;
     return null;
   }
 
-  String? _checkEmail(String v) {
-    if (v.trim().isEmpty) return 'Ingresá tu email';
+  String? _checkEmail(String v, AppLocalizations l10n) {
+    if (v.trim().isEmpty) return l10n.regErrorEmail;
     final emailRegex = RegExp(r'^[^@\s]+@[^@\s]+\.[^@\s]+$');
-    if (!emailRegex.hasMatch(v.trim())) return 'Email inválido';
+    if (!emailRegex.hasMatch(v.trim())) return l10n.regErrorEmailInvalid;
     return null;
   }
 
-  String? _checkPassword(String v) {
-    if (v.isEmpty) return 'Ingresá una contraseña';
-    if (v.length < 8) return 'Mínimo 8 caracteres';
-    if (!RegExp(r'[A-Z]').hasMatch(v)) return 'Debe incluir al menos una mayúscula';
+  String? _checkPassword(String v, AppLocalizations l10n) {
+    if (v.isEmpty) return l10n.regErrorPassword;
+    if (v.length < 8) return l10n.regErrorPasswordMin;
+    if (!RegExp(r'[A-Z]').hasMatch(v)) return l10n.regErrorPasswordUppercase;
     if (!RegExp(r'[!@#\$%^&*(),.?":{}|<>_\-+=\[\]\\\/]').hasMatch(v))
-      return 'Debe incluir al menos un símbolo';
+      return l10n.regErrorPasswordSymbol;
     return null;
   }
 
-  String? _checkConfirmPassword(String v) {
-    if (v.isEmpty) return 'Confirmá tu contraseña';
-    if (v != _passwordController.text) return 'Las contraseñas no coinciden';
+  String? _checkConfirmPassword(String v, AppLocalizations l10n) {
+    if (v.isEmpty) return l10n.regErrorConfirmPassword;
+    if (v != _passwordController.text) return l10n.regErrorPasswordMismatch;
     return null;
   }
 
@@ -125,7 +126,7 @@ class _RegistrationScreenState extends State<RegistrationScreen>
 
   // ── Validación al enviar (marca todos como tocados) ───────────
 
-  bool _submitValidate() {
+  bool _submitValidate(AppLocalizations l10n) {
     setState(() {
       _touchedNombres         = true;
       _touchedApellidos       = true;
@@ -133,17 +134,18 @@ class _RegistrationScreenState extends State<RegistrationScreen>
       _touchedPassword        = true;
       _touchedConfirmPassword = true;
     });
-    return _checkNombres(_nombresController.text)         == null &&
-        _checkApellidos(_apellidosController.text)        == null &&
-        _checkEmail(_emailController.text)                == null &&
-        _checkPassword(_passwordController.text)          == null &&
-        _checkConfirmPassword(_confirmPasswordController.text) == null &&
+    return _checkNombres(_nombresController.text, l10n)         == null &&
+        _checkApellidos(_apellidosController.text, l10n)        == null &&
+        _checkEmail(_emailController.text, l10n)                == null &&
+        _checkPassword(_passwordController.text, l10n)          == null &&
+        _checkConfirmPassword(_confirmPasswordController.text, l10n) == null &&
         _fechaNacimiento != null;
   }
 
   // ── Selector de fecha ─────────────────────────────────────────
 
   Future<void> _pickFecha() async {
+    final l10n  = AppLocalizations.of(context);
     final hoy    = DateTime.now();
     final minAge = DateTime(hoy.year - 100, hoy.month, hoy.day);
     final maxAge = DateTime(hoy.year - 13,  hoy.month, hoy.day);
@@ -154,9 +156,9 @@ class _RegistrationScreenState extends State<RegistrationScreen>
       firstDate:   minAge,
       lastDate:    maxAge,
       locale:      const Locale('es', 'AR'),
-      helpText:    'Fecha de nacimiento',
-      cancelText:  'Cancelar',
-      confirmText: 'Confirmar',
+      helpText:    l10n.regBirthdateLabel,
+      cancelText:  l10n.cancelButton,
+      confirmText: l10n.regDateConfirm,
       builder: (context, child) => Theme(
         data: Theme.of(context).copyWith(
           colorScheme: const ColorScheme.dark(
@@ -180,26 +182,14 @@ class _RegistrationScreenState extends State<RegistrationScreen>
   }
 
   // ── Registro ──────────────────────────────────────────────────
-  //
-  // FIX 1: registrarConEmail ahora devuelve ({UserModel? user, String? error})
-  //        no un String?. Hay que desestructurar el record.
-  //
-  // FIX 2: gdprAceptadoEn es requerido por GDPR, pero en este flujo
-  //        el usuario todavía no vio los términos — los acepta en la
-  //        siguiente pantalla (TermsAcceptanceScreen).
-  //        Solución: registrarConEmail recibe gdprAceptadoEn como opcional
-  //        cuando se llama desde registro (los términos se aceptan después).
-  //        TermsAcceptanceScreen llama a aceptarTerminos() con el timestamp real.
-  //
-  // IMPORTANTE: si tu TermsAcceptanceScreen ya llama a aceptarTerminos(),
-  // este flujo es correcto. Si no lo hace todavía, hay que agregarlo allí.
 
   Future<void> _registrar() async {
-    if (!_submitValidate()) {
+    final l10n = AppLocalizations.of(context);
+    if (!_submitValidate(l10n)) {
       if (_fechaNacimiento == null) {
         ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(
-            content:         Text('Seleccioná tu fecha de nacimiento'),
+          SnackBar(
+            content:         Text(l10n.regErrorSelectBirthdate),
             backgroundColor: Colors.redAccent,
           ),
         );
@@ -209,27 +199,18 @@ class _RegistrationScreenState extends State<RegistrationScreen>
 
     setState(() => _isLoading = true);
 
-    // FIX 1 + FIX 2: desestructurar el record y pasar gdprAceptadoEn.
-    // El timestamp se registra ahora — cuando el usuario toca "Crear mi cuenta"
-    // es el momento en que inicia el proceso de aceptación.
-    // TermsAcceptanceScreen lo confirma con aceptarTerminos().
     final result = await AuthService().registrarConEmail(
       nombres:         _nombresController.text.trim(),
       apellidos:       _apellidosController.text.trim(),
       fechaNacimiento: _fechaNacimiento!,
       email:           _emailController.text.trim(),
       password:        _passwordController.text,
-      // GDPR: timestamp del momento en que el usuario inició el registro.
-      // Se sobreescribe con el timestamp real cuando acepta los términos
-      // en TermsAcceptanceScreen vía AuthService().aceptarTerminos().
       gdprAceptadoEn:  DateTime.now(),
     );
 
     if (!mounted) return;
     setState(() => _isLoading = false);
 
-    // FIX 1: result es ({UserModel? user, String? error}), no String?.
-    // Extraemos el error con .error
     if (result.error != null) {
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
@@ -241,9 +222,6 @@ class _RegistrationScreenState extends State<RegistrationScreen>
       return;
     }
 
-    // Todo ok → navegar a términos y condiciones.
-    // TermsAcceptanceScreen debe llamar a AuthService().aceptarTerminos()
-    // con el UID del usuario cuando el usuario efectivamente acepta.
     Navigator.pushReplacement(
       context,
       MaterialPageRoute(builder: (_) => const TermsAcceptanceScreen()),
@@ -254,21 +232,23 @@ class _RegistrationScreenState extends State<RegistrationScreen>
 
   @override
   Widget build(BuildContext context) {
+    final l10n = AppLocalizations.of(context);
+
     // Calcular errores solo para campos tocados
     final errorNombres = _touchedNombres
-        ? _checkNombres(_nombresController.text)
+        ? _checkNombres(_nombresController.text, l10n)
         : null;
     final errorApellidos = _touchedApellidos
-        ? _checkApellidos(_apellidosController.text)
+        ? _checkApellidos(_apellidosController.text, l10n)
         : null;
     final errorEmail = _touchedEmail
-        ? _checkEmail(_emailController.text)
+        ? _checkEmail(_emailController.text, l10n)
         : null;
     final errorPassword = _touchedPassword
-        ? _checkPassword(_passwordController.text)
+        ? _checkPassword(_passwordController.text, l10n)
         : null;
     final errorConfirmPassword = _touchedConfirmPassword
-        ? _checkConfirmPassword(_confirmPasswordController.text)
+        ? _checkConfirmPassword(_confirmPasswordController.text, l10n)
         : null;
 
     final isValidNombres   = errorNombres == null   && _nombresController.text.trim().length >= 2;
@@ -294,9 +274,9 @@ class _RegistrationScreenState extends State<RegistrationScreen>
 
                   // ── Header ───────────────────────────────────────────────
                   const SizedBox(height: 12),
-                  const Text(
-                    'Crear cuenta',
-                    style: TextStyle(
+                  Text(
+                    l10n.regTitle,
+                    style: const TextStyle(
                       color:      Colors.white,
                       fontSize:   28,
                       fontWeight: FontWeight.w700,
@@ -305,7 +285,7 @@ class _RegistrationScreenState extends State<RegistrationScreen>
                   ),
                   const SizedBox(height: 6),
                   Text(
-                    'Completá tus datos para unirte a Nomad',
+                    l10n.regSubtitle,
                     style: TextStyle(
                       color:    Colors.white.withValues(alpha: 0.5),
                       fontSize: 14,
@@ -316,8 +296,8 @@ class _RegistrationScreenState extends State<RegistrationScreen>
                   // ── Nombres ──────────────────────────────────────────────
                   _buildField(
                     controller:         _nombresController,
-                    label:              'Nombre/s',
-                    hint:               'Tu nombre',
+                    label:              l10n.regFirstNameLabel,
+                    hint:               l10n.regFirstNameHint,
                     icon:               Icons.person_outline_rounded,
                     error:              errorNombres,
                     isValid:            isValidNombres,
@@ -329,8 +309,8 @@ class _RegistrationScreenState extends State<RegistrationScreen>
                   // ── Apellidos ────────────────────────────────────────────
                   _buildField(
                     controller:         _apellidosController,
-                    label:              'Apellido/s',
-                    hint:               'Tu apellido',
+                    label:              l10n.regLastNameLabel,
+                    hint:               l10n.regLastNameHint,
                     icon:               Icons.badge_outlined,
                     error:              errorApellidos,
                     isValid:            isValidApellidos,
@@ -341,7 +321,7 @@ class _RegistrationScreenState extends State<RegistrationScreen>
                   const SizedBox(height: 16),
 
                   // ── Fecha de nacimiento ──────────────────────────────────
-                  _buildLabel('Fecha de nacimiento'),
+                  _buildLabel(l10n.regBirthdateLabel),
                   const SizedBox(height: 8),
                   GestureDetector(
                     onTap: _pickFecha,
@@ -372,7 +352,7 @@ class _RegistrationScreenState extends State<RegistrationScreen>
                           Text(
                             _fechaNacimiento != null
                                 ? DateFormat('dd/MM/yyyy').format(_fechaNacimiento!)
-                                : 'Seleccioná tu fecha',
+                                : l10n.regBirthdatePlaceholder,
                             style: TextStyle(
                               color: _fechaNacimiento != null
                                   ? Colors.white
@@ -397,8 +377,8 @@ class _RegistrationScreenState extends State<RegistrationScreen>
                   // ── Email ────────────────────────────────────────────────
                   _buildField(
                     controller:   _emailController,
-                    label:        'Email',
-                    hint:         'tu@email.com',
+                    label:        l10n.regEmailLabel,
+                    hint:         l10n.regEmailHint,
                     icon:         Icons.email_outlined,
                     error:        errorEmail,
                     isValid:      isValidEmail,
@@ -410,8 +390,8 @@ class _RegistrationScreenState extends State<RegistrationScreen>
                   // ── Contraseña ───────────────────────────────────────────
                   _buildPasswordField(
                     controller:  _passwordController,
-                    label:       'Contraseña',
-                    hint:        'Mínimo 8 caracteres',
+                    label:       l10n.regPasswordLabel,
+                    hint:        l10n.regPasswordHint,
                     isVisible:   _showPassword,
                     onToggle:    () => setState(() => _showPassword = !_showPassword),
                     error:       errorPassword,
@@ -425,9 +405,9 @@ class _RegistrationScreenState extends State<RegistrationScreen>
                     spacing: 6,
                     runSpacing: 6,
                     children: [
-                      _reqChip('8 caracteres', _passwordController.text.length >= 8),
-                      _reqChip('Mayúscula',     RegExp(r'[A-Z]').hasMatch(_passwordController.text)),
-                      _reqChip('Símbolo',       RegExp(r'[!@#\$%^&*(),.?":{}|<>_\-+=\[\]\\\/]').hasMatch(_passwordController.text)),
+                      _reqChip(l10n.regReqLength,    _passwordController.text.length >= 8),
+                      _reqChip(l10n.regReqUppercase, RegExp(r'[A-Z]').hasMatch(_passwordController.text)),
+                      _reqChip(l10n.regReqSymbol,    RegExp(r'[!@#\$%^&*(),.?":{}|<>_\-+=\[\]\\\/]').hasMatch(_passwordController.text)),
                     ],
                   ),
                   const SizedBox(height: 16),
@@ -435,8 +415,8 @@ class _RegistrationScreenState extends State<RegistrationScreen>
                   // ── Confirmar contraseña ─────────────────────────────────
                   _buildPasswordField(
                     controller:       _confirmPasswordController,
-                    label:            'Confirmá tu contraseña',
-                    hint:             'Repetí la contraseña',
+                    label:            l10n.regConfirmPasswordLabel,
+                    hint:             l10n.regConfirmPasswordHint,
                     isVisible:        _showConfirmPassword,
                     onToggle:         () => setState(() => _showConfirmPassword = !_showConfirmPassword),
                     error:            errorConfirmPassword,
@@ -466,9 +446,9 @@ class _RegistrationScreenState extends State<RegistrationScreen>
                               elevation: 0,
                             ),
                             onPressed: _registrar,
-                            child: const Text(
-                              'Crear mi cuenta',
-                              style: TextStyle(
+                            child: Text(
+                              l10n.regCreateButton,
+                              style: const TextStyle(
                                 fontSize:      16,
                                 fontWeight:    FontWeight.w600,
                                 letterSpacing: 0.2,

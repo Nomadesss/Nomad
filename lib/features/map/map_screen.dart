@@ -7,6 +7,7 @@ import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:geolocator/geolocator.dart';
 import 'package:google_maps_flutter/google_maps_flutter.dart';
 
+import '../../l10n/app_localizations.dart';
 import '../feed/widgets/bottom_nav.dart';
 import '../profile/visitor_profile_screen.dart';
 
@@ -43,22 +44,22 @@ enum _PlaceCategory {
 }
 
 extension _PlaceCategoryExt on _PlaceCategory {
-  String get label {
+  String getLabel(AppLocalizations l10n) {
     switch (this) {
       case _PlaceCategory.migrantes:
-        return 'Migrantes';
+        return l10n.mapMigrants;
       case _PlaceCategory.consulados:
-        return 'Consulados';
+        return l10n.mapConsulates;
       case _PlaceCategory.restaurantes:
-        return 'Restaurantes';
+        return l10n.mapRestaurants;
       case _PlaceCategory.tiendas:
-        return 'Tiendas';
+        return l10n.mapShops;
       case _PlaceCategory.centrosCulturales:
-        return 'Cultural';
+        return l10n.mapCultural;
       case _PlaceCategory.ayuda:
-        return 'Ayuda';
+        return l10n.mapHelp;
       case _PlaceCategory.pasosFronterizos:
-        return 'Pasos';
+        return l10n.mapBorders;
     }
   }
 
@@ -1003,6 +1004,7 @@ class _MapScreenState extends State<MapScreen>
   // ── Chips de filtro ───────────────────────────────────────────────────────
 
   Widget _buildFilterChips() {
+    final l10n = AppLocalizations.of(context);
     return SizedBox(
       height: 40,
       child: ListView(
@@ -1036,7 +1038,7 @@ class _MapScreenState extends State<MapScreen>
                   Text(cat.emoji, style: const TextStyle(fontSize: 13)),
                   const SizedBox(width: 5),
                   Text(
-                    cat.label,
+                    cat.getLabel(l10n),
                     style: TextStyle(
                       fontSize: 12,
                       fontWeight: FontWeight.w700,

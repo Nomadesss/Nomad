@@ -13,6 +13,7 @@ import 'widgets/stories_bar.dart';
 import 'widgets/post_card.dart';
 import 'widgets/event_card.dart';
 import 'widgets/bottom_nav.dart';
+import '../../l10n/app_localizations.dart';
 
 class FeedScreen extends StatefulWidget {
   const FeedScreen({super.key});
@@ -188,6 +189,8 @@ class _FeedScreenState extends State<FeedScreen> {
 
   @override
   Widget build(BuildContext context) {
+    final l10n = AppLocalizations.of(context);
+
     final visibleCombined = _feedResult.combined.where((item) {
       if (item is PostModel) {
         return !_hiddenPostIds.contains(item.docId);
@@ -231,27 +234,27 @@ class _FeedScreenState extends State<FeedScreen> {
               ),
 
             if (!_isLoading && visibleCombined.isEmpty)
-              const SliverToBoxAdapter(
+              SliverToBoxAdapter(
                 child: Padding(
-                  padding: EdgeInsets.symmetric(vertical: 60, horizontal: 32),
+                  padding: const EdgeInsets.symmetric(vertical: 60, horizontal: 32),
                   child: Center(
                     child: Column(
                       children: [
-                        Text('✈️', style: TextStyle(fontSize: 40)),
-                        SizedBox(height: 12),
+                        const Text('✈️', style: TextStyle(fontSize: 40)),
+                        const SizedBox(height: 12),
                         Text(
-                          'Tu feed está vacío por ahora',
-                          style: TextStyle(
+                          l10n.feedEmptyTitle,
+                          style: const TextStyle(
                             fontSize: 16,
                             fontWeight: FontWeight.w500,
                             color: Color(0xFF134E4A),
                           ),
                         ),
-                        SizedBox(height: 6),
+                        const SizedBox(height: 6),
                         Text(
-                          'Seguí a otros nomads o activá\ntu ubicación para ver posts cercanos',
+                          l10n.feedEmptyMessage,
                           textAlign: TextAlign.center,
-                          style: TextStyle(
+                          style: const TextStyle(
                             fontSize: 13,
                             color: Color(0xFF6B7280),
                           ),

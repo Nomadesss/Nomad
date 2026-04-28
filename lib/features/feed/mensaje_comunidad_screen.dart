@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:phosphor_flutter/phosphor_flutter.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
+import '../../../l10n/app_localizations.dart';
 
 // ─────────────────────────────────────────────────────────────────────────────
 // MensajeComunidadScreen — publicar un aviso para toda la comunidad
@@ -22,12 +23,23 @@ class _MensajeComunidadScreenState extends State<MensajeComunidadScreen> {
   bool _enviando = false;
 
   static const _categorias = [
-    _Cat('Info', '📢', Color(0xFF0D9488)),
-    _Cat('Urgente', '🚨', Color(0xFFDC2626)),
+    _Cat('Info',     '📢', Color(0xFF0D9488)),
+    _Cat('Urgente',  '🚨', Color(0xFFDC2626)),
     _Cat('Pregunta', '❓', Color(0xFF7C3AED)),
-    _Cat('Oferta', '🎁', Color(0xFF059669)),
-    _Cat('Alerta', '⚠️', Color(0xFFD97706)),
+    _Cat('Oferta',   '🎁', Color(0xFF059669)),
+    _Cat('Alerta',   '⚠️', Color(0xFFD97706)),
   ];
+
+  static String _catLabel(AppLocalizations l10n, String nombre) {
+    switch (nombre) {
+      case 'Info':     return l10n.communityCatInfo;
+      case 'Urgente':  return l10n.communityCatUrgent;
+      case 'Pregunta': return l10n.communityCatQuestion;
+      case 'Oferta':   return l10n.communityCatOffer;
+      case 'Alerta':   return l10n.communityCatAlert;
+      default:         return nombre;
+    }
+  }
 
   _Cat get _catActual => _categorias.firstWhere((c) => c.nombre == _categoria);
 
@@ -39,8 +51,9 @@ class _MensajeComunidadScreenState extends State<MensajeComunidadScreen> {
   }
 
   Future<void> _enviar() async {
+    final l10n = AppLocalizations.of(context);
     if (_mensajeCtrl.text.trim().isEmpty) {
-      _snack('Escribí un mensaje para la comunidad');
+      _snack(l10n.communityMsgError);
       return;
     }
     setState(() => _enviando = true);
@@ -64,17 +77,18 @@ class _MensajeComunidadScreenState extends State<MensajeComunidadScreen> {
       });
 
       if (mounted) {
+        final l10n = AppLocalizations.of(context);
         Navigator.pop(context);
         ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(
-            content: Text('¡Mensaje enviado a la comunidad!'),
-            backgroundColor: Color(0xFF0D9488),
+          SnackBar(
+            content: Text(l10n.communitySuccessMsg),
+            backgroundColor: const Color(0xFF0D9488),
             behavior: SnackBarBehavior.floating,
           ),
         );
       }
     } catch (e) {
-      if (mounted) _snack('No se pudo enviar. Intentá de nuevo.');
+      if (mounted) _snack(AppLocalizations.of(context).communityErrorMsg);
     } finally {
       if (mounted) setState(() => _enviando = false);
     }
@@ -86,6 +100,7 @@ class _MensajeComunidadScreenState extends State<MensajeComunidadScreen> {
 
   @override
   Widget build(BuildContext context) {
+    final l10n = AppLocalizations.of(context);
     final cat = _catActual;
 
     return Scaffold(
@@ -97,9 +112,9 @@ class _MensajeComunidadScreenState extends State<MensajeComunidadScreen> {
           icon: const Icon(Icons.close, color: Colors.white),
           onPressed: () => Navigator.pop(context),
         ),
-        title: const Text(
-          'Mensaje a la comunidad',
-          style: TextStyle(
+        title: Text(
+          l10n.communityTitle,
+          style: const TextStyle(
             color: Colors.white,
             fontWeight: FontWeight.w600,
             fontSize: 16,
@@ -129,10 +144,10 @@ class _MensajeComunidadScreenState extends State<MensajeComunidadScreen> {
                     size: 18,
                   ),
                   const SizedBox(width: 10),
-                  const Expanded(
+                  Expanded(
                     child: Text(
-                      'Compartí información útil con nomads cerca tuyo',
-                      style: TextStyle(
+                      l10n.communityBanner,
+                      style: const TextStyle(
                         fontSize: 12,
                         color: Colors.white54,
                         height: 1.4,
@@ -146,7 +161,7 @@ class _MensajeComunidadScreenState extends State<MensajeComunidadScreen> {
             const SizedBox(height: 24),
 
             // Categoría
-            _DarkLabel(icono: PhosphorIcons.tag(), texto: 'Categoría'),
+            _DarkLabel(icono: PhosphorIcons.tag(), texto: l10n.communityCategoryLabel),
             const SizedBox(height: 10),
             Wrap(
               spacing: 8,
@@ -184,7 +199,7 @@ class _MensajeComunidadScreenState extends State<MensajeComunidadScreen> {
                         Text(c.emoji, style: const TextStyle(fontSize: 14)),
                         const SizedBox(width: 6),
                         Text(
-                          c.nombre,
+                          _catLabel(l10n, c.nombre),
                           style: TextStyle(
                             fontSize: 13,
                             fontWeight: FontWeight.w500,
@@ -203,23 +218,23 @@ class _MensajeComunidadScreenState extends State<MensajeComunidadScreen> {
             // Título opcional
             _DarkLabel(
               icono: PhosphorIcons.textT(),
-              texto: 'Título (opcional)',
+              texto: l10n.communityMsgTitleLabel,
             ),
             const SizedBox(height: 10),
             _DarkField(
               controller: _tituloCtrl,
-              hint: 'ej: ¡Reunión de nomads este sábado!',
+              hint: l10n.communityMsgTitleHint,
               bold: true,
             ),
 
             const SizedBox(height: 24),
 
             // Mensaje
-            _DarkLabel(icono: PhosphorIcons.chatText(), texto: 'Mensaje'),
+            _DarkLabel(icono: PhosphorIcons.chatText(), texto: l10n.communityMsgLabel),
             const SizedBox(height: 10),
             _DarkField(
               controller: _mensajeCtrl,
-              hint: 'Escribí tu aviso para la comunidad...',
+              hint: l10n.communityMsgHint,
               maxLines: 6,
               maxLength: 600,
             ),
@@ -235,9 +250,9 @@ class _MensajeComunidadScreenState extends State<MensajeComunidadScreen> {
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     const SizedBox(height: 24),
-                    const Text(
-                      'Vista previa',
-                      style: TextStyle(
+                    Text(
+                      l10n.communityPreviewLabel,
+                      style: const TextStyle(
                         fontSize: 12,
                         color: Colors.white38,
                         fontWeight: FontWeight.w500,
@@ -294,9 +309,9 @@ class _MensajeComunidadScreenState extends State<MensajeComunidadScreen> {
                                     ),
 
                                     child: Text(
-                                      cat.nombre,
+                                      _catLabel(l10n, cat.nombre),
 
-                                      style: TextStyle(
+                                      style: const TextStyle(
                                         color: Colors.white,
 
                                         fontSize: 11,
@@ -309,9 +324,9 @@ class _MensajeComunidadScreenState extends State<MensajeComunidadScreen> {
                                   SizedBox(width: 8),
 
                                   Text(
-                                    "Ahora",
+                                    l10n.now,
 
-                                    style: TextStyle(
+                                    style: const TextStyle(
                                       fontSize: 11,
 
                                       color: Colors.white38,
@@ -385,9 +400,9 @@ class _MensajeComunidadScreenState extends State<MensajeComunidadScreen> {
                               size: 20,
                             ),
                             const SizedBox(width: 10),
-                            const Text(
-                              'Enviar a la comunidad',
-                              style: TextStyle(
+                            Text(
+                              l10n.communitySendButton,
+                              style: const TextStyle(
                                 color: Colors.white,
                                 fontWeight: FontWeight.w600,
                                 fontSize: 16,
