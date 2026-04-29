@@ -52,20 +52,27 @@ class _PostOptionsSheet extends StatefulWidget {
 class _PostOptionsSheetState extends State<_PostOptionsSheet> {
   final String? _myId = FirebaseAuth.instance.currentUser?.uid;
 
-  // null = aún cargando, true = ya sigo, false = no sigo
   bool? _isFollowing;
   bool _loadingFollow = true;
+  bool _isNotifying = false;
 
   @override
   void initState() {
     super.initState();
-    _checkFollowStatus();
+    _loadInitialState();
+  }
+
+  Future<void> _loadInitialState() async {
+    await Future.wait([
+      _checkFollowStatus(),
+      _checkNotifyStatus(),
+    ]);
   }
 
   // ── Verifica si ya sigo al autor ─────────────────────────────────────────
   Future<void> _checkFollowStatus() async {
     if (_myId == null || _myId == widget.postAuthorId) {
-      setState(() => _loadingFollow = false);
+      if (mounted) setState(() => _loadingFollow = false);
       return;
     }
     try {
@@ -84,6 +91,20 @@ class _PostOptionsSheetState extends State<_PostOptionsSheet> {
     } catch (_) {
       if (mounted) setState(() => _loadingFollow = false);
     }
+  }
+
+  // ── Verifica si tengo notificaciones activas para este post ───────────────
+  Future<void> _checkNotifyStatus() async {
+    if (_myId == null) return;
+    try {
+      final doc = await FirebaseFirestore.instance
+          .collection('posts')
+          .doc(widget.postId)
+          .collection('notifications')
+          .doc(_myId)
+          .get();
+      if (mounted) setState(() => _isNotifying = doc.exists);
+    } catch (_) {}
   }
 
   // ── Seguir ────────────────────────────────────────────────────────────────
@@ -117,6 +138,48 @@ class _PostOptionsSheetState extends State<_PostOptionsSheet> {
     } catch (e) {
       if (mounted) setState(() => _isFollowing = true);
       debugPrint('[PostOptions] Error al dejar de seguir: $e');
+    }
+  }
+
+  // ── Me interesa ───────────────────────────────────────────────────────────
+  Future<void> _markInterested() async {
+    Navigator.pop(context);
+    if (_myId == null) return;
+    try {
+      await FirebaseFirestore.instance
+          .collection('users')
+          .doc(_myId)
+          .collection('post_interests')
+          .doc(widget.postId)
+          .set({
+        'postId': widget.postId,
+        'authorId': widget.postAuthorId,
+        'registeredAt': FieldValue.serverTimestamp(),
+      });
+    } catch (e) {
+      debugPrint('[PostOptions] Error al registrar interés: $e');
+    }
+  }
+
+  // ── Activar / desactivar notificaciones del post ──────────────────────────
+  Future<void> _toggleNotifications() async {
+    if (_myId == null) return;
+    final newValue = !_isNotifying;
+    setState(() => _isNotifying = newValue);
+    Navigator.pop(context);
+    try {
+      final ref = FirebaseFirestore.instance
+          .collection('posts')
+          .doc(widget.postId)
+          .collection('notifications')
+          .doc(_myId);
+      if (newValue) {
+        await ref.set({'subscribedAt': FieldValue.serverTimestamp()});
+      } else {
+        await ref.delete();
+      }
+    } catch (e) {
+      debugPrint('[PostOptions] Error al cambiar notificaciones: $e');
     }
   }
 
@@ -207,7 +270,7 @@ class _PostOptionsSheetState extends State<_PostOptionsSheet> {
             icon: PhosphorIcons.thumbsUp(),
             label: 'Me interesa',
             subtitle: 'Verás más publicaciones como esta en el feed.',
-            onTap: () => Navigator.pop(context),
+            onTap: _markInterested,
           ),
 
           // ── No me interesa ───────────────────────────────────────────────
@@ -223,7 +286,14 @@ class _PostOptionsSheetState extends State<_PostOptionsSheet> {
             icon: PhosphorIcons.question(),
             label: '¿Por qué veo esta publicación?',
             subtitle: 'Esta publicación se sugirió en función de tu actividad.',
-            onTap: () => Navigator.pop(context),
+            onTap: () {
+              Navigator.pop(context);
+              showModalBottomSheet(
+                context: context,
+                backgroundColor: Colors.transparent,
+                builder: (_) => _WhySeenSheet(username: widget.username),
+              );
+            },
           ),
 
           // ── Guardar ──────────────────────────────────────────────────────
@@ -235,10 +305,14 @@ class _PostOptionsSheetState extends State<_PostOptionsSheet> {
 
           // ── Notificaciones ───────────────────────────────────────────────
           _OptionTile(
-            icon: PhosphorIcons.bell(),
-            label: 'Recibir notificaciones',
-            subtitle: 'Activa alertas sobre esta publicación.',
-            onTap: () => Navigator.pop(context),
+            icon: _isNotifying ? PhosphorIcons.bellSlash() : PhosphorIcons.bell(),
+            label: _isNotifying
+                ? 'Desactivar notificaciones'
+                : 'Recibir notificaciones',
+            subtitle: _isNotifying
+                ? 'Dejarás de recibir alertas sobre esta publicación.'
+                : 'Activa alertas sobre esta publicación.',
+            onTap: _toggleNotifications,
           ),
 
           // ── Seguir / Dejar de seguir (solo si no es mi post) ─────────────
@@ -441,6 +515,100 @@ class _OptionTile extends StatelessWidget {
             ),
           ],
         ),
+      ),
+    );
+  }
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Sheet informativo "¿Por qué veo esta publicación?"
+// ─────────────────────────────────────────────────────────────────────────────
+
+class _WhySeenSheet extends StatelessWidget {
+  final String username;
+  const _WhySeenSheet({required this.username});
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      decoration: const BoxDecoration(
+        color: Color(0xFF1A2E2B),
+        borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
+      ),
+      padding: const EdgeInsets.fromLTRB(24, 16, 24, 40),
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Container(
+            width: 36,
+            height: 4,
+            margin: const EdgeInsets.only(bottom: 20),
+            decoration: BoxDecoration(
+              color: Colors.white24,
+              borderRadius: BorderRadius.circular(2),
+            ),
+          ),
+          const Icon(Icons.info_outline_rounded, color: Color(0xFF0D9488), size: 32),
+          const SizedBox(height: 12),
+          const Text(
+            '¿Por qué ves esta publicación?',
+            style: TextStyle(
+              color: Colors.white,
+              fontSize: 16,
+              fontWeight: FontWeight.w700,
+            ),
+            textAlign: TextAlign.center,
+          ),
+          const SizedBox(height: 16),
+          _reasonTile('🌍', 'Compatriota cercano', 'Este usuario comparte tu país de origen o está en tu misma región.'),
+          const SizedBox(height: 10),
+          _reasonTile('🤝', 'Red de contactos', 'Alguien a quien seguís interactuó con esta publicación.'),
+          const SizedBox(height: 10),
+          _reasonTile('📍', 'Actividad reciente', 'Esta publicación es popular entre Nomads cerca tuyo.'),
+          const SizedBox(height: 20),
+          GestureDetector(
+            onTap: () => Navigator.pop(context),
+            child: Container(
+              height: 48,
+              decoration: BoxDecoration(
+                color: Colors.white.withValues(alpha: 0.08),
+                borderRadius: BorderRadius.circular(14),
+              ),
+              alignment: Alignment.center,
+              child: const Text(
+                'Entendido',
+                style: TextStyle(color: Colors.white70, fontWeight: FontWeight.w600),
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _reasonTile(String emoji, String title, String subtitle) {
+    return Container(
+      padding: const EdgeInsets.all(14),
+      decoration: BoxDecoration(
+        color: const Color(0xFF243B38),
+        borderRadius: BorderRadius.circular(12),
+      ),
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text(emoji, style: const TextStyle(fontSize: 20)),
+          const SizedBox(width: 12),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(title, style: const TextStyle(color: Colors.white, fontSize: 13, fontWeight: FontWeight.w600)),
+                const SizedBox(height: 3),
+                Text(subtitle, style: const TextStyle(color: Color(0xFF9CA3AF), fontSize: 12, height: 1.4)),
+              ],
+            ),
+          ),
+        ],
       ),
     );
   }

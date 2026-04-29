@@ -1583,7 +1583,7 @@ class _PerfilPostOptionsContentState extends State<_PerfilPostOptionsContent> {
                     label: 'Código QR',
                     onTap: () {
                       Navigator.pop(context);
-                      _snack('Código QR generado');
+                      _snack('Código QR — próximamente');
                     },
                   ),
                 ),
