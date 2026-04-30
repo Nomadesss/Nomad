@@ -56,14 +56,18 @@ class _TermsAcceptanceScreenState extends State<TermsAcceptanceScreen>
     final user = FirebaseAuth.instance.currentUser;
     if (user == null) return;
 
-    await FirebaseFirestore.instance.collection("users").doc(user.uid).set({
-      "email": user.email,
-      "name": user.displayName,
-      "photo": user.photoURL,
-      "terminosAceptados": true,
-      "gdprAceptadoEn": Timestamp.now(),
-      "creadoEn": Timestamp.now(),
-    }, SetOptions(merge: true));
+    try {
+      await FirebaseFirestore.instance.collection("users").doc(user.uid).set({
+        "email": user.email,
+        "name": user.displayName,
+        "photo": user.photoURL,
+        "terminosAceptados": true,
+        "gdprAceptadoEn": Timestamp.now(),
+        "creadoEn": Timestamp.now(),
+      }, SetOptions(merge: true));
+    } catch (_) {
+      // La escritura se reintentará automáticamente cuando haya conexión
+    }
 
     if (!mounted) return;
 

@@ -88,8 +88,13 @@ class _ProfileSetupScreenState extends State<ProfileSetupScreen>
       final regex = RegExp(r'^[a-zA-Z0-9_]{6,15}$');
 
       if (!regex.hasMatch(username)) {
+        final invalidChars = RegExp(r'[^a-zA-Z0-9_]').hasMatch(username);
         setState(() {
-          usernameError = "Entre 6 y 15 caracteres, solo letras, números y _";
+          usernameError = invalidChars
+              ? "Solo letras, números y _"
+              : username.length < 6
+                  ? "Mínimo 6 caracteres"
+                  : "Máximo 15 caracteres";
           usernameAvailable = false;
           checkingUsername = false;
         });
@@ -564,65 +569,58 @@ class _ProfileSetupScreenState extends State<ProfileSetupScreen>
                     const SizedBox(height: 36),
 
                     Expanded(
-                      child: AnimatedSwitcher(
-                        duration: const Duration(milliseconds: 350),
-                        transitionBuilder: (child, animation) => FadeTransition(
-                          opacity: animation,
-                          child: SlideTransition(
-                            position: Tween(
-                              begin: const Offset(0.05, 0),
-                              end: Offset.zero,
-                            ).animate(animation),
-                            child: child,
-                          ),
-                        ),
-                        child: Align(
-                          alignment: Alignment.topCenter,
-                          child: SingleChildScrollView(
-                            controller: _scrollController,
-                            physics: const ClampingScrollPhysics(),
-                            child: ConstrainedBox(
-                              constraints: BoxConstraints(
-                                minHeight:
-                                    MediaQuery.of(context).size.height * 0.55,
+                      child: SingleChildScrollView(
+                        controller: _scrollController,
+                        physics: const ClampingScrollPhysics(),
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.stretch,
+                          children: [
+                            AnimatedSwitcher(
+                              duration: const Duration(milliseconds: 350),
+                              transitionBuilder: (child, animation) =>
+                                  FadeTransition(
+                                opacity: animation,
+                                child: SlideTransition(
+                                  position: Tween(
+                                    begin: const Offset(0.05, 0),
+                                    end: Offset.zero,
+                                  ).animate(animation),
+                                  child: child,
+                                ),
                               ),
-                              child: IntrinsicHeight(child: buildStep()),
+                              child: buildStep(),
                             ),
-                          ),
+                            const SizedBox(height: 32),
+                            SizedBox(
+                              height: 54,
+                              child: ElevatedButton(
+                                onPressed: _canContinue() ? nextStep : null,
+                                style: ElevatedButton.styleFrom(
+                                  backgroundColor: const Color(0xFF0D9488),
+                                  foregroundColor: Colors.white,
+                                  disabledBackgroundColor:
+                                      Colors.white.withValues(alpha: 0.15),
+                                  disabledForegroundColor:
+                                      Colors.white.withValues(alpha: 0.35),
+                                  shape: RoundedRectangleBorder(
+                                    borderRadius: BorderRadius.circular(16),
+                                  ),
+                                  elevation: 0,
+                                ),
+                                child: const Text(
+                                  "Continuar",
+                                  style: TextStyle(
+                                    fontSize: 16,
+                                    fontWeight: FontWeight.w600,
+                                  ),
+                                ),
+                              ),
+                            ),
+                            const SizedBox(height: 32),
+                          ],
                         ),
                       ),
                     ),
-
-                    SizedBox(
-                      width: double.infinity,
-                      height: 54,
-                      child: ElevatedButton(
-                        onPressed: _canContinue() ? nextStep : null,
-                        style: ElevatedButton.styleFrom(
-                          backgroundColor: const Color(0xFF0D9488),
-                          foregroundColor: Colors.white,
-                          disabledBackgroundColor: Colors.white.withValues(
-                            alpha: 0.15,
-                          ),
-                          disabledForegroundColor: Colors.white.withValues(
-                            alpha: 0.35,
-                          ),
-                          shape: RoundedRectangleBorder(
-                            borderRadius: BorderRadius.circular(16),
-                          ),
-                          elevation: 0,
-                        ),
-                        child: const Text(
-                          "Continuar",
-                          style: TextStyle(
-                            fontSize: 16,
-                            fontWeight: FontWeight.w600,
-                          ),
-                        ),
-                      ),
-                    ),
-
-                    const SizedBox(height: 24),
                   ],
                 ),
               ),
@@ -829,7 +827,7 @@ class _ProfileSetupScreenState extends State<ProfileSetupScreen>
           Padding(
             padding: const EdgeInsets.only(top: 8, left: 4),
             child: Text(
-              "Mínimo 6 caracteres, solo letras, números y _",
+              "6–15 caracteres · letras, números y _",
               style: TextStyle(
                 fontSize: 11.5,
                 color: Colors.white.withValues(alpha: 0.35),

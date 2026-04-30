@@ -82,7 +82,7 @@ class AuthGate extends StatelessWidget {
     final data = doc.data();
 
     // ── 1. No aceptó términos ─────────────────────────────────
-    if (!doc.exists || data?['acceptedTerms'] != true) {
+    if (!doc.exists || data?['terminosAceptados'] != true) {
       final biometricAvailable = await BiometricService.isAvailable();
       final isFirstTime = await BiometricService.isFirstTimeForUser(user.uid);
 

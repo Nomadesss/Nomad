@@ -1,99 +1,37 @@
+import 'dart:math' as math;
+
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
+import 'package:firebase_auth/firebase_auth.dart';
 
 import '../../l10n/app_localizations.dart';
+import '../../services/explore_service.dart';
+import '../../services/feed_service.dart';
 import '../feed/widgets/bottom_nav.dart';
 
 // ─────────────────────────────────────────────────────────────────────────────
-// search_screen.dart  –  Nomad App
-// Búsqueda inteligente con sugerencias contextuales para migrantes.
+// search_screen.dart — Explorar & Buscar (estilo Instagram Explore)
+//
+// Estados:
+//   Explorar: grid de contenido personalizado con tabs de categoría
+//   Buscando: resultados de usuarios y posts
+//
+// Recomendaciones: ExploreService calcula un score híbrido por recencia,
+// engagement y afinidad de país aprendida de las interacciones del usuario.
 // ─────────────────────────────────────────────────────────────────────────────
 
+const _bg = Color(0xFF0F0F14);
+const _surface = Color(0xFF1A1A24);
 const _teal = Color(0xFF0D9488);
-const _tealLight = Color(0xFF5EEAD4);
-const _tealDark = Color(0xFF134E4A);
-const _tealBg = Color(0xFFF0FAF9);
-const _bgMain = Color(0xFFF8FFFE);
+const _tealDim = Color(0xFF0F766E);
+const _white70 = Color(0xB3FFFFFF);
+const _white40 = Color(0x66FFFFFF);
+const _gap = 2.0;
+
+enum _ExploreTab { forYou, recent, people }
 
 // ─────────────────────────────────────────────────────────────────────────────
-// Datos de ejemplo (reemplazar con llamadas a Firestore)
-// ─────────────────────────────────────────────────────────────────────────────
-
-const _categoriasIcons = [
-  Icons.person_outline_rounded,
-  Icons.event_outlined,
-  Icons.location_on_outlined,
-  Icons.people_outline_rounded,
-  Icons.lightbulb_outline_rounded,
-  Icons.work_outline_rounded,
-];
-const _categoriasColors = [
-  0xFF0D9488,
-  0xFF0891B2,
-  0xFF7C3AED,
-  0xFF059669,
-  0xFFD97706,
-  0xFFE11D48,
-];
-
-final _sugerenciasPopulares = [
-  'Migrantes en México DF',
-  'Cómo abrir cuenta bancaria',
-  'Visa de trabajo España',
-  'Alojamiento temporal Barcelona',
-  'Comunidad argentina en Europa',
-  'NIE España trámites',
-  'Networking nómadas digitales',
-  'Seguro médico extranjero',
-];
-
-final _resultadosEjemplo = [
-  {
-    'tipo': 'persona',
-    'nombre': 'Lucía Martínez',
-    'username': 'lu_martinez',
-    'flag': '🇦🇷',
-    'ciudad': 'Barcelona',
-    'mutualAmigos': 3,
-    'siguiendo': false,
-  },
-  {
-    'tipo': 'persona',
-    'nombre': 'Carlos Mendoza',
-    'username': 'carlosmx',
-    'flag': '🇲🇽',
-    'ciudad': 'Ciudad de México',
-    'mutualAmigos': 1,
-    'siguiendo': true,
-  },
-  {
-    'tipo': 'evento',
-    'titulo': 'Encuentro de migrantes latinoamericanos',
-    'fecha': '15 Abr 2025',
-    'lugar': 'Ciudad de México',
-    'asistentes': 34,
-    'emoji': '🎉',
-  },
-  {
-    'tipo': 'comunidad',
-    'nombre': 'Argentinos en España',
-    'miembros': 1240,
-    'emoji': '🇦🇷🇪🇸',
-    'descripcion': 'La comunidad más grande de argentinos en la península',
-  },
-  {
-    'tipo': 'persona',
-    'nombre': 'Ana Lima',
-    'username': 'analimabr',
-    'flag': '🇧🇷',
-    'ciudad': 'Lisboa',
-    'mutualAmigos': 0,
-    'siguiendo': false,
-  },
-];
-
-// ─────────────────────────────────────────────────────────────────────────────
-// Main Screen
+// Screen
 // ─────────────────────────────────────────────────────────────────────────────
 
 class SearchScreen extends StatefulWidget {
@@ -105,962 +43,1310 @@ class SearchScreen extends StatefulWidget {
 
 class _SearchScreenState extends State<SearchScreen>
     with SingleTickerProviderStateMixin {
-  final TextEditingController _ctrl = TextEditingController();
-  final FocusNode _focus = FocusNode();
+  // ── Controllers ────────────────────────────────────────────────────────────
+  final _searchCtrl = TextEditingController();
+  final _focusNode = FocusNode();
+  final _scrollCtrl = ScrollController();
+  late final TabController _tabCtrl;
 
+  // ── State ──────────────────────────────────────────────────────────────────
   bool _isSearching = false;
-  bool _hasResults = false;
   String _query = '';
-  int _categoriaActiveIndex = 0;
 
-  late AnimationController _animController;
-  late Animation<double> _fadeAnim;
+  // Explore content
+  List<PostModel> _forYouPosts = [];
+  List<PostModel> _recentPosts = [];
+  List<Map<String, dynamic>> _suggestedUsers = [];
+
+  bool _loadingForYou = true;
+  bool _loadingRecent = true;
+  bool _loadingPeople = true;
+
+  // Search results
+  List<Map<String, dynamic>> _userResults = [];
+  List<PostModel> _postResults = [];
+  bool _loadingSearch = false;
+
+  // Viewer
+  PostModel? _viewerPost;
 
   @override
   void initState() {
     super.initState();
-    _animController = AnimationController(
-      vsync: this,
-      duration: const Duration(milliseconds: 250),
-    );
-    _fadeAnim = CurvedAnimation(parent: _animController, curve: Curves.easeOut);
-    _animController.forward();
-
-    _focus.addListener(() {
-      setState(() => _isSearching = _focus.hasFocus);
-    });
-
-    _ctrl.addListener(() {
-      final q = _ctrl.text.trim();
-      setState(() {
-        _query = q;
-        _hasResults = q.isNotEmpty;
-      });
-    });
+    _tabCtrl = TabController(length: 3, vsync: this);
+    _focusNode.addListener(_onFocusChange);
+    _searchCtrl.addListener(_onQueryChange);
+    _tabCtrl.addListener(() => setState(() {}));
+    _loadAll();
   }
 
   @override
   void dispose() {
-    _ctrl.dispose();
-    _focus.dispose();
-    _animController.dispose();
+    _tabCtrl.dispose();
+    _searchCtrl.dispose();
+    _focusNode.dispose();
+    _scrollCtrl.dispose();
     super.dispose();
   }
 
-  void _onSugerencia(String text) {
-    HapticFeedback.selectionClick();
-    _ctrl.text = text;
-    _ctrl.selection = TextSelection.fromPosition(
-      TextPosition(offset: text.length),
-    );
-    _focus.requestFocus();
+  // ── Data loading ────────────────────────────────────────────────────────────
+
+  Future<void> _loadAll() async {
+    _loadForYou();
+    _loadRecent();
+    _loadPeople();
   }
 
-  void _limpiar() {
-    _ctrl.clear();
-    setState(() {
-      _query = '';
-      _hasResults = false;
-    });
+  Future<void> _loadForYou() async {
+    setState(() => _loadingForYou = true);
+    final posts = await ExploreService.getPersonalizedFeed(limit: 36);
+    if (mounted) setState(() { _forYouPosts = posts; _loadingForYou = false; });
   }
+
+  Future<void> _loadRecent() async {
+    setState(() => _loadingRecent = true);
+    final posts = await ExploreService.getRecentFeed(limit: 36);
+    if (mounted) setState(() { _recentPosts = posts; _loadingRecent = false; });
+  }
+
+  Future<void> _loadPeople() async {
+    setState(() => _loadingPeople = true);
+    final users = await ExploreService.getSuggestedUsers(limit: 24);
+    if (mounted) setState(() { _suggestedUsers = users; _loadingPeople = false; });
+  }
+
+  Future<void> _search(String q) async {
+    if (q.trim().isEmpty) {
+      setState(() { _userResults = []; _postResults = []; });
+      return;
+    }
+    setState(() => _loadingSearch = true);
+    final users = await ExploreService.searchUsers(q);
+    final posts = await ExploreService.searchPosts(q);
+    if (mounted) {
+      setState(() {
+        _userResults = users;
+        _postResults = posts;
+        _loadingSearch = false;
+      });
+    }
+  }
+
+  // ── Listeners ──────────────────────────────────────────────────────────────
+
+  void _onFocusChange() {
+    setState(() => _isSearching = _focusNode.hasFocus);
+  }
+
+  void _onQueryChange() {
+    final q = _searchCtrl.text.trim();
+    setState(() => _query = q);
+    _search(q);
+  }
+
+  void _cancelSearch() {
+    _focusNode.unfocus();
+    _searchCtrl.clear();
+    setState(() { _isSearching = false; _query = ''; _userResults = []; _postResults = []; });
+  }
+
+  // ── Interaction tracking ───────────────────────────────────────────────────
+
+  void _onTileVisible(PostModel post) {
+    ExploreService.recordInteraction(
+      contentId: post.docId,
+      type: 'view',
+      countryFlag: post.countryFlag,
+    );
+  }
+
+  void _onTileTap(PostModel post) {
+    HapticFeedback.selectionClick();
+    _onTileVisible(post);
+    setState(() => _viewerPost = post);
+  }
+
+  // ── Build ──────────────────────────────────────────────────────────────────
 
   @override
   Widget build(BuildContext context) {
-    final l10n = AppLocalizations.of(context);
-    final categorias = [
-      {'label': l10n.searchPeople,       'icon': _categoriasIcons[0], 'color': _categoriasColors[0]},
-      {'label': l10n.searchEvents,       'icon': _categoriasIcons[1], 'color': _categoriasColors[1]},
-      {'label': l10n.searchPlaces,       'icon': _categoriasIcons[2], 'color': _categoriasColors[2]},
-      {'label': l10n.searchCommunities,  'icon': _categoriasIcons[3], 'color': _categoriasColors[3]},
-      {'label': l10n.searchTips,         'icon': _categoriasIcons[4], 'color': _categoriasColors[4]},
-      {'label': l10n.searchJobs,         'icon': _categoriasIcons[5], 'color': _categoriasColors[5]},
-    ];
-
     return Scaffold(
-      backgroundColor: _bgMain,
-      body: SafeArea(
-        child: FadeTransition(
-          opacity: _fadeAnim,
-          child: Column(
-            children: [
-              _buildSearchBar(l10n),
-              if (_isSearching && !_hasResults)
-                _buildSugerenciasRapidas(l10n)
-              else if (_hasResults)
-                _buildFiltrosCategorias(categorias),
-              Expanded(
-                child: _hasResults
-                    ? _buildResultados(l10n)
-                    : _buildDescubreContenido(l10n, categorias),
-              ),
-            ],
-          ),
-        ),
+      backgroundColor: _bg,
+      extendBody: true,
+      body: Stack(
+        children: [
+          _viewerPost != null
+              ? _FullscreenViewer(
+                  post: _viewerPost!,
+                  onClose: () => setState(() => _viewerPost = null),
+                  onLike: () => ExploreService.recordInteraction(
+                    contentId: _viewerPost!.docId,
+                    type: 'like',
+                    countryFlag: _viewerPost!.countryFlag,
+                  ),
+                )
+              : _buildExplore(),
+        ],
       ),
-      bottomNavigationBar: const BottomNav(currentIndex: 2),
+      bottomNavigationBar: _viewerPost == null
+          ? const BottomNav(currentIndex: 2)
+          : null,
     );
   }
 
-  // ── Search bar ────────────────────────────────────────────────────────────
+  Widget _buildExplore() {
+    return NestedScrollView(
+      controller: _scrollCtrl,
+      headerSliverBuilder: (context, _) => [
+        _buildSearchBar(),
+        if (!_isSearching) _buildTabBar(),
+      ],
+      body: _isSearching ? _buildSearchResults() : _buildTabContent(),
+    );
+  }
 
-  Widget _buildSearchBar(AppLocalizations l10n) {
-    return AnimatedContainer(
-      duration: const Duration(milliseconds: 200),
-      padding: EdgeInsets.fromLTRB(
-        16,
-        _isSearching ? 12 : 20,
-        16,
-        _isSearching ? 8 : 12,
-      ),
-      child: Row(
+  // ── Search bar ─────────────────────────────────────────────────────────────
+
+  SliverAppBar _buildSearchBar() {
+    final l10n = AppLocalizations.of(context);
+    return SliverAppBar(
+      backgroundColor: _bg,
+      floating: true,
+      snap: true,
+      elevation: 0,
+      toolbarHeight: 60,
+      title: Row(
         children: [
           Expanded(
             child: AnimatedContainer(
               duration: const Duration(milliseconds: 200),
-              height: 48,
+              height: 42,
               decoration: BoxDecoration(
-                color: _isSearching ? Colors.white : _tealBg,
-                borderRadius: BorderRadius.circular(16),
+                color: _isSearching
+                    ? _surface
+                    : Colors.white.withValues(alpha: 0.08),
+                borderRadius: BorderRadius.circular(12),
                 border: Border.all(
-                  color: _isSearching ? _teal : Colors.transparent,
+                  color: _isSearching
+                      ? _teal.withValues(alpha: 0.6)
+                      : Colors.transparent,
                   width: 1.5,
                 ),
-                boxShadow: _isSearching
-                    ? [
-                        BoxShadow(
-                          color: _teal.withOpacity(0.12),
-                          blurRadius: 16,
-                          offset: const Offset(0, 4),
-                        ),
-                      ]
-                    : [],
               ),
               child: TextField(
-                controller: _ctrl,
-                focusNode: _focus,
+                controller: _searchCtrl,
+                focusNode: _focusNode,
                 textInputAction: TextInputAction.search,
-                style: const TextStyle(
-                  fontSize: 15,
-                  color: _tealDark,
-                  fontWeight: FontWeight.w500,
-                ),
+                style: const TextStyle(color: Colors.white, fontSize: 14),
                 decoration: InputDecoration(
-                  hintText: '${l10n.searchPeople}, ${l10n.searchPlaces}, ${l10n.searchEvents}...',
-                  hintStyle: const TextStyle(
-                    color: Color(0xFF94A3B8),
-                    fontSize: 14,
-                  ),
+                  hintText:
+                      '${l10n.searchPeople}, ${l10n.searchEvents}, lugares...',
+                  hintStyle: const TextStyle(color: _white40, fontSize: 13.5),
                   border: InputBorder.none,
-                  prefixIcon: AnimatedSwitcher(
-                    duration: const Duration(milliseconds: 200),
-                    child: Icon(
-                      _isSearching
-                          ? Icons.search_rounded
-                          : Icons.search_rounded,
-                      key: ValueKey(_isSearching),
-                      color: _isSearching ? _teal : const Color(0xFF94A3B8),
-                      size: 22,
-                    ),
+                  contentPadding: const EdgeInsets.symmetric(vertical: 12),
+                  prefixIcon: Icon(
+                    Icons.search_rounded,
+                    color: _isSearching ? _teal : _white40,
+                    size: 20,
                   ),
-                  suffixIcon: _hasResults
+                  suffixIcon: _query.isNotEmpty
                       ? GestureDetector(
-                          onTap: _limpiar,
+                          onTap: _cancelSearch,
                           child: const Icon(
                             Icons.close_rounded,
-                            color: Color(0xFF94A3B8),
-                            size: 20,
+                            color: _white40,
+                            size: 18,
                           ),
                         )
                       : null,
-                  contentPadding: const EdgeInsets.symmetric(vertical: 14),
                 ),
-                onSubmitted: (_) {},
+                onSubmitted: _search,
               ),
             ),
           ),
-          if (_isSearching) ...[
-            const SizedBox(width: 10),
-            GestureDetector(
-              onTap: () {
-                _focus.unfocus();
-                _limpiar();
-              },
-              child: Text(
-                l10n.cancelButton,
-                style: const TextStyle(
-                  color: _teal,
-                  fontWeight: FontWeight.w600,
-                  fontSize: 14,
-                ),
-              ),
-            ),
+          AnimatedSize(
+            duration: const Duration(milliseconds: 200),
+            child: _isSearching
+                ? Padding(
+                    padding: const EdgeInsets.only(left: 10),
+                    child: GestureDetector(
+                      onTap: _cancelSearch,
+                      child: const Text(
+                        'Cancelar',
+                        style: TextStyle(
+                          color: _teal,
+                          fontSize: 13.5,
+                          fontWeight: FontWeight.w600,
+                        ),
+                      ),
+                    ),
+                  )
+                : const SizedBox.shrink(),
+          ),
+        ],
+      ),
+    );
+  }
+
+  // ── Tab bar ────────────────────────────────────────────────────────────────
+
+  SliverPersistentHeader _buildTabBar() {
+    return SliverPersistentHeader(
+      pinned: true,
+      delegate: _TabBarDelegate(
+        TabBar(
+          controller: _tabCtrl,
+          indicatorColor: _teal,
+          indicatorWeight: 2,
+          labelColor: Colors.white,
+          unselectedLabelColor: _white40,
+          labelStyle: const TextStyle(
+            fontSize: 13.5,
+            fontWeight: FontWeight.w700,
+          ),
+          unselectedLabelStyle: const TextStyle(
+            fontSize: 13.5,
+            fontWeight: FontWeight.w500,
+          ),
+          tabs: const [
+            Tab(text: 'Para ti'),
+            Tab(text: 'Recientes'),
+            Tab(text: 'Personas'),
           ],
-        ],
+        ),
+        backgroundColor: _bg,
       ),
     );
   }
 
-  // ── Sugerencias rápidas (cuando el campo está vacío y enfocado) ───────────
+  // ── Tab content ────────────────────────────────────────────────────────────
 
-  Widget _buildSugerenciasRapidas(AppLocalizations l10n) {
-    return Container(
-      color: Colors.white,
-      padding: const EdgeInsets.fromLTRB(16, 4, 16, 12),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Padding(
-            padding: const EdgeInsets.only(bottom: 10),
-            child: Row(
-              children: [
-                const Icon(Icons.trending_up_rounded, size: 14, color: _teal),
-                const SizedBox(width: 6),
-                Text(
-                  'Nomad',
-                  style: const TextStyle(
-                    fontSize: 12,
-                    fontWeight: FontWeight.w700,
-                    color: _teal,
-                    letterSpacing: 0.4,
-                  ),
-                ),
-              ],
-            ),
-          ),
-          Wrap(
-            spacing: 8,
-            runSpacing: 8,
-            children: _sugerenciasPopulares.take(6).map((s) {
-              return GestureDetector(
-                onTap: () => _onSugerencia(s),
-                child: Container(
-                  padding: const EdgeInsets.symmetric(
-                    horizontal: 12,
-                    vertical: 7,
-                  ),
-                  decoration: BoxDecoration(
-                    color: _tealBg,
-                    borderRadius: BorderRadius.circular(20),
-                    border: Border.all(color: _tealLight.withOpacity(0.5)),
-                  ),
-                  child: Text(
-                    s,
-                    style: const TextStyle(
-                      fontSize: 12.5,
-                      color: _tealDark,
-                      fontWeight: FontWeight.w500,
-                    ),
-                  ),
-                ),
-              );
-            }).toList(),
-          ),
-        ],
-      ),
-    );
-  }
-
-  // ── Chips de categorías ───────────────────────────────────────────────────
-
-  Widget _buildFiltrosCategorias(List<Map<String, Object>> categorias) {
-    return Container(
-      color: Colors.white,
-      height: 44,
-      child: ListView.separated(
-        scrollDirection: Axis.horizontal,
-        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 6),
-        itemCount: categorias.length,
-        separatorBuilder: (_, __) => const SizedBox(width: 8),
-        itemBuilder: (context, i) {
-          final cat = categorias[i];
-          final selected = _categoriaActiveIndex == i;
-          return GestureDetector(
-            onTap: () {
-              HapticFeedback.selectionClick();
-              setState(() => _categoriaActiveIndex = i);
-            },
-            child: AnimatedContainer(
-              duration: const Duration(milliseconds: 180),
-              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
-              decoration: BoxDecoration(
-                color: selected
-                    ? Color(cat['color'] as int)
-                    : const Color(0xFFF1F5F9),
-                borderRadius: BorderRadius.circular(20),
-              ),
-              child: Row(
-                children: [
-                  Icon(
-                    cat['icon'] as IconData,
-                    size: 14,
-                    color: selected ? Colors.white : const Color(0xFF94A3B8),
-                  ),
-                  const SizedBox(width: 5),
-                  Text(
-                    cat['label'] as String,
-                    style: TextStyle(
-                      fontSize: 12.5,
-                      fontWeight: FontWeight.w600,
-                      color: selected ? Colors.white : const Color(0xFF64748B),
-                    ),
-                  ),
-                ],
-              ),
-            ),
-          );
-        },
-      ),
-    );
-  }
-
-  // ── Resultados de búsqueda ────────────────────────────────────────────────
-
-  Widget _buildResultados(AppLocalizations l10n) {
-    return ListView(
-      padding: const EdgeInsets.all(16),
+  Widget _buildTabContent() {
+    return TabBarView(
+      controller: _tabCtrl,
       children: [
-        // Sugerencias inteligentes basadas en query
-        if (_query.length > 1)
-          Padding(
-            padding: const EdgeInsets.only(bottom: 12),
-            child: _SugerenciaInteligenteCard(query: _query),
-          ),
-
-        _ResultSectionLabel(l10n.searchPeople),
-
-        ..._resultadosEjemplo.map((r) {
-          if (r['tipo'] == 'persona') {
-            return _PersonaResult(data: r);
-          } else if (r['tipo'] == 'evento') {
-            return _EventoResult(data: r);
-          } else if (r['tipo'] == 'comunidad') {
-            return _ComunidadResult(data: r);
-          }
-          return const SizedBox.shrink();
-        }),
+        _buildPostGrid(_forYouPosts, _loadingForYou, onRefresh: _loadForYou),
+        _buildPostGrid(_recentPosts, _loadingRecent, onRefresh: _loadRecent),
+        _buildPeopleGrid(),
       ],
     );
   }
 
-  // ── Contenido descubrimiento (estado inicial) ─────────────────────────────
+  // ── Post grid (staggered) ──────────────────────────────────────────────────
 
-  Widget _buildDescubreContenido(AppLocalizations l10n, List<Map<String, Object>> categorias) {
-    return ListView(
-      padding: const EdgeInsets.all(16),
-      children: [
-        // Categorías visuales
-        const _ResultSectionLabel('·'),
-        const SizedBox(height: 10),
-        GridView.count(
-          crossAxisCount: 3,
+  Widget _buildPostGrid(
+    List<PostModel> posts,
+    bool loading, {
+    required Future<void> Function() onRefresh,
+  }) {
+    if (loading) return _buildGridSkeleton();
+
+    if (posts.isEmpty) {
+      return Center(
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Icon(Icons.explore_outlined, size: 48, color: _white40),
+            const SizedBox(height: 12),
+            const Text(
+              'Sin contenido todavía',
+              style: TextStyle(color: _white70, fontSize: 15),
+            ),
+          ],
+        ),
+      );
+    }
+
+    return RefreshIndicator(
+      color: _teal,
+      backgroundColor: _surface,
+      onRefresh: onRefresh,
+      child: CustomScrollView(
+        slivers: [
+          SliverPadding(
+            padding: EdgeInsets.zero,
+            sliver: _StaggeredPostSliver(
+              posts: posts,
+              onTap: _onTileTap,
+            ),
+          ),
+          const SliverToBoxAdapter(child: SizedBox(height: 100)),
+        ],
+      ),
+    );
+  }
+
+  // ── People grid ────────────────────────────────────────────────────────────
+
+  Widget _buildPeopleGrid() {
+    if (_loadingPeople) {
+      return GridView.builder(
+        padding: const EdgeInsets.all(12),
+        gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
+          crossAxisCount: 2,
+          childAspectRatio: 0.85,
           crossAxisSpacing: 10,
           mainAxisSpacing: 10,
-          shrinkWrap: true,
-          physics: const NeverScrollableScrollPhysics(),
-          childAspectRatio: 1.1,
-          children: categorias.map((cat) {
-            return GestureDetector(
-              onTap: () {
-                HapticFeedback.selectionClick();
-                _focus.requestFocus();
-                _onSugerencia(cat['label'] as String);
-              },
-              child: Container(
-                decoration: BoxDecoration(
-                  color: Color(cat['color'] as int).withOpacity(0.1),
-                  borderRadius: BorderRadius.circular(16),
-                  border: Border.all(
-                    color: Color(cat['color'] as int).withOpacity(0.2),
-                  ),
-                ),
-                child: Column(
-                  mainAxisAlignment: MainAxisAlignment.center,
-                  children: [
-                    Icon(
-                      cat['icon'] as IconData,
-                      size: 28,
-                      color: Color(cat['color'] as int),
-                    ),
-                    const SizedBox(height: 6),
-                    Text(
-                      cat['label'] as String,
-                      style: TextStyle(
-                        fontSize: 12,
-                        fontWeight: FontWeight.w600,
-                        color: Color(cat['color'] as int),
-                      ),
-                    ),
-                  ],
-                ),
-              ),
-            );
-          }).toList(),
         ),
+        itemCount: 6,
+        itemBuilder: (_, __) => _SkeletonBox(radius: 16),
+      );
+    }
 
-        const SizedBox(height: 24),
+    if (_suggestedUsers.isEmpty) {
+      return const Center(
+        child: Text(
+          'No hay personas sugeridas',
+          style: TextStyle(color: _white70),
+        ),
+      );
+    }
 
-        // Nómadas cerca tuyo
-        _ResultSectionLabel(l10n.mapMigrants),
+    return RefreshIndicator(
+      color: _teal,
+      backgroundColor: _surface,
+      onRefresh: _loadPeople,
+      child: GridView.builder(
+        padding: const EdgeInsets.fromLTRB(12, 12, 12, 100),
+        gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
+          crossAxisCount: 2,
+          childAspectRatio: 0.85,
+          crossAxisSpacing: 10,
+          mainAxisSpacing: 10,
+        ),
+        itemCount: _suggestedUsers.length,
+        itemBuilder: (context, i) =>
+            _UserCard(user: _suggestedUsers[i]),
+      ),
+    );
+  }
 
-        const SizedBox(height: 10),
+  // ── Grid skeleton ──────────────────────────────────────────────────────────
 
-        SizedBox(
-          height: 110,
-          child: ListView(
-            scrollDirection: Axis.horizontal,
+  Widget _buildGridSkeleton() {
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        final sw = constraints.maxWidth;
+        final tileH = sw / 3;
+
+        Widget skeletonPad() => Padding(
+              padding: const EdgeInsets.all(_gap / 2),
+              child: _SkeletonBox(radius: 0),
+            );
+
+        // Alterna: fila featured (1 grande + 2 chicos apilados) y fila normal (3 iguales)
+        final rows = <Widget>[];
+        for (int i = 0; i < 3; i++) {
+          final featuredLeft = i.isEven;
+          final featured = SizedBox(
+            width: sw * 2 / 3,
+            height: tileH * 2,
+            child: skeletonPad(),
+          );
+          final smallCol = SizedBox(
+            width: sw / 3,
+            child: Column(children: [
+              SizedBox(height: tileH, child: skeletonPad()),
+              SizedBox(height: tileH, child: skeletonPad()),
+            ]),
+          );
+          rows.add(Row(
+            children: featuredLeft
+                ? [featured, smallCol]
+                : [smallCol, featured],
+          ));
+          rows.add(Row(
+            children: List.generate(
+              3,
+              (_) => SizedBox(
+                width: sw / 3,
+                height: tileH,
+                child: skeletonPad(),
+              ),
+            ),
+          ));
+        }
+
+        return SingleChildScrollView(
+          physics: const NeverScrollableScrollPhysics(),
+          child: Column(mainAxisSize: MainAxisSize.min, children: rows),
+        );
+      },
+    );
+  }
+
+  // ── Search results ─────────────────────────────────────────────────────────
+
+  Widget _buildSearchResults() {
+    if (_query.isEmpty) return _buildSearchSuggestions();
+
+    if (_loadingSearch) {
+      return const Center(
+        child: CircularProgressIndicator(color: _teal, strokeWidth: 2),
+      );
+    }
+
+    if (_userResults.isEmpty && _postResults.isEmpty) {
+      return Center(
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Icon(Icons.search_off_rounded, size: 48, color: _white40),
+            const SizedBox(height: 12),
+            Text(
+              'Sin resultados para "$_query"',
+              style: const TextStyle(color: _white70, fontSize: 15),
+            ),
+          ],
+        ),
+      );
+    }
+
+    return ListView(
+      padding: const EdgeInsets.fromLTRB(0, 8, 0, 100),
+      children: [
+        if (_userResults.isNotEmpty) ...[
+          _SearchSectionHeader('Personas'),
+          ..._userResults.map((u) => _SearchUserTile(user: u)),
+        ],
+        if (_postResults.isNotEmpty) ...[
+          _SearchSectionHeader('Publicaciones'),
+          ..._postResults.map(
+            (p) => _SearchPostTile(post: p, onTap: () => _onTileTap(p)),
+          ),
+        ],
+      ],
+    );
+  }
+
+  Widget _buildSearchSuggestions() {
+    const suggestions = [
+      'Migrantes en México DF',
+      'Visa de trabajo España',
+      'Comunidad argentina en Europa',
+      'Networking nómadas digitales',
+      'Seguro médico extranjero',
+      'NIE trámites',
+    ];
+    return ListView(
+      padding: const EdgeInsets.fromLTRB(16, 12, 16, 100),
+      children: [
+        Padding(
+          padding: const EdgeInsets.only(bottom: 12),
+          child: Row(
             children: [
-              _NomadNearbyCard(
-                nombre: 'Valeria R.',
-                flag: '🇦🇷',
-                ciudad: 'CDMX',
-                distancia: '2 km',
-              ),
-              _NomadNearbyCard(
-                nombre: 'Pedro S.',
-                flag: '🇧🇷',
-                ciudad: 'CDMX',
-                distancia: '5 km',
-              ),
-              _NomadNearbyCard(
-                nombre: 'Sofía G.',
-                flag: '🇨🇴',
-                ciudad: 'CDMX',
-                distancia: '8 km',
-              ),
-              _NomadNearbyCard(
-                nombre: 'Martín F.',
-                flag: '🇺🇾',
-                ciudad: 'CDMX',
-                distancia: '12 km',
+              const Icon(Icons.trending_up_rounded, size: 14, color: _teal),
+              const SizedBox(width: 6),
+              const Text(
+                'TENDENCIAS',
+                style: TextStyle(
+                  fontSize: 11,
+                  fontWeight: FontWeight.w800,
+                  color: _teal,
+                  letterSpacing: 1,
+                ),
               ),
             ],
           ),
         ),
-
-        const SizedBox(height: 24),
-
-        // Búsquedas recientes
-        const _ResultSectionLabel('·'),
-        const SizedBox(height: 8),
-        ..._sugerenciasPopulares
-            .take(4)
-            .map(
-              (s) => _RecentSearchTile(
-                texto: s,
-                onTap: () => _onSugerencia(s),
-                onDelete: () {},
-              ),
-            ),
+        ...suggestions.map(
+          (s) => _SuggestionTile(
+            text: s,
+            onTap: () {
+              _searchCtrl.text = s;
+              _search(s);
+            },
+          ),
+        ),
       ],
     );
   }
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
-// Widgets de resultado
+// Staggered post grid sliver
 // ─────────────────────────────────────────────────────────────────────────────
+// Patrón por bloques de 6:
+//   Bloque par  → [featured izq 2/3] | [small top] / [small bottom]
+//                 [small] | [small] | [small]
+//   Bloque impar → [small top] / [small bottom] | [featured der 2/3]
+//                  [small] | [small] | [small]
 
-class _SugerenciaInteligenteCard extends StatelessWidget {
-  final String query;
-  const _SugerenciaInteligenteCard({required this.query});
+class _StaggeredPostSliver extends StatelessWidget {
+  final List<PostModel> posts;
+  final void Function(PostModel) onTap;
+
+  const _StaggeredPostSliver({required this.posts, required this.onTap});
 
   @override
   Widget build(BuildContext context) {
-    return Container(
-      padding: const EdgeInsets.all(14),
-      decoration: BoxDecoration(
-        gradient: const LinearGradient(
-          colors: [Color(0xFF0D9488), Color(0xFF0F766E)],
-          begin: Alignment.topLeft,
-          end: Alignment.bottomRight,
-        ),
-        borderRadius: BorderRadius.circular(16),
+    final blockCount = (posts.length / 6).ceil();
+    return SliverList(
+      delegate: SliverChildBuilderDelegate(
+        (context, blockIdx) {
+          final start = blockIdx * 6;
+          if (start >= posts.length) return null;
+          final chunk =
+              posts.sublist(start, math.min(start + 6, posts.length));
+          return _buildBlock(context, chunk, blockIdx.isEven);
+        },
+        childCount: blockCount,
       ),
-      child: Row(
-        children: [
-          const Icon(Icons.auto_awesome_rounded, color: Colors.white, size: 22),
-          const SizedBox(width: 12),
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                const Text(
-                  'Sugerencia inteligente',
-                  style: TextStyle(
-                    color: Colors.white70,
-                    fontSize: 11,
-                    fontWeight: FontWeight.w600,
-                    letterSpacing: 0.5,
-                  ),
-                ),
-                const SizedBox(height: 2),
-                Text(
-                  '¿Buscás info sobre "$query" para migrantes en CDMX?',
-                  style: const TextStyle(
-                    color: Colors.white,
-                    fontSize: 13.5,
-                    fontWeight: FontWeight.w600,
-                  ),
-                ),
-              ],
-            ),
-          ),
-          const SizedBox(width: 8),
-          const Icon(
-            Icons.arrow_forward_ios_rounded,
-            color: Colors.white70,
-            size: 14,
-          ),
-        ],
-      ),
+    );
+  }
+
+  Widget _buildBlock(
+    BuildContext context,
+    List<PostModel> chunk,
+    bool featuredLeft,
+  ) {
+    final sw = MediaQuery.of(context).size.width;
+    final smallH = sw / 3;
+    final bigH = smallH * 2;
+    final bigW = sw * 2 / 3;
+
+    Widget featuredTile = chunk.isNotEmpty
+        ? _PostTile(
+            post: chunk[0],
+            width: bigW,
+            height: bigH,
+            featured: true,
+            onTap: onTap,
+          )
+        : SizedBox(width: bigW, height: bigH);
+
+    Widget smallStack = Column(
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        if (chunk.length > 1)
+          _PostTile(post: chunk[1], width: sw / 3, height: smallH, onTap: onTap),
+        if (chunk.length > 2)
+          _PostTile(post: chunk[2], width: sw / 3, height: smallH, onTap: onTap),
+        if (chunk.length < 3) SizedBox(height: smallH * (3 - chunk.length)),
+      ],
+    );
+
+    Widget topRow = featuredLeft
+        ? Row(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [featuredTile, Expanded(child: smallStack)],
+          )
+        : Row(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [Expanded(child: smallStack), featuredTile],
+          );
+
+    Widget bottomRow = Row(
+      children: [
+        for (int i = 3; i < 6; i++)
+          if (i < chunk.length)
+            _PostTile(post: chunk[i], width: sw / 3, height: smallH, onTap: onTap)
+          else
+            SizedBox(width: sw / 3, height: smallH),
+      ],
+    );
+
+    return Column(
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        topRow,
+        if (chunk.length > 3) bottomRow,
+      ],
     );
   }
 }
 
-class _PersonaResult extends StatefulWidget {
-  final Map<String, dynamic> data;
-  const _PersonaResult({required this.data});
+// ─────────────────────────────────────────────────────────────────────────────
+// Post tile
+// ─────────────────────────────────────────────────────────────────────────────
 
-  @override
-  State<_PersonaResult> createState() => _PersonaResultState();
-}
+class _PostTile extends StatelessWidget {
+  final PostModel post;
+  final double width;
+  final double height;
+  final bool featured;
+  final void Function(PostModel) onTap;
 
-class _PersonaResultState extends State<_PersonaResult> {
-  late bool _siguiendo;
+  const _PostTile({
+    required this.post,
+    required this.width,
+    required this.height,
+    required this.onTap,
+    this.featured = false,
+  });
 
-  @override
-  void initState() {
-    super.initState();
-    _siguiendo = widget.data['siguiendo'] as bool;
-  }
+  bool get _isVideo => post.type == 'video';
 
   @override
   Widget build(BuildContext context) {
-    final d = widget.data;
-    return Container(
-      margin: const EdgeInsets.only(bottom: 10),
-      padding: const EdgeInsets.all(14),
-      decoration: BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.circular(16),
-        boxShadow: [
-          BoxShadow(
-            color: Colors.black.withOpacity(0.04),
-            blurRadius: 8,
-            offset: const Offset(0, 2),
-          ),
-        ],
-      ),
-      child: Row(
-        children: [
-          // Avatar
-          Container(
-            width: 50,
-            height: 50,
-            decoration: BoxDecoration(
-              shape: BoxShape.circle,
-              gradient: const LinearGradient(
-                colors: [_teal, _tealLight],
-                begin: Alignment.topLeft,
-                end: Alignment.bottomRight,
-              ),
-            ),
-            child: Center(
-              child: Text(
-                d['flag'] as String,
-                style: const TextStyle(fontSize: 22),
-              ),
-            ),
-          ),
-          const SizedBox(width: 12),
-          // Info
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(
-                  d['nombre'] as String,
-                  style: const TextStyle(
-                    fontSize: 14,
-                    fontWeight: FontWeight.w700,
-                    color: _tealDark,
+    final hasImage = post.images.isNotEmpty;
+
+    return GestureDetector(
+      onTap: () => onTap(post),
+      child: Container(
+        width: width,
+        height: height,
+        padding: const EdgeInsets.all(_gap / 2),
+        child: ClipRect(
+          child: Stack(
+            fit: StackFit.expand,
+            children: [
+              // Imagen o fondo degradado
+              hasImage
+                  ? Image.network(
+                      post.images.first,
+                      fit: BoxFit.cover,
+                      errorBuilder: (_, __, ___) => _GradientFallback(post: post),
+                    )
+                  : _GradientFallback(post: post),
+
+              // Overlay oscuro en la parte inferior
+              Positioned(
+                left: 0,
+                right: 0,
+                bottom: 0,
+                child: Container(
+                  height: featured ? 80 : 50,
+                  decoration: BoxDecoration(
+                    gradient: LinearGradient(
+                      begin: Alignment.bottomCenter,
+                      end: Alignment.topCenter,
+                      colors: [
+                        Colors.black.withValues(alpha: 0.75),
+                        Colors.transparent,
+                      ],
+                    ),
                   ),
                 ),
-                Text(
-                  '@${d['username']}',
-                  style: const TextStyle(fontSize: 12, color: _teal),
+              ),
+
+              // Ícono de video
+              if (_isVideo)
+                const Positioned(
+                  top: 8,
+                  right: 8,
+                  child: Icon(
+                    Icons.play_circle_fill_rounded,
+                    color: Colors.white,
+                    size: 22,
+                  ),
                 ),
-                Row(
+
+              // Carrusel (múltiples imágenes)
+              if (post.images.length > 1)
+                const Positioned(
+                  top: 8,
+                  right: 8,
+                  child: Icon(
+                    Icons.copy_rounded,
+                    color: Colors.white,
+                    size: 18,
+                  ),
+                ),
+
+              // Info inferior
+              Positioned(
+                left: 8,
+                right: 8,
+                bottom: 6,
+                child: Row(
                   children: [
-                    const Icon(
-                      Icons.location_on_outlined,
-                      size: 11,
-                      color: Color(0xFF94A3B8),
-                    ),
-                    const SizedBox(width: 2),
-                    Text(
-                      d['ciudad'] as String,
-                      style: const TextStyle(
-                        fontSize: 11,
-                        color: Color(0xFF94A3B8),
+                    if (post.countryFlag != null) ...[
+                      Text(
+                        post.countryFlag!,
+                        style: TextStyle(fontSize: featured ? 16 : 11),
                       ),
-                    ),
-                    if ((d['mutualAmigos'] as int) > 0) ...[
-                      const SizedBox(width: 8),
+                      const SizedBox(width: 4),
+                    ],
+                    if (featured && post.city != null)
+                      Expanded(
+                        child: Text(
+                          post.city!,
+                          style: const TextStyle(
+                            color: Colors.white,
+                            fontSize: 11,
+                            fontWeight: FontWeight.w600,
+                          ),
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                        ),
+                      ),
+                    const Spacer(),
+                    if (post.likesCount > 0) ...[
                       const Icon(
-                        Icons.people_outline_rounded,
+                        Icons.favorite_rounded,
+                        color: Colors.white,
                         size: 11,
-                        color: Color(0xFF94A3B8),
                       ),
                       const SizedBox(width: 2),
                       Text(
-                        '${d['mutualAmigos']} en común',
+                        _formatCount(post.likesCount),
                         style: const TextStyle(
-                          fontSize: 11,
-                          color: Color(0xFF94A3B8),
+                          color: Colors.white,
+                          fontSize: 10,
+                          fontWeight: FontWeight.w600,
                         ),
                       ),
                     ],
                   ],
                 ),
-              ],
-            ),
-          ),
-          // Botón seguir
-          GestureDetector(
-            onTap: () {
-              HapticFeedback.selectionClick();
-              setState(() => _siguiendo = !_siguiendo);
-            },
-            child: AnimatedContainer(
-              duration: const Duration(milliseconds: 200),
-              padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 7),
-              decoration: BoxDecoration(
-                color: _siguiendo ? _tealBg : _teal,
-                borderRadius: BorderRadius.circular(20),
-                border: _siguiendo ? Border.all(color: _tealLight) : null,
               ),
-              child: Text(
-                _siguiendo ? 'Siguiendo' : 'Seguir',
-                style: TextStyle(
-                  fontSize: 12,
-                  fontWeight: FontWeight.w700,
-                  color: _siguiendo ? _teal : Colors.white,
-                ),
-              ),
-            ),
+            ],
           ),
-        ],
+        ),
       ),
     );
   }
+
+  String _formatCount(int n) {
+    if (n >= 1000) return '${(n / 1000).toStringAsFixed(1)}k';
+    return '$n';
+  }
 }
 
-class _EventoResult extends StatelessWidget {
-  final Map<String, dynamic> data;
-  const _EventoResult({required this.data});
+// ─────────────────────────────────────────────────────────────────────────────
+// Gradient fallback (cuando no hay imagen)
+// ─────────────────────────────────────────────────────────────────────────────
+
+class _GradientFallback extends StatelessWidget {
+  final PostModel post;
+  const _GradientFallback({required this.post});
+
+  static const _gradients = [
+    [Color(0xFF134E4A), Color(0xFF0D9488)],
+    [Color(0xFF1E1B4B), Color(0xFF4338CA)],
+    [Color(0xFF1C1917), Color(0xFF78350F)],
+    [Color(0xFF0F172A), Color(0xFF0891B2)],
+    [Color(0xFF14532D), Color(0xFF16A34A)],
+  ];
 
   @override
   Widget build(BuildContext context) {
+    final colors =
+        _gradients[post.authorId.hashCode.abs() % _gradients.length];
     return Container(
-      margin: const EdgeInsets.only(bottom: 10),
-      padding: const EdgeInsets.all(14),
       decoration: BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.circular(16),
-        boxShadow: [
-          BoxShadow(
-            color: Colors.black.withOpacity(0.04),
-            blurRadius: 8,
-            offset: const Offset(0, 2),
-          ),
-        ],
+        gradient: LinearGradient(
+          colors: colors,
+          begin: Alignment.topLeft,
+          end: Alignment.bottomRight,
+        ),
       ),
-      child: Row(
-        children: [
-          Container(
-            width: 50,
-            height: 50,
-            decoration: BoxDecoration(
-              color: const Color(0xFF0891B2).withOpacity(0.12),
-              borderRadius: BorderRadius.circular(14),
-            ),
-            child: Center(
-              child: Text(
-                data['emoji'] as String,
-                style: const TextStyle(fontSize: 24),
-              ),
-            ),
-          ),
-          const SizedBox(width: 12),
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Container(
-                  padding: const EdgeInsets.symmetric(
-                    horizontal: 7,
-                    vertical: 2,
-                  ),
-                  margin: const EdgeInsets.only(bottom: 4),
-                  decoration: BoxDecoration(
-                    color: const Color(0xFF0891B2).withOpacity(0.1),
-                    borderRadius: BorderRadius.circular(6),
-                  ),
-                  child: const Text(
-                    'EVENTO',
-                    style: TextStyle(
-                      fontSize: 9,
-                      fontWeight: FontWeight.w800,
-                      color: Color(0xFF0891B2),
-                      letterSpacing: 0.5,
-                    ),
-                  ),
-                ),
-                Text(
-                  data['titulo'] as String,
-                  style: const TextStyle(
-                    fontSize: 13,
-                    fontWeight: FontWeight.w700,
-                    color: _tealDark,
-                  ),
-                  maxLines: 2,
-                  overflow: TextOverflow.ellipsis,
-                ),
-                const SizedBox(height: 3),
-                Row(
-                  children: [
-                    Text(
-                      data['fecha'] as String,
-                      style: const TextStyle(fontSize: 11, color: _teal),
-                    ),
-                    const Text(
-                      ' · ',
-                      style: TextStyle(color: Color(0xFFCBD5E1)),
-                    ),
-                    Text(
-                      data['lugar'] as String,
-                      style: const TextStyle(
-                        fontSize: 11,
-                        color: Color(0xFF94A3B8),
-                      ),
-                    ),
-                  ],
-                ),
-              ],
-            ),
-          ),
-        ],
+      padding: const EdgeInsets.all(12),
+      child: Text(
+        post.caption,
+        maxLines: 4,
+        overflow: TextOverflow.ellipsis,
+        style: const TextStyle(
+          color: Colors.white,
+          fontSize: 12,
+          height: 1.4,
+        ),
       ),
     );
   }
 }
 
-class _ComunidadResult extends StatelessWidget {
-  final Map<String, dynamic> data;
-  const _ComunidadResult({required this.data});
+// ─────────────────────────────────────────────────────────────────────────────
+// Fullscreen viewer
+// ─────────────────────────────────────────────────────────────────────────────
 
-  @override
-  Widget build(BuildContext context) {
-    return Container(
-      margin: const EdgeInsets.only(bottom: 10),
-      padding: const EdgeInsets.all(14),
-      decoration: BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.circular(16),
-        boxShadow: [
-          BoxShadow(
-            color: Colors.black.withOpacity(0.04),
-            blurRadius: 8,
-            offset: const Offset(0, 2),
-          ),
-        ],
-      ),
-      child: Row(
-        children: [
-          Container(
-            width: 50,
-            height: 50,
-            decoration: BoxDecoration(
-              color: const Color(0xFF059669).withOpacity(0.1),
-              borderRadius: BorderRadius.circular(14),
-            ),
-            child: Center(
-              child: Text(
-                data['emoji'] as String,
-                style: const TextStyle(fontSize: 18),
-              ),
-            ),
-          ),
-          const SizedBox(width: 12),
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Container(
-                  padding: const EdgeInsets.symmetric(
-                    horizontal: 7,
-                    vertical: 2,
-                  ),
-                  margin: const EdgeInsets.only(bottom: 4),
-                  decoration: BoxDecoration(
-                    color: const Color(0xFF059669).withOpacity(0.1),
-                    borderRadius: BorderRadius.circular(6),
-                  ),
-                  child: const Text(
-                    'COMUNIDAD',
-                    style: TextStyle(
-                      fontSize: 9,
-                      fontWeight: FontWeight.w800,
-                      color: Color(0xFF059669),
-                      letterSpacing: 0.5,
-                    ),
-                  ),
-                ),
-                Text(
-                  data['nombre'] as String,
-                  style: const TextStyle(
-                    fontSize: 13,
-                    fontWeight: FontWeight.w700,
-                    color: _tealDark,
-                  ),
-                ),
-                Text(
-                  '${data['miembros']} miembros',
-                  style: const TextStyle(
-                    fontSize: 11,
-                    color: Color(0xFF94A3B8),
-                  ),
-                ),
-              ],
-            ),
-          ),
-          Container(
-            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 7),
-            decoration: BoxDecoration(
-              color: const Color(0xFF059669),
-              borderRadius: BorderRadius.circular(20),
-            ),
-            child: const Text(
-              'Unirse',
-              style: TextStyle(
-                fontSize: 12,
-                fontWeight: FontWeight.w700,
-                color: Colors.white,
-              ),
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-}
+class _FullscreenViewer extends StatefulWidget {
+  final PostModel post;
+  final VoidCallback onClose;
+  final VoidCallback onLike;
 
-class _NomadNearbyCard extends StatelessWidget {
-  final String nombre;
-  final String flag;
-  final String ciudad;
-  final String distancia;
-
-  const _NomadNearbyCard({
-    required this.nombre,
-    required this.flag,
-    required this.ciudad,
-    required this.distancia,
+  const _FullscreenViewer({
+    required this.post,
+    required this.onClose,
+    required this.onLike,
   });
 
   @override
+  State<_FullscreenViewer> createState() => _FullscreenViewerState();
+}
+
+class _FullscreenViewerState extends State<_FullscreenViewer> {
+  bool _liked = false;
+  int _imageIndex = 0;
+
+  @override
   Widget build(BuildContext context) {
-    return Container(
-      width: 90,
-      margin: const EdgeInsets.only(right: 12),
-      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 10),
-      decoration: BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.circular(16),
-        boxShadow: [
-          BoxShadow(
-            color: Colors.black.withOpacity(0.05),
-            blurRadius: 8,
-            offset: const Offset(0, 2),
-          ),
-        ],
-      ),
-      child: Column(
-        mainAxisAlignment: MainAxisAlignment.center,
+    final post = widget.post;
+    return Scaffold(
+      backgroundColor: Colors.black,
+      body: Stack(
         children: [
-          Container(
-            width: 42,
-            height: 42,
-            decoration: const BoxDecoration(
-              shape: BoxShape.circle,
-              gradient: LinearGradient(colors: [_teal, _tealLight]),
-            ),
-            child: Center(
-              child: Text(flag, style: const TextStyle(fontSize: 20)),
+          // Imagen principal
+          if (post.images.isNotEmpty)
+            Positioned.fill(
+              child: PageView.builder(
+                itemCount: post.images.length,
+                onPageChanged: (i) => setState(() => _imageIndex = i),
+                itemBuilder: (_, i) => Image.network(
+                  post.images[i],
+                  fit: BoxFit.contain,
+                  errorBuilder: (_, __, ___) =>
+                      _GradientFallback(post: post),
+                ),
+              ),
+            )
+          else
+            Positioned.fill(child: _GradientFallback(post: post)),
+
+          // Gradient inferior
+          Positioned(
+            left: 0,
+            right: 0,
+            bottom: 0,
+            height: 200,
+            child: Container(
+              decoration: BoxDecoration(
+                gradient: LinearGradient(
+                  begin: Alignment.bottomCenter,
+                  end: Alignment.topCenter,
+                  colors: [
+                    Colors.black.withValues(alpha: 0.92),
+                    Colors.transparent,
+                  ],
+                ),
+              ),
             ),
           ),
-          const SizedBox(height: 5),
-          Text(
-            nombre,
-            style: const TextStyle(
-              fontSize: 11,
-              fontWeight: FontWeight.w700,
-              color: _tealDark,
+
+          // Info del post
+          Positioned(
+            left: 20,
+            right: 20,
+            bottom: 40,
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                // Autor
+                Row(
+                  children: [
+                    _UserAvatar(
+                      flag: post.countryFlag,
+                      username: post.username,
+                      size: 36,
+                    ),
+                    const SizedBox(width: 10),
+                    Text(
+                      '@${post.username}',
+                      style: const TextStyle(
+                        color: Colors.white,
+                        fontWeight: FontWeight.w700,
+                        fontSize: 14,
+                      ),
+                    ),
+                    if (post.city != null) ...[
+                      const SizedBox(width: 6),
+                      const Icon(
+                        Icons.location_on_rounded,
+                        size: 12,
+                        color: _white70,
+                      ),
+                      Text(
+                        post.city!,
+                        style: const TextStyle(
+                          color: _white70,
+                          fontSize: 12,
+                        ),
+                      ),
+                    ],
+                  ],
+                ),
+                if (post.caption.isNotEmpty) ...[
+                  const SizedBox(height: 10),
+                  Text(
+                    post.caption,
+                    style: const TextStyle(
+                      color: Colors.white,
+                      fontSize: 14,
+                      height: 1.4,
+                    ),
+                    maxLines: 3,
+                    overflow: TextOverflow.ellipsis,
+                  ),
+                ],
+                // Indicador de páginas
+                if (post.images.length > 1) ...[
+                  const SizedBox(height: 10),
+                  Row(
+                    mainAxisAlignment: MainAxisAlignment.center,
+                    children: List.generate(post.images.length, (i) {
+                      return AnimatedContainer(
+                        duration: const Duration(milliseconds: 200),
+                        margin: const EdgeInsets.symmetric(horizontal: 3),
+                        width: _imageIndex == i ? 18 : 6,
+                        height: 6,
+                        decoration: BoxDecoration(
+                          color: _imageIndex == i
+                              ? Colors.white
+                              : Colors.white.withValues(alpha: 0.4),
+                          borderRadius: BorderRadius.circular(3),
+                        ),
+                      );
+                    }),
+                  ),
+                ],
+              ],
             ),
-            textAlign: TextAlign.center,
-            maxLines: 1,
-            overflow: TextOverflow.ellipsis,
           ),
-          const SizedBox(height: 2),
-          Text(
-            distancia,
-            style: const TextStyle(fontSize: 10, color: _teal),
-            textAlign: TextAlign.center,
+
+          // Acciones laterales (like, comentar)
+          Positioned(
+            right: 16,
+            bottom: 120,
+            child: Column(
+              children: [
+                _ActionButton(
+                  icon: _liked
+                      ? Icons.favorite_rounded
+                      : Icons.favorite_border_rounded,
+                  color: _liked ? Colors.red : Colors.white,
+                  label: _formatCount(
+                    post.likesCount + (_liked ? 1 : 0),
+                  ),
+                  onTap: () {
+                    HapticFeedback.mediumImpact();
+                    setState(() => _liked = !_liked);
+                    if (_liked) widget.onLike();
+                  },
+                ),
+                const SizedBox(height: 20),
+                _ActionButton(
+                  icon: Icons.chat_bubble_outline_rounded,
+                  color: Colors.white,
+                  label: _formatCount(post.commentsCount),
+                  onTap: () {},
+                ),
+                const SizedBox(height: 20),
+                _ActionButton(
+                  icon: Icons.share_outlined,
+                  color: Colors.white,
+                  label: '',
+                  onTap: () {},
+                ),
+              ],
+            ),
+          ),
+
+          // Botón cerrar
+          Positioned(
+            top: MediaQuery.of(context).padding.top + 12,
+            left: 16,
+            child: GestureDetector(
+              onTap: widget.onClose,
+              child: Container(
+                width: 36,
+                height: 36,
+                decoration: BoxDecoration(
+                  color: Colors.black.withValues(alpha: 0.5),
+                  shape: BoxShape.circle,
+                ),
+                child: const Icon(
+                  Icons.arrow_back_rounded,
+                  color: Colors.white,
+                  size: 20,
+                ),
+              ),
+            ),
           ),
         ],
       ),
     );
   }
+
+  String _formatCount(int n) {
+    if (n >= 1000) return '${(n / 1000).toStringAsFixed(1)}k';
+    return '$n';
+  }
 }
 
-class _RecentSearchTile extends StatelessWidget {
-  final String texto;
+class _ActionButton extends StatelessWidget {
+  final IconData icon;
+  final Color color;
+  final String label;
   final VoidCallback onTap;
-  final VoidCallback onDelete;
 
-  const _RecentSearchTile({
-    required this.texto,
+  const _ActionButton({
+    required this.icon,
+    required this.color,
+    required this.label,
     required this.onTap,
-    required this.onDelete,
   });
 
   @override
   Widget build(BuildContext context) {
     return GestureDetector(
       onTap: onTap,
+      child: Column(
+        children: [
+          Icon(icon, color: color, size: 28),
+          if (label.isNotEmpty) ...[
+            const SizedBox(height: 4),
+            Text(
+              label,
+              style: const TextStyle(
+                color: Colors.white,
+                fontSize: 12,
+                fontWeight: FontWeight.w600,
+              ),
+            ),
+          ],
+        ],
+      ),
+    );
+  }
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// User card (tab Personas)
+// ─────────────────────────────────────────────────────────────────────────────
+
+class _UserCard extends StatefulWidget {
+  final Map<String, dynamic> user;
+  const _UserCard({required this.user});
+
+  @override
+  State<_UserCard> createState() => _UserCardState();
+}
+
+class _UserCardState extends State<_UserCard> {
+  bool _following = false;
+  final _myUid = FirebaseAuth.instance.currentUser?.uid ?? '';
+
+  @override
+  Widget build(BuildContext context) {
+    final u = widget.user;
+    final flag = u['countryFlag'] as String? ?? '';
+    final username = u['username'] as String? ?? '';
+    final city = u['city'] as String? ??
+        u['ciudadActual'] as String? ?? '';
+    final isMe = u['uid'] == _myUid;
+
+    return Container(
+      decoration: BoxDecoration(
+        color: _surface,
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(
+          color: Colors.white.withValues(alpha: 0.06),
+        ),
+      ),
+      padding: const EdgeInsets.all(16),
+      child: Column(
+        mainAxisAlignment: MainAxisAlignment.center,
+        children: [
+          _UserAvatar(flag: flag, username: username, size: 56),
+          const SizedBox(height: 10),
+          Text(
+            '@$username',
+            style: const TextStyle(
+              color: Colors.white,
+              fontWeight: FontWeight.w700,
+              fontSize: 13.5,
+            ),
+            maxLines: 1,
+            overflow: TextOverflow.ellipsis,
+          ),
+          if (city.isNotEmpty) ...[
+            const SizedBox(height: 3),
+            Text(
+              city,
+              style: const TextStyle(color: _white40, fontSize: 11.5),
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
+            ),
+          ],
+          const SizedBox(height: 12),
+          if (!isMe)
+            GestureDetector(
+              onTap: () {
+                HapticFeedback.selectionClick();
+                setState(() => _following = !_following);
+              },
+              child: AnimatedContainer(
+                duration: const Duration(milliseconds: 180),
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 20,
+                  vertical: 7,
+                ),
+                decoration: BoxDecoration(
+                  color: _following ? _surface : _teal,
+                  borderRadius: BorderRadius.circular(20),
+                  border: _following
+                      ? Border.all(
+                          color: _teal.withValues(alpha: 0.5),
+                        )
+                      : null,
+                ),
+                child: Text(
+                  _following ? 'Siguiendo' : 'Seguir',
+                  style: TextStyle(
+                    color: _following ? _teal : Colors.white,
+                    fontSize: 12,
+                    fontWeight: FontWeight.w700,
+                  ),
+                ),
+              ),
+            ),
+        ],
+      ),
+    );
+  }
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Search result tiles
+// ─────────────────────────────────────────────────────────────────────────────
+
+class _SearchSectionHeader extends StatelessWidget {
+  final String title;
+  const _SearchSectionHeader(this.title);
+
+  @override
+  Widget build(BuildContext context) {
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(16, 16, 16, 8),
+      child: Text(
+        title.toUpperCase(),
+        style: const TextStyle(
+          fontSize: 11,
+          fontWeight: FontWeight.w800,
+          color: _teal,
+          letterSpacing: 1,
+        ),
+      ),
+    );
+  }
+}
+
+class _SearchUserTile extends StatefulWidget {
+  final Map<String, dynamic> user;
+  const _SearchUserTile({required this.user});
+
+  @override
+  State<_SearchUserTile> createState() => _SearchUserTileState();
+}
+
+class _SearchUserTileState extends State<_SearchUserTile> {
+  bool _following = false;
+
+  @override
+  Widget build(BuildContext context) {
+    final u = widget.user;
+    final flag = u['countryFlag'] as String? ?? '';
+    final username = u['username'] as String? ?? '';
+    final city = u['city'] as String? ?? u['ciudadActual'] as String? ?? '';
+
+    return Padding(
+      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 6),
+      child: Row(
+        children: [
+          _UserAvatar(flag: flag, username: username, size: 46),
+          const SizedBox(width: 12),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  '@$username',
+                  style: const TextStyle(
+                    color: Colors.white,
+                    fontWeight: FontWeight.w700,
+                    fontSize: 14,
+                  ),
+                ),
+                if (city.isNotEmpty)
+                  Text(
+                    city,
+                    style: const TextStyle(color: _white40, fontSize: 12),
+                  ),
+              ],
+            ),
+          ),
+          GestureDetector(
+            onTap: () {
+              HapticFeedback.selectionClick();
+              setState(() => _following = !_following);
+            },
+            child: AnimatedContainer(
+              duration: const Duration(milliseconds: 180),
+              padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 7),
+              decoration: BoxDecoration(
+                color: _following ? _surface : _teal,
+                borderRadius: BorderRadius.circular(20),
+                border: _following
+                    ? Border.all(color: _teal.withValues(alpha: 0.5))
+                    : null,
+              ),
+              child: Text(
+                _following ? 'Siguiendo' : 'Seguir',
+                style: TextStyle(
+                  color: _following ? _teal : Colors.white,
+                  fontSize: 12,
+                  fontWeight: FontWeight.w700,
+                ),
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _SearchPostTile extends StatelessWidget {
+  final PostModel post;
+  final VoidCallback onTap;
+
+  const _SearchPostTile({required this.post, required this.onTap});
+
+  @override
+  Widget build(BuildContext context) {
+    return GestureDetector(
+      onTap: onTap,
       child: Padding(
-        padding: const EdgeInsets.symmetric(vertical: 8),
+        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 6),
         child: Row(
           children: [
-            const Icon(
-              Icons.history_rounded,
-              size: 18,
-              color: Color(0xFF94A3B8),
+            ClipRRect(
+              borderRadius: BorderRadius.circular(10),
+              child: SizedBox(
+                width: 62,
+                height: 62,
+                child: post.images.isNotEmpty
+                    ? Image.network(
+                        post.images.first,
+                        fit: BoxFit.cover,
+                        errorBuilder: (_, __, ___) =>
+                            _GradientFallback(post: post),
+                      )
+                    : _GradientFallback(post: post),
+              ),
             ),
             const SizedBox(width: 12),
             Expanded(
-              child: Text(
-                texto,
-                style: const TextStyle(fontSize: 14, color: _tealDark),
-              ),
-            ),
-            GestureDetector(
-              onTap: onDelete,
-              child: const Icon(
-                Icons.close_rounded,
-                size: 16,
-                color: Color(0xFFCBD5E1),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    '@${post.username}',
+                    style: const TextStyle(
+                      color: _teal,
+                      fontSize: 12,
+                      fontWeight: FontWeight.w600,
+                    ),
+                  ),
+                  const SizedBox(height: 2),
+                  Text(
+                    post.caption,
+                    style: const TextStyle(color: _white70, fontSize: 13),
+                    maxLines: 2,
+                    overflow: TextOverflow.ellipsis,
+                  ),
+                ],
               ),
             ),
           ],
@@ -1070,23 +1356,158 @@ class _RecentSearchTile extends StatelessWidget {
   }
 }
 
-class _ResultSectionLabel extends StatelessWidget {
+class _SuggestionTile extends StatelessWidget {
   final String text;
-  const _ResultSectionLabel(this.text);
+  final VoidCallback onTap;
+
+  const _SuggestionTile({required this.text, required this.onTap});
 
   @override
   Widget build(BuildContext context) {
-    return Padding(
-      padding: const EdgeInsets.only(bottom: 8),
-      child: Text(
-        text,
-        style: const TextStyle(
-          fontSize: 12,
-          fontWeight: FontWeight.w800,
-          color: _teal,
-          letterSpacing: 0.5,
+    return GestureDetector(
+      onTap: onTap,
+      child: Padding(
+        padding: const EdgeInsets.symmetric(vertical: 10),
+        child: Row(
+          children: [
+            const Icon(Icons.north_east_rounded, size: 16, color: _white40),
+            const SizedBox(width: 14),
+            Expanded(
+              child: Text(
+                text,
+                style: const TextStyle(color: _white70, fontSize: 14),
+              ),
+            ),
+          ],
         ),
       ),
     );
   }
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// User avatar
+// ─────────────────────────────────────────────────────────────────────────────
+
+class _UserAvatar extends StatelessWidget {
+  final String? flag;
+  final String username;
+  final double size;
+
+  const _UserAvatar({required this.flag, required this.username, required this.size});
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      width: size,
+      height: size,
+      decoration: const BoxDecoration(
+        shape: BoxShape.circle,
+        gradient: LinearGradient(
+          colors: [_tealDim, _teal],
+          begin: Alignment.topLeft,
+          end: Alignment.bottomRight,
+        ),
+      ),
+      child: Center(
+        child: flag != null && flag!.isNotEmpty
+            ? Text(flag!, style: TextStyle(fontSize: size * 0.45))
+            : Text(
+                username.isNotEmpty
+                    ? username[0].toUpperCase()
+                    : '?',
+                style: TextStyle(
+                  color: Colors.white,
+                  fontWeight: FontWeight.w800,
+                  fontSize: size * 0.4,
+                ),
+              ),
+      ),
+    );
+  }
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Skeleton
+// ─────────────────────────────────────────────────────────────────────────────
+
+class _SkeletonBox extends StatefulWidget {
+  final double radius;
+  const _SkeletonBox({required this.radius});
+
+  @override
+  State<_SkeletonBox> createState() => _SkeletonBoxState();
+}
+
+class _SkeletonBoxState extends State<_SkeletonBox>
+    with SingleTickerProviderStateMixin {
+  late AnimationController _ctrl;
+  late Animation<double> _anim;
+
+  @override
+  void initState() {
+    super.initState();
+    _ctrl = AnimationController(
+      vsync: this,
+      duration: const Duration(milliseconds: 1000),
+    )..repeat(reverse: true);
+    _anim = Tween(begin: 0.06, end: 0.14).animate(
+      CurvedAnimation(parent: _ctrl, curve: Curves.easeInOut),
+    );
+  }
+
+  @override
+  void dispose() {
+    _ctrl.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return AnimatedBuilder(
+      animation: _anim,
+      builder: (_, __) => Container(
+        decoration: BoxDecoration(
+          color: Colors.white.withValues(alpha: _anim.value),
+          borderRadius: BorderRadius.circular(widget.radius),
+        ),
+      ),
+    );
+  }
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// TabBar persistent header delegate
+// ─────────────────────────────────────────────────────────────────────────────
+
+class _TabBarDelegate extends SliverPersistentHeaderDelegate {
+  final TabBar tabBar;
+  final Color backgroundColor;
+
+  const _TabBarDelegate(this.tabBar, {required this.backgroundColor});
+
+  @override
+  double get minExtent => tabBar.preferredSize.height + 1;
+  @override
+  double get maxExtent => tabBar.preferredSize.height + 1;
+
+  @override
+  Widget build(
+    BuildContext context,
+    double shrinkOffset,
+    bool overlapsContent,
+  ) {
+    return Container(
+      color: backgroundColor,
+      child: Column(
+        children: [
+          tabBar,
+          Container(height: 1, color: Colors.white.withValues(alpha: 0.06)),
+        ],
+      ),
+    );
+  }
+
+  @override
+  bool shouldRebuild(_TabBarDelegate old) => tabBar != old.tabBar;
 }
